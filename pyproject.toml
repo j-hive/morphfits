@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "galwrap"
+version = "0.1.0"
+description = ""
+authors = ["Lamiya", "Mubdi <mubdi@sidratresearch.com>", "Hansen <hansen@sidratresearch.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.26.4"
+scipy = "^1.13.0"
+matplotlib = "^3.8.4"
+pandas = "^2.2.2"
+pillow = "^10.3.0"
+tqdm = "^4.66.2"
+seaborn = "^0.13.2"
+astropy = "^6.0.1"
+imcascade = "^1.1"
+photutils = "^1.12.0"
+MontagePy = "^1.2.3"
+reproject = "^0.13.1"
+statmorph = "^0.5.7"
+ipython = "^8.23.0"
+jupyter = "^1.0.0"
+pyyaml = "^6.0.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.0"
+isort = "^5.13.2"
+pytest = "^8.1.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
