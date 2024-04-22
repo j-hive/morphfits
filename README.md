@@ -1,1 +1,4 @@
 # GalWrap
+
+
+## Directory Structure
