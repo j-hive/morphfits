@@ -6,6 +6,7 @@
 
 from importlib import resources
 from pathlib import Path
+import yaml
 
 from . import utils
 
@@ -28,4 +29,12 @@ CONFIG_ROOT = ROOT / "config"
 
 DATA_ROOT = ROOT / "data"
 """Path to root of the data standards directory.
+"""
+
+
+## Dictionaries
+
+
+PATH_NAMES = yaml.safe_load(open(DATA_ROOT / "path_names.yaml"))
+"""Dict of standardized path names and recognized alternative names.
 """

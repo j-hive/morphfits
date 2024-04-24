@@ -1,0 +1,78 @@
+directories:
+  output_filter_info:
+    - FILTDIR
+    - filter info
+    - filters
+  output_ofic:
+    - PATH
+    - ofic
+    - ofic path
+  output_stamps:
+    - STAMPDIR
+    - stamps
+    - stamp
+  output_masks:
+    - MASKDIR
+    - masks
+    - mask
+  output_rms:
+    - RMSDIR
+    - rms
+  output_feedfiles:
+    - FEEDDIR
+    - feedfiles
+    - feedfile
+  output_segmaps:
+    - SEGMAPDIR
+    - segmaps
+    - segmap
+    - segmentation maps
+  output_galfit:
+    - GALFITOUTDIR
+    - galfit output
+    - galfit
+  output_psfs:
+    - PSFDIR
+    - psfs
+    - psf
+  output_visualizations:
+    - VISDIR
+    - vis
+    - visualizations
+    - visualization
+    - visualisations
+    - visualisation
+  output_notebooks:
+    - NOTEBOOK
+    - notebooks
+    - notebook
+  input_photometry:
+    - PHOTOMETRY
+    - photometry
+  input_rms:
+    - RMSMAPDIR
+    - rms maps
+    - rms map
+  input_imaging:
+    - IMAGING
+    - imaging
+    - input imaging
+  input_data_dir:
+    - DATADIR
+    - data_dir
+    - data dir
+    - input data
+  input_images:
+    - IMGDIR
+    - input images
+    - images
+  input_psfs:
+    - ORG_PSFDIR
+    - original psfs
+    - input psfs
+  input_catalogs:
+    - CATDIR
+    - input catalogs
+    - catalogs
+    - catalog
+files:
