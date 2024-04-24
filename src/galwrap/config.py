@@ -162,7 +162,12 @@ def resolve_path_name(name: str) -> str:
     raise ValueError(f"Unrecognized path name '{name}'.")
 
 
-def get_path(name: str, galwrap_config: GalWrapConfig) -> Path:
+def get_path(
+    name: str,
+    galwrap_config: GalWrapConfig,
+    galaxy_id: int | None = None,
+    filter: str | None = None,
+) -> Path:
     """Get path to directory or file from a recognized name.
 
     Parameters
@@ -171,6 +176,10 @@ def get_path(name: str, galwrap_config: GalWrapConfig) -> Path:
         Name of directory or file, e.g. `STAMPDIR` or `stamps`.
     galwrap_config : GalWrapConfig
         Configuration parameters for this program execution.
+    galaxy_id : int | None, optional
+        ID of target galaxy, by default None.
+    filter : str | None, optional
+        Filter to be used, by default None.
 
     Returns
     -------
@@ -255,6 +264,44 @@ def get_path(name: str, galwrap_config: GalWrapConfig) -> Path:
             return get_path("output_ofic", galwrap_config) / "NOTEBOOKS"
 
         # Files
+        case "file_filtinfo":
+            return (
+                get_path("output_ofic", galwrap_config)
+                / f"{galwrap_config.target}{galwrap_config.field}"
+                + f"_{galwrap_config.image_version}_FILTERINFO.dat"
+            )
+        case "file_depth":
+            return (
+                get_path("output_ofic", galwrap_config)
+                / f"{galwrap_config.target}{galwrap_config.field}"
+                + f"_{galwrap_config.image_version}_DEPTH.txt"
+            )
+        case "file_segmap":
+            return (
+                get_path("input_catalogs", galwrap_config)
+                / f"{galwrap_config.target}{galwrap_config.field}"
+                + f"_photutils_segmap_{galwrap_config.image_version}"
+                + f".{galwrap_config.catalog_version}.fits"
+            )
+        case "file_photcat":
+            return (
+                get_path("input_catalogs", galwrap_config)
+                / f"{galwrap_config.target}{galwrap_config.field}"
+                + f"_photutils_cat_{galwrap_config.image_version}"
+                + f".{galwrap_config.catalog_version}.fits"
+            )
+        case "file_maskname":
+            return (
+                get_path("output_masks", galwrap_config)
+                / f"{galaxy_id}_{galwrap_config.target}{galwrap_config.field}_mask.fits"
+            )
+        case "file_sciname":
+            return (
+                get_path("output_stamps", galwrap_config)
+                / filter
+                / f"{galaxy_id}_{galwrap_config.target}{galwrap_config.field}"
+                + f"-{filter}_sci.fits"
+            )
 
 
 def setup_directories(

@@ -77,6 +77,7 @@ if __name__ == "__main__":
     )
     MASKNAME = "../MASKDIR/{}_{}{}_mask.fits".format(ID, OBJ, FIELD)
     RMSNAME = "../RMSDIR/{}/{}_{}{}-{}_rms.fits".format(FILT, ID, OBJ, FIELD, FILT)
+
     IMSIZE = 2000
     MAG = 20.0
     A, B = 50.2, 120.0

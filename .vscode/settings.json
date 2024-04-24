@@ -12,6 +12,7 @@
         "FEEDDIR",
         "FILTALL",
         "FILTDIR",
+        "FILTERINFO",
         "IMGDIR",
         "IMVER",
         "PSFDIR",
