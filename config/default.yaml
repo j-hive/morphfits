@@ -1,0 +1,10 @@
+input_root: ""
+output_root: "/arc/projects/canucs"
+target: "a370"
+field: "ncf"
+image_version: "v2p0"
+catalog_version: 1
+morphology_version: "gf1"
+filter: ""
+pixname: "40mas"
+pixscale: 0.04
