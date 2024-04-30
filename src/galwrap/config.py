@@ -281,12 +281,17 @@ def resolve_path_name(name: str) -> str:
         elif name.casefold() == " ".join(path_name.casefold().split("_")):
             matching_name = True
         # 5. Case 4 and word order reversed
-        elif name == " ".join(list(reversed(path_name.split("_")))):
+        elif name.casefold() == " ".join(
+            path_name.casefold().split("_")[1:] + [path_name.casefold().split("_")[0]]
+        ):
             matching_name = True
         # 6. Cases 3 and 5
         elif ("s" == path_name[-1]) and (
             name.casefold()
-            == " ".join(list(reversed(path_name[:-1].casefold().split("_"))))
+            == " ".join(
+                path_name[:-1].casefold().split("_")[1:]
+                + [path_name[:-1].casefold().split("_")[0]]
+            )
         ):
             matching_name = True
         # Otherwise not matching, continue search

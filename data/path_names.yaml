@@ -1,78 +1,74 @@
-directories:
-  output_filter_info:
-    - FILTDIR
-    - filter info
-    - filters
+output:
   output_ofic:
-    - PATH
     - ofic
-    - ofic path
+  output_feedfiles:
+    - feedfiles
+    - feedfile
+  output_galfit:
+    - galfits
+    - galfit
+  output_rms:
+    - output rms maps
   output_stamps:
-    - STAMPDIR
     - stamps
     - stamp
   output_masks:
-    - MASKDIR
     - masks
     - mask
-  output_rms:
-    - RMSDIR
-    - rms
-  output_feedfiles:
-    - FEEDDIR
-    - feedfiles
-    - feedfile
   output_segmaps:
-    - SEGMAPDIR
     - segmaps
     - segmap
     - segmentation maps
-  output_galfit:
-    - GALFITOUTDIR
-    - galfit output
-    - galfit
+    - segmentation
   output_psfs:
-    - PSFDIR
     - psfs
     - psf
   output_visualizations:
-    - VISDIR
     - vis
     - visualizations
     - visualization
     - visualisations
     - visualisation
-  output_notebooks:
-    - NOTEBOOK
-    - notebooks
-    - notebook
-  input_photometry:
-    - PHOTOMETRY
-    - photometry
-  input_rms:
-    - RMSMAPDIR
-    - rms maps
-    - rms map
-  input_imaging:
-    - IMAGING
-    - imaging
-    - input imaging
-  input_data_dir:
-    - DATADIR
-    - data_dir
-    - data dir
-    - input data
-  input_images:
-    - IMGDIR
-    - input images
-    - images
-  input_psfs:
-    - ORG_PSFDIR
-    - original psfs
+
+photometry:
+  photometry_rms:
+    - input rms maps
+    - input rms map
+    - input rms
+
+imaging:
+  imaging_of:
+    - imaging data dir
+    - input of
+  imaging_bcgs:
+    - bcgs
+    - input bcgs
+  imaging_ofic:
+    - input ofic
+  imaging_psfs:
     - input psfs
-  input_catalogs:
-    - CATDIR
+    - input psf
+  imaging_catalogs:
     - input catalogs
-    - catalogs
-    - catalog
+    - input catalog
 files:
+  file_filter_info:
+    - filtinfo
+    - filt info
+    - filter info
+  file_depth:
+    - depth
+    - depth file
+  file_segmap:
+    - segmentation file
+    - segmentation map file
+    - segmentation map fits
+  file_photometry_catalog:
+    - photcat
+    - photutils cat
+  file_mask:
+    - mask fits
+    - mask file
+  file_science:
+    - science fits
+    - science image
