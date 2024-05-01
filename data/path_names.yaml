@@ -11,10 +11,15 @@ output:
     - output rms maps
   output_stamps:
     - stamps
-    - stamp
+  file_science:
+    - science fits
+    - science image
   output_masks:
     - masks
     - mask
+  file_mask:
+    - mask fits
+    - mask file
   output_segmaps:
     - segmaps
     - segmap
@@ -29,6 +34,13 @@ output:
     - visualization
     - visualisations
     - visualisation
+  file_filter_info:
+    - filtinfo
+    - filt info
+    - filter info
+  file_depth:
+    - depth
+    - depth file
 
 photometry:
   photometry_rms:
@@ -51,14 +63,6 @@ imaging:
   imaging_catalogs:
     - input catalogs
     - input catalog
-files:
-  file_filter_info:
-    - filtinfo
-    - filt info
-    - filter info
-  file_depth:
-    - depth
-    - depth file
   file_segmap:
     - segmentation file
     - segmentation map file
@@ -66,9 +70,3 @@ files:
   file_photometry_catalog:
     - photcat
     - photutils cat
-  file_mask:
-    - mask fits
-    - mask file
-  file_science:
-    - science fits
-    - science image
