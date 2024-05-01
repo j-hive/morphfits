@@ -70,20 +70,21 @@ class GalWrapConfig(BaseModel):
         Path to root of input imaging products.
     output_root : Path
         Path to root of directory to which to write output products.
-    objects : list[str]
-        List of objects to execute this program over.
-    fields : list[str]
+    objects : list[str] | None, optional
+        List of objects to execute this program over, by default None.
+    fields : list[str] | None, optional
         List of fields to execute this program over.
-    image_versions : list[str]
-        List of image versions to execute this program over.
-    catalog_versions : list[int]
-        List of catalog versions to execute this program over.
-    morphology_versions : list[str]
-        List of morphology versions to execute this program over.
-    filters : list[str]
-        List of filters to execute this program over.
-    pixscales : list[float]
-        List of pixscales to execute this program over.
+    image_versions : list[str] | None, optional
+        List of image versions to execute this program over, by default None.
+    catalog_versions : list[int] | None, optional
+        List of catalog versions to execute this program over, by default None.
+    morphology_versions : list[str] | None, optional
+        List of morphology versions to execute this program over, by default
+        None.
+    filters : list[str] | None, optional
+        List of filters to execute this program over, by default None.
+    pixscales : list[float] | None, optional
+        List of pixscales to execute this program over, by default None.
     """
 
     photometry_root: Path
@@ -187,9 +188,16 @@ class GalWrapConfig(BaseModel):
 # Functions
 
 
-def create_config() -> GalWrapConfig:
+def create_config(
+    config_path: str | Path = CONFIG_ROOT / "config.yaml",
+) -> GalWrapConfig:
     """Create a configuration object from a user-created configuration file,
     using default values where unspecified.
+
+    Parameters
+    ----------
+    config_path : str | Path, optional
+        Path to user config yaml file, by default CONFIG_ROOT / "config.yaml".
 
     Returns
     -------
@@ -199,22 +207,24 @@ def create_config() -> GalWrapConfig:
     # Load default and config dicts from config files
     default_config_dict = yaml.safe_load(open(CONFIG_ROOT / "default.yaml"))
     # TODO determine how this is read from user
-    config_dict = yaml.safe_load(open(CONFIG_ROOT / "config.yaml"))
+    config_dict = yaml.safe_load(open(config_path))
 
     # Set any required parameters not set by user to default
     ## Iterate over keys in default config and add to config if not set
     for config_key in default_config_dict:
         if config_key not in config_dict:
-            config_dict[config_key] = config_dict[config_key]
+            config_dict[config_key] = default_config_dict[config_key]
 
     # Create GalWrapConfig from dict
     galwrap_config = GalWrapConfig(**config_dict)
 
     # Set filter info lists
     # TODO might need to be grouped with other variables
-    filter_info = ascii.read(get_path("file_filtinfo", galwrap_config))
-    galwrap_config.filters = filter_info["FILTNAME"]
-    galwrap_config.pixscales = filter_info["PIXSCALES"]
+    # filter_info = ascii.read(get_path("file_filter_info", ))
+    # galwrap_config.filters = filter_info["FILTNAME"]
+    # galwrap_config.pixscales = filter_info["PIXSCALES"]
+
+    return galwrap_config
 
 
 def resolve_path_name(name: str) -> str:

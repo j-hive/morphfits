@@ -1,10 +1,18 @@
-input_root: ""
-output_root: "/arc/projects/canucs"
-target: "a370"
-field: "ncf"
-image_version: "v2p0"
-catalog_version: 1
-morphology_version: "gf1"
-filter: ""
-pixname: "40mas"
-pixscale: 0.04
+photometry_root: /home/hansen/projects/jhive/data/photometry
+imaging_root: /home/hansen/projects/jhive/data/imaging
+output_root: /home/hansen/projects/jhive/data/galwrap_output
+objects:
+  - a370
+fields:
+  - ncf
+image_versions:
+  - v2p0
+catalog_versions:
+  - 1
+morphology_versions:
+  - gf1
+filters:
+  - F140W
+  - F360M
+pixscales:
+  - 0.04
