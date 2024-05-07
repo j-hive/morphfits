@@ -32,6 +32,11 @@ DATA_ROOT = ROOT / "data"
 """
 
 
+LOG_ROOT = ROOT / "logs"
+"""Path to root of the logs directory.
+"""
+
+
 ## Dictionaries
 
 
