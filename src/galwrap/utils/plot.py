@@ -4,10 +4,16 @@
 # Imports
 
 
+from pathlib import Path
+
 import numpy as np
 from matplotlib import pyplot as plt
 
-from . import config
+# montagepy doesn't have well-typed init
+# See montage.ipac.caltech.edu/MontageNotebooks/mSubimage.html for more info
+from MontagePy.main import mSubimage
+
+from .. import config
 
 
 ## Typing
@@ -17,10 +23,21 @@ from numpy import ndarray
 from matplotlib.pyplot import Figure
 from matplotlib.axes import Axes
 
-from .config import GalWrapConfig
+from ..config import GalWrapConfig
 
 
 # Functions
+
+
+def make_cutouts(
+    image_path: str | Path,
+    stamp_path: str | Path,
+    ra: float,
+    dec: float,
+    size: float = 6.0,
+    remove_edge: bool = False,
+):
+    pass
 
 
 def plot_filters(
