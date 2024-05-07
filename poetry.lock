@@ -1980,26 +1980,32 @@ files = [
 
 [[package]]
 name = "montagepy"
-version = "1.2.3"
+version = "2.2.0"
 description = "Montage toolkit for reprojecting, mosaicking, and displaying astronomical images."
 optional = false
 python-versions = "*"
 files = [
-    {file = "MontagePy-1.2.3-cp27-cp27m-macosx_10_6_x86_64.whl", hash = "sha256:37508264c5f94820ced63b83ae2f37ef5dd734d1f6587d599f4511ea59ee1563"},
-    {file = "MontagePy-1.2.3-cp27-cp27m-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:739b7a2e38bdc956a4ef1e96264fe08d20487f2ab9e5da59c217ad910a16ffe8"},
-    {file = "MontagePy-1.2.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a9005a0d838b59258c8ce3e83ec8f1a21b4d5013f8b296dd00a1a0e9add8496f"},
-    {file = "MontagePy-1.2.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6c2aeb0697fc92e33dfc6b595b2f08b5839fe61b3bf74cac0ecaa50870a8d181"},
-    {file = "MontagePy-1.2.3-cp35-cp35m-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:be31bc1ef3e3a745f63f138af3e76183d55aa221ab270446bb9ecbc7084ca9c6"},
-    {file = "MontagePy-1.2.3-cp36-cp36m-macosx_10_6_intel.whl", hash = "sha256:740aac2a2b7c24d78b7a5f8e6da4e1b936f42d56bc90df85c463daecc3765305"},
-    {file = "MontagePy-1.2.3-cp36-cp36m-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a07bf97e96bb5b5fa7e526b9e64f6675988bd6a1247afbb22aecefdded7f9608"},
-    {file = "MontagePy-1.2.3-cp36-cp36m-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:82bddbd02a615c0647ea1827b47e5638b4ca353d7d51b3fae0e5609703c3bfb3"},
-    {file = "MontagePy-1.2.3-cp37-cp37m-macosx_10_7_x86_64.whl", hash = "sha256:1ff97776c1385273bfc25bbf9c409c5d6aefd60164a89642b73470f88dc66b09"},
-    {file = "MontagePy-1.2.3-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:019693e843bd346d1f7ec96ffaeb65bec7fad7716b68d71ff8e5b7c780d0c6cc"},
-    {file = "MontagePy-1.2.3-cp37-cp37m-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:37f3d370c2912043d5696c16eb897c32133307f3a5d0220846098bc3908ae744"},
-    {file = "MontagePy-1.2.3-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:cf5f8b73c6a5a2ffbe9c262cff0dea08f9f8a5d27e1b4e102f5555478b43f05d"},
-    {file = "MontagePy-1.2.3-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8dcfa409b6ee434c89ddda6bcf7acadbf245562ddf401193fb8d8537d7960aae"},
-    {file = "MontagePy-1.2.3-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:0fcb9bbf31ededc868ae1e3faf03bb94d958c97159cc4a3ae3111a59494ae186"},
-    {file = "MontagePy-1.2.3-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:570716d6b32d5a72fb40079461707b900809c58938efa99d691636fb837b31df"},
+    {file = "MontagePy-2.2.0-cp310-cp310-macosx_11_0_universal2.whl", hash = "sha256:a55f473a603163855ce86eb38687dea416f7e32284674b1eae8fc3f881b7ce48"},
+    {file = "MontagePy-2.2.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fdcfcd2111d3794319cd94a05023a61dadc0653a76336e7fd3bf15fe60b850b5"},
+    {file = "MontagePy-2.2.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:c268a83e47ee76383a12dbfc71d1f6ca51b426dc35a8f025f347b79fd4e5ad78"},
+    {file = "MontagePy-2.2.0-cp311-cp311-macosx_11_0_universal2.whl", hash = "sha256:a0bf614ebd18843b84a5ac5299be13b4bc564bab3af56a02372648867da75a82"},
+    {file = "MontagePy-2.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:06d823e893f5d500c1af4c76c95905c5fe84807ad44b66e7ef9203ac686e023d"},
+    {file = "MontagePy-2.2.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:0967898037186518be59f456be59a14b0d5614ba208e766fe3a311d51174c047"},
+    {file = "MontagePy-2.2.0-cp312-cp312-macosx_11_0_universal2.whl", hash = "sha256:fa0e758b13b4a884d3d6138c59c4d3f5457be1328ba34937cf3f3b033af19ee0"},
+    {file = "MontagePy-2.2.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:acfdafe7a8fd82e372d89e93e1e1fb5256ae5be108a031441da18c0b2deec77b"},
+    {file = "MontagePy-2.2.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:58a0303109c9e68d211407043ca12eca41146d343346afe5419a673010ade629"},
+    {file = "MontagePy-2.2.0-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:84f3bc5821c3c8546a826ea60ef69300bb6efac5a3895bac82d0e0c0d0993320"},
+    {file = "MontagePy-2.2.0-cp37-cp37m-musllinux_1_1_x86_64.whl", hash = "sha256:e78b2ea3f9ce28b04552ebf4c4469716c6350192537460a3ed19c3fb36aab724"},
+    {file = "MontagePy-2.2.0-cp38-cp38-macosx_11_0_universal2.whl", hash = "sha256:ee272f4c7c82ecbc1aeb21c754484b77e3649303eac7d2a53fb86b6432690d86"},
+    {file = "MontagePy-2.2.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4d725416b1702fa36c8c53ead9448906884ec5df7ed0788135c73a0bebaf0996"},
+    {file = "MontagePy-2.2.0-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:1ed06bc949ba5d1c81d2ff84bda220ece043626ea832c2dbd300eb83106cc8f6"},
+    {file = "MontagePy-2.2.0-cp39-cp39-macosx_11_0_universal2.whl", hash = "sha256:242e052497ac622939782fc33c5862891ae15f6fe0f18b5fc2e155db3e78a42e"},
+    {file = "MontagePy-2.2.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:10560cfa3d88569a2c08e6ee58a790aee8e3fa0e8b17e64d3798d8ecb75c8c0f"},
+    {file = "MontagePy-2.2.0-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:b05a6f6162cf13c1c6c397972b399a919cd174b67eb5495e25bc6fdedb902bd3"},
+    {file = "MontagePy-2.2.0-pp310-pypy310_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0c239979498c6d8b208329a8b17f56187093e41d0fcc27bd50c484605a9c24cd"},
+    {file = "MontagePy-2.2.0-pp37-pypy37_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:453c2fe818747bafcd177856372e5539ad2f76f95de1429d34fdaf9dafd22458"},
+    {file = "MontagePy-2.2.0-pp38-pypy38_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1ea4e7fe8195e0e43178703ba61c95ce520173edee889d65d224231f87c1e832"},
+    {file = "MontagePy-2.2.0-pp39-pypy39_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9506240755775bfa0d6b59d23bc2c2b74580a8f405a9af9619d9526c164293e0"},
 ]
 
 [package.dependencies]
@@ -3894,4 +3900,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "2a58708590524a5c5abc30e8ea572cfc4c0f820a8011850def36cf31cc757a2a"
+content-hash = "072ea803199c146e04476583a458d7ffd07a0a1323fe432f81a5e4e861314ae5"
