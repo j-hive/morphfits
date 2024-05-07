@@ -43,6 +43,8 @@ output:
     - depth file
 
 photometry:
+  photometry_ofi:
+    - photometry input ofi
   photometry_rms:
     - input rms maps
     - input rms map
@@ -51,12 +53,13 @@ photometry:
 imaging:
   imaging_of:
     - imaging data dir
-    - input of
+  imaging_ofic:
+    - imaging input ofic
+  imaging_sci:
+    - input sci
   imaging_bcgs:
     - bcgs
     - input bcgs
-  imaging_ofic:
-    - input ofic
   imaging_psfs:
     - input psfs
     - input psf
