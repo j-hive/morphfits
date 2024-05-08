@@ -155,9 +155,9 @@ galwrap_middle/
             │   └── {O}{F}_{L}_{P}_psf_{I}.{C}_crop.fits
             ├── segmaps/
             │   └── {placeholder}.fits
-            ├── {O}{F}_{I}_filter_info_.dat
+            ├── {O}{F}_{I}_filter_info.dat
             ├── {O}{F}_{I}_depth.txt
-            └── all_filters.constraints
+            └── {O}{F}_{I}.constraints
 galwrap_output/
 └── {O}/
     └── {F}/
@@ -183,7 +183,7 @@ galwrap_output/
 </table>
 
 ## Path Names
-|Former Name|Path Name|:file_folder:|Path|Description|
+|Former Name|Path Name|:file_folder:|Full Path|Description|
 |:---|:---|:---:|:---|:---|
 ||`input_root_dir`|:white_check_mark:|`galwrap_input/`|
 ||`input_ofi_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}/`|
@@ -193,32 +193,32 @@ galwrap_output/
 ||`input_science_file`||`galwrap_input/{O}/{F}/{I}/science/{placeholder}.fits`|
 ||`input_rms_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}/rms`|
 ||`input_rms_file`||`galwrap_input/{O}/{F}/{I}/rms/{placeholder}.fits`|
-||`input_ofic_dir`|:white_check_mark:|`galwrap_input/`|
-||`input_catalogs_dir`|:white_check_mark:|`galwrap_input/`|
-||`input_segmap_file`||`galwrap_input/`|
-||`input_catalog_file`||`galwrap_input/`|
-||`input_psfs_dir`|:white_check_mark:|`galwrap_input/`|
-||`input_psf_file`||`galwrap_input/`|
+||`input_ofic_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/`|
+||`input_catalogs_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/catalogs`|
+||`input_segmap_file`||`galwrap_input/{O}/{F}/{I}.{C}/{O}{F}_photutils_segmap_{I}.{C}.fits`|
+||`input_catalog_file`||`galwrap_input/{O}/{F}/{I}.{C}/{O}{F}_photutils_cat_{I}.{C}.fits`|
+||`input_psfs_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/psfs`|
+||`input_psf_file`||`galwrap_input/{O}/{F}/{I}.{C}/psfs/{placeholder}.fits`|
 ||`middle_root_dir`|:white_check_mark:|`galwrap_middle/`|
-||`middle_ofic_dir`|:white_check_mark:|`galwrap_middle/`|
-||`middle_feedfiles_dir`|:white_check_mark:|`galwrap_middle/`|
-||`middle_feedfile_file`||`galwrap_middle/`|
-||`middle_rms_dir`|:white_check_mark:|`galwrap_middle/`|
-||`middle_rms_file`||`galwrap_middle/`|
-|`STAMPDIR`|`middle_stamps_dir`|:white_check_mark:|`galwrap_middle/`|
-||`middle_stamp_file`||`galwrap_middle/`|
-||`middle_masks_dir`|:white_check_mark:|`galwrap_middle/`|
-||`middle_mask_file`||`galwrap_middle/`|
-||`middle_psfs_dir`|:white_check_mark:|`galwrap_middle/`|
-||`middle_psf_file`||`galwrap_middle/`|
-||`middle_segmaps_dir`|:white_check_mark:|`galwrap_middle/`|
-||`middle_segmap_file`||`galwrap_middle/`|
-||`middle_filter_file`||`galwrap_middle/`|
-||`middle_depth_file`||`galwrap_middle/`|
-||`middle_constraints_file`||`galwrap_middle/`|
+||`middle_ofic_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/`|
+||`middle_feedfiles_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/feedfiles/`|
+||`middle_feedfile_file`||`galwrap_middle/{O}/{F}/{I}.{C}/feedfiles/{L}/{G}_{O}{F}-{L}.feedfile`|
+||`middle_rms_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/rms/`|
+||`middle_rms_file`||`galwrap_middle/{O}/{F}/{I}.{C}/rms/{L}/{G}_{O}{F}-{L}_rms.fits`|
+|`STAMPDIR`|`middle_stamps_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/stamps/`|
+||`middle_stamp_file`||`galwrap_middle/{O}/{F}/{I}.{C}/stamps/{L}/{G}_{O}{F}-{L}_sci.fits`|
+||`middle_masks_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/masks/`|
+||`middle_mask_file`||`galwrap_middle/{O}/{F}/{I}.{C}/masks/{G}_{O}{F}_mask.fits`|
+||`middle_psfs_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/psfs/`|
+||`middle_psf_file`||`galwrap_middle/{O}/{F}/{I}.{C}/psfs/{O}{F}_{L}_{P}_psf_{I}.{C}.fits`|
+||`middle_segmaps_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/segmaps/`|
+||`middle_segmap_file`||`galwrap_middle/{O}/{F}/{I}.{C}/segmaps/{placeholder}.fits`|
+||`middle_filter_file`||`galwrap_middle/{O}/{F}/{I}.{C}/{O}{F}_{I}_filter_info.dat`|
+||`middle_depth_file`||`galwrap_middle/{O}/{F}/{I}.{C}/{O}{F}_{I}_depth.txt`|
+||`middle_constraints_file`||`galwrap_middle/{O}/{F}/{I}.{C}/{O}{F}_{I}.constraints`|
 ||`output_root_dir`|:white_check_mark:|`galwrap_output/`|
-||`output_ofic_dir`|:white_check_mark:|`galwrap_output/`|
-||`output_galfit_dir`|:white_check_mark:|`galwrap_output/`|
-||`output_galfit_file`||`galwrap_output/`|
-||`output_visualizations_dir`|:white_check_mark:|`galwrap_output/`|
-||`output_visualization_file`||`galwrap_output/`|
+||`output_ofic_dir`|:white_check_mark:|`galwrap_output/{O}/{F}/{I}.{C}/`|
+||`output_galfit_dir`|:white_check_mark:|`galwrap_output/{O}/{F}/{I}.{C}/galfit_output/`|
+||`output_galfit_file`||`galwrap_output/{O}/{F}/{I}.{C}/galfit_output/{L}/{G}_{O}{F}-{L}_model.fits`|
+||`output_visualizations_dir`|:white_check_mark:|`galwrap_output/{O}/{F}/{I}.{C}/visualizations/`|
+||`output_visualization_file`||`galwrap_output/{O}/{F}/{I}.{C}/visualizations/{placeholder}.fits`|
