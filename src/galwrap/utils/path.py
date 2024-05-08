@@ -9,9 +9,111 @@ from pathlib import Path
 
 from .. import PATH_NAMES
 from ..config import GalWrapConfig, OFIC
+from . import utils
 
 
 # Functions
+
+
+def resolve_single_parameter(
+    name: str,
+    parameter: int | float | str | Path | list[float] | list[str] | None,
+    instance: GalWrapConfig | OFIC | None,
+) -> int | float | str | Path | list[float] | list[str] | None:
+    name = name.lower()
+    if (parameter is None) and (instance is None):
+        raise AttributeError(f"{name.capitalize()} not specified.")
+    else:
+        return vars(instance)[name] if parameter is None else parameter
+
+
+def resolve_parameter(
+    name: str,
+    parameter: int | float | str | Path | list[float] | list[str] | None,
+    instance: GalWrapConfig | OFIC | None,
+) -> int | float | str | Path | list[float] | list[str]:
+    # Set name for case-less comparison
+    name = name.casefold()
+
+    # Validate parameter existence and return corresponding value, in preference
+    # of directly passed parameter, then object instance attribute
+
+    # OFIC
+    ## Object
+    if (name == "o") or (name == "obj") or (name == "object"):
+        return resolve_single_parameter("object", parameter, instance)
+    ## Field
+    elif (name == "f") or (name == "field"):
+        return resolve_single_parameter("field", parameter, instance)
+    ## Image version
+    elif (name == "i") or (name == "imver") or ("image" in name):
+        return resolve_single_parameter("image_version", parameter, instance)
+    ## Catalog version
+    elif (name == "c") or (name == "catver") or ("catalog" in name):
+        return resolve_single_parameter("catalog_version", parameter, instance)
+
+    # Paths
+    ## Photometry
+    elif "photometry" in name:
+        photometry_root = resolve_single_parameter(
+            "photometry_root", parameter, instance
+        )
+        return (
+            Path(photometry_root).resolve()
+            if isinstance(photometry_root, str)
+            else photometry_root
+        )
+    ## Imaging
+    elif "imaging" in name:
+        imaging_root = resolve_single_parameter("imaging_root", parameter, instance)
+        return (
+            Path(imaging_root).resolve()
+            if isinstance(imaging_root, str)
+            else imaging_root
+        )
+    ## Output
+    elif "output" in name:
+        output_root = resolve_single_parameter("output_root", parameter, instance)
+        return (
+            Path(output_root).resolve() if isinstance(output_root, str) else output_root
+        )
+
+    # Other
+    ## Single filter
+    elif (name == "l") or (name == "filt") or (name == "filter"):
+        filter = resolve_single_parameter("filter", parameter, instance)
+        if filter is None:
+            raise AttributeError("Filter not specified.")
+        else:
+            return filter
+    ## Multiple filters
+    elif (name == "filts") or (name == "filters"):
+        filters = resolve_single_parameter("filters", parameter, instance)
+        if (filters is None) or (len(filters) == 0):
+            raise AttributeError("Filters not specified.")
+        else:
+            return filters
+    ## Single pixscale
+    elif (name == "p") or (name == "pixscale"):
+        pixscale = resolve_single_parameter("pixscale", parameter, instance)
+        if pixscale is None:
+            raise AttributeError("Pixscale not specified.")
+        else:
+            return pixscale
+    ## Multiple pixscales
+    elif name == "pixscales":
+        pixscales = resolve_single_parameter("pixscales", parameter, instance)
+        if (pixscales is None) or (len(pixscales) == 0):
+            raise AttributeError("Pixscales not specified.")
+        else:
+            return pixscales
+    ## Galaxy ID
+    elif (name == "g") or (name == "id") or ("galaxy" in name):
+        return resolve_single_parameter("galaxy_id", parameter, instance)
+
+    # Unrecognized
+    else:
+        raise NotImplementedError(f"Parameter {name} unrecognized.")
 
 
 def resolve_path_name(name: str) -> str:
@@ -116,7 +218,9 @@ def get_path(
     catalog_version: int | None = None,
     filter: str | None = None,
     galaxy_id: int | None = None,
-) -> Path:
+    pixscale: float | None = None,
+    pixscales: list[float] | None = None,
+) -> Path | list[Path]:
     """Get the path to a directory or file via a recognized name.
 
     Parameters
@@ -153,11 +257,15 @@ def get_path(
         Filter of input image data, by default None (unspecified).
     galaxy_id : int | None, optional
         ID of galaxy, by default None.
+    pixscale : float | None, optional
+        Pixel scale resolution, by default None.
+    pixscales : list[float] | None, optional
+        Pixel scale resolutions, by default None.
 
     Returns
     -------
-    Path
-        Path to directory or file corresponding to passed name.
+    Path | list[Path]
+        Path(s) to directory or file corresponding to passed name.
 
     Raises
     ------
@@ -174,38 +282,18 @@ def get_path(
     path_name = resolve_path_name(name)
 
     # All paths require an object, field, and image version
-    # Set by preference of parameter, then config/object
-    # Terminate if neither value found
-    if object is None:
-        if ofic is None:
-            raise AttributeError("Object not specified.")
-        else:
-            object = ofic.object
-    if field is None:
-        if ofic is None:
-            raise AttributeError("Field not specified.")
-        else:
-            field = ofic.field
-    if image_version is None:
-        if ofic is None:
-            raise AttributeError("Image version not specified.")
-        else:
-            image_version = ofic.image_version
+    object = resolve_parameter("object", object, ofic)
+    field = resolve_parameter("field", field, ofic)
+    image_version = resolve_parameter("image_version", image_version, ofic)
 
     # Return corresponding path
     match path_name:
         # Photometry
         ## Parent
         case "photometry_ofi":
-            # Ensure photometry root path set
-            if photometry_root is None:
-                if galwrap_config is None:
-                    raise AttributeError("Photometry root not specified.")
-                else:
-                    photometry_root = galwrap_config.photometry_root
-            elif isinstance(photometry_root, str):
-                photometry_root = Path(photometry_root).resolve()
-
+            photometry_root = resolve_parameter(
+                "photometry_root", photometry_root, galwrap_config
+            )
             return photometry_root / object / field / image_version
         ## OFI Directories
         case "photometry_rms":
@@ -215,9 +303,9 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
+                    ofic=ofic,
                     photometry_root=photometry_root,
                     galwrap_config=galwrap_config,
-                    ofic=ofic,
                 )
                 / "rms"
             )
@@ -225,32 +313,23 @@ def get_path(
         # Imaging
         ## Parent
         case "imaging_of":
-            # Ensure imaging root path set
-            if imaging_root is None:
-                if galwrap_config is None:
-                    raise AttributeError("Imaging root not specified.")
-                else:
-                    imaging_root = galwrap_config.imaging_root
-            elif isinstance(imaging_root, str):
-                imaging_root = Path(imaging_root).resolve()
-
+            imaging_root = resolve_parameter(
+                "imaging_root", imaging_root, galwrap_config
+            )
             return imaging_root / object / field
         case "imaging_ofic":
-            # Ensure catalog version set
-            if catalog_version is None:
-                if ofic is None:
-                    raise AttributeError("Catalog version not specified.")
-                else:
-                    catalog_version = ofic.catalog_version
+            catalog_version = resolve_parameter(
+                "catalog_version", catalog_version, ofic
+            )
             return (
                 get_path(
                     name="imaging_of",
                     object=object,
                     field=field,
                     image_version=image_version,
+                    ofic=ofic,
                     imaging_root=imaging_root,
                     galwrap_config=galwrap_config,
-                    ofic=ofic,
                 )
                 / f"{image_version}.{catalog_version}"
             )
@@ -262,13 +341,51 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
+                    ofic=ofic,
                     imaging_root=imaging_root,
                     galwrap_config=galwrap_config,
-                    ofic=ofic,
                 )
                 / image_version
                 / "science"
             )
+        case "file_science_images":
+            # TODO handle filters too
+            # Paths to science images for single pixscale
+            try:
+                pixscale = resolve_parameter("pixscale", pixscale, ofic)
+                return list(
+                    get_path(
+                        name="imaging_sci",
+                        object=object,
+                        field=field,
+                        image_version=image_version,
+                        ofic=ofic,
+                        imaging_root=imaging_root,
+                        galwrap_config=galwrap_config,
+                    ).glob(f"*{utils.scale_to_name(pixscale)}*_sci.fits")
+                )
+            # Paths to science images for multiple pixscales
+            except AttributeError:
+                pixscales = resolve_parameter("pixscales", pixscales, galwrap_config)
+                science_images = []
+                for pixscale in pixscales:
+                    # Get paths to each science image
+                    science_images_pixscale = list(
+                        get_path(
+                            name="imaging_sci",
+                            object=object,
+                            field=field,
+                            image_version=image_version,
+                            ofic=ofic,
+                            imaging_root=imaging_root,
+                            galwrap_config=galwrap_config,
+                        ).glob(f"*{utils.scale_to_name(pixscale)}*_sci.fits")
+                    )
+
+                    # Add paths to total list
+                    for science_image in science_images_pixscale:
+                        science_images.append(science_image)
+                return science_images
         case "imaging_bcgs":
             return (
                 get_path(
@@ -276,9 +393,9 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
+                    ofic=ofic,
                     imaging_root=imaging_root,
                     galwrap_config=galwrap_config,
-                    ofic=ofic,
                 )
                 / image_version
                 / "bcgs"
@@ -291,10 +408,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    imaging_root=imaging_root,
+                    galwrap_config=galwrap_config,
                 )
                 / "psfs"
             )
@@ -305,10 +422,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    imaging_root=imaging_root,
+                    galwrap_config=galwrap_config,
                 )
                 / "catalogs"
             )
@@ -320,10 +437,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    imaging_root=imaging_root,
+                    galwrap_config=galwrap_config,
                 )
                 / f"{object}{field}_photutils_segmap_{image_version}.{catalog_version}.fits"
             )
@@ -334,10 +451,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    imaging_root=imaging_root,
+                    galwrap_config=galwrap_config,
                 )
                 / f"{object}{field}_photutils_cat_{image_version}.{catalog_version}.fits"
             )
@@ -345,22 +462,10 @@ def get_path(
         # Output
         ## Parent
         case "output_ofic":
-            # Ensure output root path set
-            if output_root is None:
-                if galwrap_config is None:
-                    raise AttributeError("Output root not specified.")
-                else:
-                    output_root = galwrap_config.output_root
-            elif isinstance(output_root, str):
-                output_root = Path(output_root).resolve()
-
-            # Ensure catalog version set
-            if catalog_version is None:
-                if ofic is None:
-                    raise AttributeError("Catalog version not specified.")
-                else:
-                    catalog_version = ofic.catalog_version
-
+            output_root = resolve_parameter("output_root", output_root, galwrap_config)
+            catalog_version = resolve_parameter(
+                "catalog_version", catalog_version, ofic
+            )
             return output_root / object / field / f"{image_version}.{catalog_version}"
         ## OFIC Directories
         case "output_segmaps":
@@ -370,10 +475,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / "segmaps"
             )
@@ -384,10 +489,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / "masks"
             )
@@ -398,10 +503,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / "psfs"
             )
@@ -412,10 +517,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / "rms"
             )
@@ -426,10 +531,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / "stamps"
             )
@@ -440,10 +545,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / "feedfiles"
             )
@@ -468,10 +573,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / "visualizations"
             )
@@ -483,10 +588,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / f"{object}{field}_{image_version}_filter_info.dat"
             )
@@ -497,10 +602,10 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / f"{object}{field}_{image_version}_depth.txt"
             )
@@ -511,31 +616,26 @@ def get_path(
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / f"{galaxy_id}_{object}{field}_mask.fits"
             )
         case "file_science":
-            # Ensure filter is set
-            if filter is None:
-                if (ofic is None) or (ofic.filter is None):
-                    raise AttributeError("Filter not set.")
-                else:
-                    filter = ofic.filter
-
+            filter = resolve_parameter("filter", filter, ofic)
+            galaxy_id = resolve_parameter("galaxy_id", galaxy_id, ofic)
             return (
                 get_path(
                     name="output_stamps",
                     object=object,
                     field=field,
                     image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
                     catalog_version=catalog_version,
                     ofic=ofic,
+                    output_root=output_root,
+                    galwrap_config=galwrap_config,
                 )
                 / filter
                 / f"{galaxy_id}_{object}{field}-{filter}_sci.fits"
