@@ -10,8 +10,10 @@ import itertools
 
 from pydantic import BaseModel
 import yaml
+from astropy.table import Table
 
 from . import CONFIG_ROOT
+from .utils import path, utils
 
 
 # Classes
@@ -41,15 +43,18 @@ class OFIC(BaseModel):
         Filter to use, by default None.
     pixscale : float | None, optional
         Cutout pixel scale with which to determine image size, by default None.
+    galaxy_id : int | None, optional
+        ID of galaxy to be fitted, by default None.
     """
 
     object: str
     field: str
     image_version: str
     catalog_version: int
-    morphology_version: Optional[str]
-    filter: Optional[str]
-    pixscale: Optional[float]
+    morphology_version: Optional[str] = None
+    filter: Optional[str] = None
+    pixscale: Optional[float] = None
+    galaxy_id: Optional[int] = None
 
 
 class GalWrapConfig(BaseModel):
@@ -216,10 +221,47 @@ def create_config(
     # Create GalWrapConfig from dict
     galwrap_config = GalWrapConfig(**config_dict)
 
-    # Set filter info lists
-    # TODO might need to be grouped with other variables
-    # filter_info = ascii.read(get_path("file_filter_info", ))
-    # galwrap_config.filters = filter_info["FILTNAME"]
-    # galwrap_config.pixscales = filter_info["PIXSCALES"]
+    # Setup directories
+    path.setup_directories(galwrap_config=galwrap_config)
 
+    # Create filter info tables
+    ## TODO set how ofic is chosen
+    input_science_files: list[Path] = path.get_path(
+        "file_science_images", galwrap_config=galwrap_config, ofic=ofic
+    )
+    for input_science_file in input_science_files:
+        galwrap_config.filters.append(
+            input_science_file.name.split("-")[1].split("_")[0]
+        )
+    ## TODO is this where pixscales are from?
+    galwrap_config.pixscales.append("40mas")
+
+    ## Create table of three columns in order of filters, pixscales, and pixnames
+    num_filters = len(galwrap_config.filters)
+    filter_info = Table(
+        [
+            galwrap_config.filters,
+            [galwrap_config.pixscales[0] for i in range(num_filters)],
+            [
+                utils.scale_to_name(galwrap_config.pixscales[0])
+                for i in range(num_filters)
+            ],
+        ]
+    )
+
+    ## Write table to file
+    ascii.write(
+        filter_info,
+        path.get_path("file_filter_info", galwrap_config=galwrap_config, ofic=ofic),
+    )
+
+    # Return created config object
     return galwrap_config
+
+
+# Instantiations
+
+
+galwrap_config = create_config()
+"""Config object instantiation.
+"""
