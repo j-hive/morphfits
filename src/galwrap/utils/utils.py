@@ -21,6 +21,38 @@ from .. import DATA_ROOT
 ## General
 
 
+def scale_to_name(pixscale: float) -> str:
+    """Get a resolution name from its corresponding scale.
+
+    Parameters
+    ----------
+    pixscale : float
+        Pixel scale.
+
+    Returns
+    -------
+    str
+        Pixel scale as human-readable text.
+    """
+    return str(int(pixscale * 10**3)) + "mas"
+
+
+def name_to_scale(pixname: str) -> float:
+    """Get a resolution scale from its corresponding name.
+
+    Parameters
+    ----------
+    pixname : str
+        Pixel scale as text.
+
+    Returns
+    -------
+    float
+        Corresponding pixel scale.
+    """
+    return float(pixname[:-3]) / 10**3
+
+
 def get_zeropoint(image_path: str | Path, magnitude_system: str = "AB") -> float:
     """Calculate image zeropoint in passed magnitude system.
 
