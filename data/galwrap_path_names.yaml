@@ -1,14 +1,29 @@
 output:
+  output_root:
+    - galwrap root
+    - galwrap output
   output_ofic:
-    - ofic
+    - galwrap ofic
   output_feedfiles:
-    - feedfiles
+    - feedfiles directory
+    - feedfile directory
+    - feedfiles dir
+    - feedfile dir
+  file_feedfile:
     - feedfile
   output_galfit:
-    - galfits
-    - galfit
+    - models directory
+    - models directory
+    - models dir
+    - model dir
+  file_galfit:
+    - galfit output
+    - galfit model
+    - model
   output_rms:
-    - output rms maps
+    - rms maps directory
+    - rms directory
+    - rms dir
   output_stamps:
     - stamps
   file_science:

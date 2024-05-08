@@ -6,40 +6,12 @@ GalWrap.
 
 
 from pathlib import Path
-from typing import Optional, Self
 
-from pydantic import BaseModel
-import yaml
-
-from .. import PATH_NAMES, DATA_ROOT
+from .. import PATH_NAMES
 from ..config import GalWrapConfig, OFIC
 
 
-# Constants
-
-
-# Classes
-
-
-class GalWrapPath:
-    is_dir: bool
-    path: Path
-    children: list[Self]
-    directories: list[Self]
-    files: list[Self]
-    filename: str
-    pathname: str | None
-    alt_names: list[str] | None
-    description: str | None
-
-
 # Functions
-
-
-def read_path_standards(
-    path_standards_path: str | Path = DATA_ROOT / "paths.yaml",
-) -> tuple[GalWrapPath, GalWrapPath, GalWrapPath]:
-    path_standards = yaml.safe_load(open(path_standards_path))
 
 
 def resolve_path_name(name: str) -> str:
