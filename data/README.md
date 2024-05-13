@@ -4,66 +4,64 @@
 ### Legend
 |Letter|Variable|Description|Example|
 |:---|:---|:---|:---|
-|`O`|`object`|Center of cluster instrument is pointed at.|`a370`|
-|`F`|`field`|Field of observation.|`ncf`|
-|`I`|`image_version`|Version of imaging.|`v2p0`|
-|`C`|`catalog_version`|Version of cataloguing.|`1`|
-|`L`|`filter`|Filter used.|`F140W`|
-|`G`|`galaxy_id`|ID of galaxy to fit.|
+|`F`|`field`|Center of cluster/field instrument is pointed at.|`abell2744clu`|
+|`I`|`image_version`|Image processing version.|`grizli-v7.2`|
+|`C`|`catalog_version`|Catalog version.|`DJA-v7.2`|
+|`L`|`filter`|Observational filter band.|`f140w`|
+|`O`|`object`|Integer ID of galaxy in catalog.|`1003`|
 |`P`|`pixname`|Pixel scale in human-readable format.|`40mas`|
 
 ### Tree
 ```
 jhive_galwrap_input/
-└── {O}/
-    └── {F}/
-        ├── {I}/
-        │   ├── bcgs/
-        │   │   └── {placeholder}.fits
-        │   ├── science/
-        │   │   └── {placeholder}.fits
-        │   └── rms/
-        │       └── {placeholder}.fits
-        └── {I}.{C}/
-            ├── catalogs/
-            │   ├── {O}{F}_photutils_segmap_{I}.{C}.fits
-            │   └── {O}{F}_photutils_cat_{I}.{C}.fits
-            ├── crossmatches/
-            │   └── {F1}_{F2}_crossmatch_{I}.{C}.fits
-            └── psfs/
-                └── {placeholder}.fits
+├── {L}/
+│   └── {L}_psf.fits
+└── {F}/
+    └── {I}/
+        ├── {C}/
+        │   ├── crossmatches/
+        │   │   └── {F1}_{F2}_{I}_{C}_crossmatch.fits
+        │   ├── {F}_{I}_{C}_pht.fits
+        │   └── {F}_{I}_{C}_phz.fits
+        ├── {L}/
+        │   ├── exposures/
+        │   │   └── {F}_{I}_{L}_exp.fits
+        │   ├── sciences/
+        │   │   └── {F}_{I}_{L}_sci.fits
+        │   └── weights/
+        │       └── {F}_{I}_{L}_wht.fits
+        └── {F}_{I}_seg.fits
+
 jhive_galwrap_products/
-└── {O}/
-    └── {F}/
-        └── {I}.{C}/
-            ├── feedfiles/
-            │   └── {L}/
-            │       └── {G}_{O}{F}-{L}.feedfile
-            ├── rms/
-            │   └── {L}/
-            │       └── {G}_{O}{F}-{L}_rms.fits
-            ├── stamps/
-            │   └── {L}/
-            │       └── {G}_{O}{F}-{L}_sci.fits
-            ├── masks/
-            │   └── {G}_{O}{F}_mask.fits
-            ├── psfs/
-            │   └── {O}{F}_{L}_{P}_psf_{I}.{C}_crop.fits
-            ├── segmaps/
-            │   └── {placeholder}.fits
-            ├── {O}{F}_{I}_filter_info.dat
-            ├── {O}{F}_{I}_depth.txt
-            └── {O}{F}_{I}.constraints
+├── {F}/
+│   └── {I}/
+│       └── {C}/
+│           └── {L}/
+│               └── {O}/
+│                   ├── feedfiles/
+│                   │   └── {O}_{F}_{I}_{C}_{L}.feedfile
+│                   ├── masks/
+│                   │   └── {O}_{F}_{I}_{C}_mask.fits
+│                   ├── psfs/
+│                   │   └── {O}_{F}_{I}_{C}_{L}_{P}_psf.fits
+│                   ├── sigmas/
+│                   │   └── {O}_{F}_{I}_{C}_{L}_sigma.fits
+│                   └── stamps/
+│                       └── {O}_{F}_{I}_{C}_{L}_sci.fits
+├── default.constraints
+└── template.feedfile
+
 jhive_galwrap_output/
-└── {O}/
-    └── {F}/
-        └── {I}.{C}/
-            ├── galfit_output/
-            │   └── {L}/
-            │       └── {G}_{O}{F}-{L}_model.fits
-            └── visualizations/
-                └── {L}/
-                    └── {placeholder}.fits
+└── {F}/
+    └── {I}/
+        └── {C}/
+            └── {L}/
+                └── {O}/
+                    ├── models/
+                    │   └── {O}_{F}_{I}_{C}_{L}_model.fits
+                    └── plots/
+                        ├── {O}_{F}_{I}_{C}_{L}_model_comparison.png
+                        └── *other*.png
 ```
 
 ### Labelled
@@ -85,72 +83,69 @@ Files
 
 <td align="right">
 <pre>
-input_root_dir<br><br><br>input_ofi_dir<br>input_bcgs_dir<br><br>input_science_dir<br><br>input_rms_dir<br><br>input_ofic_dir<br>input_catalogs_dir<br><br><br>input_crossmatches_dir<br><br>input_psfs_dir<br>
-middle_root_dir<br><br><br>middle_ofic_dir<br>middle_feedfiles_dir<br><br><br>middle_rms_dir<br><br><br>middle_stamps_dir<br><br><br>middle_masks_dir<br><br>middle_psfs_dir<br><br>middle_segmaps_dir<br><br><br><br>
-output_root_dir<br><br><br>output_ofic_dir<br>output_galfit_dir<br><br><br>output_visualizations_dir<br><br>
+input_root<br>input_psfs<br><br><br>input_fi<br>catalogs<br>crossmatches<br><br><br><br>input_fil<br>exposures<br><br>images<br><br>weights<br><br><br>
+product_root<br><br><br><br><br>product_ficlo<br>feedfiles<br><br>masks<br><br>psfs<br><br>sigmas<br><br>stamps<br><br><br><br>
+output_root<br><br><br><br><br>output_ficlo<br>models<br><br>plots<br><br>
 </pre>
 </td>
 
 <td>
 <pre>
-galwrap_input/
-└── {O}/
-    └── {F}/
-        ├── {I}/
-        │   ├── bcgs/
-        │   │   └── {placeholder}.fits
-        │   ├── science/
-        │   │   └── {placeholder}.fits
-        │   └── rms/
-        │       └── {placeholder}.fits
-        └── {I}.{C}/
-            ├── catalogs/
-            │   ├── {O}{F}_photutils_segmap_{I}.{C}.fits
-            │   └── {O}{F}_photutils_cat_{I}.{C}.fits
-            ├── crossmatches/
-            │   └── {F1}_{F2}_crossmatch_{I}.{C}.fits
-            └── psfs/
-                └── {placeholder}.fits
-galwrap_middle/
-└── {O}/
-    └── {F}/
-        └── {I}.{C}/
-            ├── feedfiles/
-            │   └── {L}/
-            │       └── {G}_{O}{F}-{L}.feedfile
-            ├── rms/
-            │   └── {L}/
-            │       └── {G}_{O}{F}-{L}_rms.fits
-            ├── stamps/
-            │   └── {L}/
-            │       └── {G}_{O}{F}-{L}_sci.fits
-            ├── masks/
-            │   └── {G}_{O}{F}_mask.fits
-            ├── psfs/
-            │   └── {O}{F}_{L}_{P}_psf_{I}.{C}_crop.fits
-            ├── segmaps/
-            │   └── {placeholder}.fits
-            ├── {O}{F}_{I}_filter_info.dat
-            ├── {O}{F}_{I}_depth.txt
-            └── {O}{F}_{I}.constraints
-galwrap_output/
-└── {O}/
-    └── {F}/
-        └── {I}.{C}/
-            ├── galfit_output/
-            │   └── {L}/
-            │       └── {G}_{O}{F}-{L}_model.fits
-            └── visualizations/
-                └── {L}/
-                    └── {placeholder}.fits
+jhive_galwrap_input/
+├─L/
+│ └─L_psf.fits
+└─F/
+  └─I/
+    ├─C/
+    │ ├─crossmatches/
+    │ │ └─F1_F2_I_C_crossmatch.fits
+    │ ├─F_I_C_cat.fits
+    │ └─F_I_C_phz.fits
+    ├─L/
+    │ ├─exposures/
+    │ │ └─F_I_L_exp.fits
+    │ ├─sciences/
+    │ │ └─F_I_L_sci.fits
+    │ └─weights/
+    │   └─F_I_L_wht.fits
+    └─F_I_seg.fits<br>
+jhive_galwrap_products/
+├─F/
+│ └─I/
+│   └─C/
+│     └─L/
+│       └─O/
+│         ├─feedfiles/
+│         │ └─O_F_I_C_L.feedfile
+│         ├─masks/
+│         │ └─O_F_I_C_mask.fits
+│         ├─psfs/
+│         │ └─O_F_I_C_L_P_psf.fits
+│         ├─sigmas/
+│         │ └─O_F_I_C_L_sigma.fits
+│         └─stamps/
+│           └─O_F_I_C_L_stamp.fits
+├─default.constraints
+└─template.feedfile<br>
+jhive_galwrap_output/
+└─F/
+  └─I/
+    └─C/
+      └─L/
+        └─O/
+          ├─models/
+          │ └─O_F_I_C_L_model.fits
+          └─plots/
+            ├─O_F_I_C_L_model_comparison.png
+            └─*other*.png
 </pre>
 </td>
 
 <td>
 <pre>
-<br><br><br><br><br>input_bcgs_file<br><br>input_science_file<br><br>input_rms_file<br><br><br>input_segmap_file<br>input_catalog_file<br><br>input_crossmatch_file<br><br>input_psf_file<br>
-<br><br><br><br><br>middle_feedfile_file<br><br><br>middle_rms_file<br><br><br>middle_stamp_file<br><br>middle_mask_file<br><br>middle_psf_file<br><br>middle_segmap_file<br>middle_filter_file<br>middle_depth_file<br>middle_constraints_file<br>
-<br><br><br><br><br>output_galfit_file<br><br><br>output_visualization_file
+<br><br>input_psf<br><br><br><br><br>crossmatch<br>catalog<br>photoz<br><br><br>exposure<br><br>science<br><br>weight<br>segmap<br>
+<br><br><br><br><br><br><br>feedfile<br><br>mask<br><br>psf<br><br>sigma<br><br>stamp<br>constraints<br>feedfile_template<br>
+<br><br><br><br><br><br><br>model<br><br>comparison_plot<br>*other_plots*
 </pre>
 </td>
 
@@ -158,47 +153,49 @@ galwrap_output/
 </table>
 
 ### Descriptions
-|Former Name|Path Name|:file_folder:|Full Path|Description|
-|:---|:---|:---:|:---|:---|
-||`input_root_dir`|:white_check_mark:|`galwrap_input/`|
-||`input_ofi_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}/`|
-||`input_bcgs_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}/bcgs/`|
-||`input_bcgs_file`||`galwrap_input/{O}/{F}/{I}/bcgs/{placeholder}.fits`|
-||`input_science_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}/science/`|
-||`input_science_file`||`galwrap_input/{O}/{F}/{I}/science/{placeholder}.fits`|
-||`input_rms_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}/rms`|
-||`input_rms_file`||`galwrap_input/{O}/{F}/{I}/rms/{placeholder}.fits`|
-||`input_ofic_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/`|
-||`input_catalogs_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/catalogs/`|
-||`input_segmap_file`||`galwrap_input/{O}/{F}/{I}.{C}/{O}{F}_photutils_segmap_{I}.{C}.fits`|
-||`input_catalog_file`||`galwrap_input/{O}/{F}/{I}.{C}/{O}{F}_photutils_cat_{I}.{C}.fits`|
-||`input_crossmatches_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/crossmatches/`|
-||`input_crossmatch_file`||`galwrap_input/{O}/{F}/{I}.{C}/crossmatches/{F1}_{F2}_crossmatch{I}.{C}.fits`|
-||`input_psfs_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/psfs`|
-||`input_psf_file`||`galwrap_input/{O}/{F}/{I}.{C}/psfs/{placeholder}.fits`|
-||`middle_root_dir`|:white_check_mark:|`galwrap_middle/`|
-||`middle_ofic_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/`|
-||`middle_feedfiles_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/feedfiles/`|
-||`middle_feedfile_file`||`galwrap_middle/{O}/{F}/{I}.{C}/feedfiles/{L}/{G}_{O}{F}-{L}.feedfile`|
-||`middle_rms_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/rms/`|
-||`middle_rms_file`||`galwrap_middle/{O}/{F}/{I}.{C}/rms/{L}/{G}_{O}{F}-{L}_rms.fits`|
-|`STAMPDIR`|`middle_stamps_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/stamps/`|
-||`middle_stamp_file`||`galwrap_middle/{O}/{F}/{I}.{C}/stamps/{L}/{G}_{O}{F}-{L}_sci.fits`|
-||`middle_masks_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/masks/`|
-||`middle_mask_file`||`galwrap_middle/{O}/{F}/{I}.{C}/masks/{G}_{O}{F}_mask.fits`|
-||`middle_psfs_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/psfs/`|
-||`middle_psf_file`||`galwrap_middle/{O}/{F}/{I}.{C}/psfs/{O}{F}_{L}_{P}_psf_{I}.{C}.fits`|
-||`middle_segmaps_dir`|:white_check_mark:|`galwrap_middle/{O}/{F}/{I}.{C}/segmaps/`|
-||`middle_segmap_file`||`galwrap_middle/{O}/{F}/{I}.{C}/segmaps/{placeholder}.fits`|
-||`middle_filter_file`||`galwrap_middle/{O}/{F}/{I}.{C}/{O}{F}_{I}_filter_info.dat`|
-||`middle_depth_file`||`galwrap_middle/{O}/{F}/{I}.{C}/{O}{F}_{I}_depth.txt`|
-||`middle_constraints_file`||`galwrap_middle/{O}/{F}/{I}.{C}/{O}{F}_{I}.constraints`|
-||`output_root_dir`|:white_check_mark:|`galwrap_output/`|
-||`output_ofic_dir`|:white_check_mark:|`galwrap_output/{O}/{F}/{I}.{C}/`|
-||`output_galfit_dir`|:white_check_mark:|`galwrap_output/{O}/{F}/{I}.{C}/galfit_output/`|
-||`output_galfit_file`||`galwrap_output/{O}/{F}/{I}.{C}/galfit_output/{L}/{G}_{O}{F}-{L}_model.fits`|
-||`output_visualizations_dir`|:white_check_mark:|`galwrap_output/{O}/{F}/{I}.{C}/visualizations/`|
-||`output_visualization_file`||`galwrap_output/{O}/{F}/{I}.{C}/visualizations/{placeholder}.fits`|
+|Former|:information_source:|Path Name|Full Path|Description|
+|:---|:---:|:---|:---|:---|
+||:file_folder:|`input_root`|`input_root/`|
+||:file_folder:|`input_psfs`|`input_root/{L}/`|
+||:framed_picture:|`input_psf`|`input_root/{L}/{L}_psf.fits`|
+||:file_folder:|`input_fi`|`input_root/{F}/{I}/`|
+||:file_folder:|`catalogs`|`input_root/{F}/{I}/{C}/`|
+||:file_folder:|`crossmatches`|`input_root/{F}/{I}/{C}/crossmatches/`|
+||:framed_picture:|`crossmatch`|`input_root/{F}/{I}/{C}/crossmatches/{F}_{F2}_{I}_{C}_crossmatch.fits`|
+||:framed_picture:|`catalog`|`input_root/{F}/{I}/{C}/{F}_{I}_{C}_cat.fits`|
+||:framed_picture:|`photoz`|`input_root/{F}/{I}/{C}/{F}_{I}_{C}_phz.fits`|
+||:file_folder:|`input_fil`|`input_root/{F}/{I}/{L}/`|
+||:file_folder:|`exposures`|`input_root/{F}/{I}/{L}/exposures/`|
+||:framed_picture:|`exposure`|`input_root/{F}/{I}/{L}/exposures/{F}_{I}_{L}_exp.fits`|
+||:file_folder:|`images`|`input_root/{F}/{I}/{L}/sciences/`|
+||:framed_picture:|`science`|`input_root/{F}/{I}/{L}/sciences/{F}_{I}_{L}_sci.fits`|
+||:file_folder:|`weights`|`input_root/{F}/{I}/{L}/weights/`|
+||:framed_picture:|`weight`|`input_root/{F}/{I}/{L}/weights/{F}_{I}_{L}_wht.fits`|
+||:framed_picture:|`segmap`|`input_root/{F}/{I}/{F}_{I}_seg.fits`|
+||:file_folder:|`product_root`|`product_root/`|
+||:file_folder:|`product_ficlo`|`product_root/{F}/{I}/{C}/{L}/{O}/`|
+||:file_folder:|`feedfiles`|`product_root/{F}/{I}/{C}/{L}/{O}/feedfiles/`|
+||:pencil:|`feedfile`|`product_root/{F}/{I}/{C}/{L}/{O}/feedfiles/{O}_{F}_{I}_{C}_{L}.feedfile`|
+||:file_folder:|`masks`|`product_root/{F}/{I}/{C}/{L}/{O}/masks/`|
+||:framed_picture:|`mask`|`product_root/{F}/{I}/{C}/{L}/{O}/masks/{O}_{F}_{I}_{C}_mask.fits`|
+||:file_folder:|`psfs`|`product_root/{F}/{I}/{C}/{L}/{O}/psfs/`|
+||:framed_picture:|`psf`|`product_root/{F}/{I}/{C}/{L}/{O}/psfs/{O}_{F}_{I}_{C}_{L}_psf.fits`|
+||:file_folder:|`sigmas`|`product_root/{F}/{I}/{C}/{L}/{O}/sigmas/`|
+||:framed_picture:|`sigma`|`product_root/{F}/{I}/{C}/{L}/{O}/sigma/{O}_{F}_{I}_{C}_{L}_sigma.fits`|
+||:file_folder:|`stamps`|`product_root/{F}/{I}/{C}/{L}/{O}/stamps/`|
+||:framed_picture:|`stamp`|`product_root/{F}/{I}/{C}/{L}/{O}/stamps/{O}_{F}_{I}_{C}_{L}_stamp.fits`|
+||:pencil:|`constraints`|`product_root/default.constraints`|
+||:pencil:|`feedfile_template`|`product_root/template.feedfile`|
+||:file_folder:|`output_root`|`output_root/`|
+||:file_folder:|`output_ficlo`|`output_root/{F}/{I}/{C}/{L}/{O}/`|
+||:file_folder:|`models`|`output_root/{F}/{I}/{C}/{L}/{O}/models/`|
+||:framed_picture:|`model`|`output_root/{F}/{I}/{C}/{L}/{O}/models/{O}_{F}_{I}_{C}_{L}_model.fits`|
+||:file_folder:|`plots`|`output_root{F}/{I}/{C}/{L}/{O}/plots/`|
+||:bar_chart:|`comparison_plot`|`output_root/{F}/{I}/{C}/{L}/{O}/plots/{O}_{F}_{I}_{C}_{L}_comparison.png`|
+||:bar_chart:|`*other_plots*`|`output_root/{F}/{I}/{C}/{L}/{O}/plots/{O}_{F}_{I}_{C}_{L}_*other_plots*.png`|
+
+
+---
 
 ## [DEPRECATED] Path and Variable Names
 Please note paths and variables from previous notebooks have been renamed for
