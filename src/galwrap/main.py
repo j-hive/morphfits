@@ -7,6 +7,8 @@
 import logging
 from pathlib import Path
 
+import typer
+
 from . import config
 from .utils import log, path
 
@@ -44,6 +46,20 @@ flux = CAT["FLUX_KRON_F200W"][TOT_FLAG]
 cut = flux < 2e2
 
 
-def setup_psf(galwrap_config:config.GalWrapConfig):
+def setup_psf(galwrap_config: config.GalWrapConfig):
     for filter in galwrap_config.filters:
-        
+        pass
+
+
+## Main
+
+app = typer.Typer()
+
+
+@app.command()
+def main(name: str):
+    print(name)
+
+
+if __name__ == "__main__":
+    app()
