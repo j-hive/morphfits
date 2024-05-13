@@ -1,88 +1,7 @@
 # Data Standards
 
 ## Filesystem Structure
-
-```
-galwrap_output/
-└── {object}/
-    └── {field}/
-        └── {image_version}.{catalog_version}/
-            ├── feedfiles/
-            │   └── {filter}/
-            │       └── {galaxy_id}_{object}{field}-{filter}.feedfile
-            ├── galfit_output/
-            │   └── {filter}/
-            │       └── {galaxy_id}_{object}{field}-{filter}_model.fits
-            ├── rms/
-            │   └── {filter}/
-            │       └── {galaxy_id}_{object}{field}-{filter}_rms.fits
-            ├── stamps/
-            │   └── {filter}/
-            │       └── {galaxy_id}_{object}{field}-{filter}_sci.fits
-            ├── masks/
-            │   └── {galaxy_id}_{object}{field}_mask.fits
-            ├── psfs/
-            │   └── {object}{field}_{filter}_{pixname}_psf_{image_version}.{catalog_version}_crop.fits
-            ├── segmaps/
-            ├── visualizations/
-            ├── {object}{field}_{image_version}_filter_info_.dat
-            ├── {object}{field}_{image_version}_depth.txt
-            └── all_filters.constraints
-
-photometry_products/
-└── {object}/
-    └── {field}/
-        └── {image_version}/
-            └── rms/
-
-imaging_products/
-└── {object}/
-    └── {field}/
-        ├── {image_version}/
-        │   ├── bcgs/
-        │   └── science/
-        └── {image_version}.{catalog_version}/
-            ├── catalogs/
-            │   ├── {object}{field}_photutils_segmap_{image_version}.{catalog_version}.fits
-            │   └── {object}{field}_photutils_cat_{image_version}.{catalog_version}.fits
-            └── psfs/
-```
-
-## Path and Variable Names
-Please note paths and variables from previous notebooks have been renamed for
-legibility and standardization. The following table details the changes made.
-
-|Type|Former|Current|Description|
-|:---|:---|:---|:---|
-|Directory|`HOME`|`output_root`|Root for all output products.|
-|Directory|`FILTDIR`|`output_filter_info`|Information and details regarding filters.|
-|Directory|`PATH`|`output_ofic`|Output products for a given OFIC.|
-|Directory|`STAMPDIR`|`output_stamps`|Postage stamps made from science images.|
-|Directory|`MASKDIR`|`output_masks`|Masks made from segmentation maps.|
-|Directory|`RMSDIR`|`output_rms`|Weight image cutouts from input RMS maps.|
-|Directory|`FEEDDIR`|`output_feedfiles`|Generated feedfiles to run GalFit from.|
-|Directory|`SEGMAPDIR`|`output_segmaps`|Segmentation maps.|
-|Directory|`GALFITOUTDIR`|`output_galfit`|Output products from GalFit.|
-|Directory|`PSFDIR`|`output_psfs`|PSF cutouts from input PSFs.|
-|Directory|`VISDIR`|`output_visualizations`|GalFit parameter corner plots.|
-|Directory||`photometry_root`|Root for all input photometry products.|
-|Directory|`RMSMAPDIR`|`photometry_rms`|Input RMS maps.|
-|Directory||`imaging_root`|Root for all input imaging products.|
-|Directory|`DATADIR`|`imaging_of`|Input imaging products for a given object and field.|
-|Directory|`IMGDIR`|`imaging_bcgs`|Input science images with brightest cluster galaxy subtracted.|
-|Directory|`ORG_PSFDIR`|`imaging_psfs`|Input PSFs.|
-|Directory|`CATDIR`|`imaging_catalogs`|Input segmentation maps.|
-|File|`FILTINFO`|`file_filter_info`||
-|File|`DEPTH`|`file_depth`||
-|File|`SEGMAP`|`file_segmap`||
-|File|`PHOTCAT`|`file_photometric_catalog`||
-|File|`MASKNAME`|`file_mask`||
-|File|`SCINAME`|`file_science`||
-
-
-# 2024-05-08 WIP New Tree
-
-## Legend
+### Legend
 |Letter|Variable|Description|Example|
 |:---|:---|:---|:---|
 |`O`|`object`|Center of cluster instrument is pointed at.|`a370`|
@@ -93,7 +12,61 @@ legibility and standardization. The following table details the changes made.
 |`G`|`galaxy_id`|ID of galaxy to fit.|
 |`P`|`pixname`|Pixel scale in human-readable format.|`40mas`|
 
-## Filesystem Structure
+### Tree
+```
+jhive_galwrap_input/
+└── {O}/
+    └── {F}/
+        ├── {I}/
+        │   ├── bcgs/
+        │   │   └── {placeholder}.fits
+        │   ├── science/
+        │   │   └── {placeholder}.fits
+        │   └── rms/
+        │       └── {placeholder}.fits
+        └── {I}.{C}/
+            ├── catalogs/
+            │   ├── {O}{F}_photutils_segmap_{I}.{C}.fits
+            │   └── {O}{F}_photutils_cat_{I}.{C}.fits
+            ├── crossmatches/
+            │   └── {F1}_{F2}_crossmatch_{I}.{C}.fits
+            └── psfs/
+                └── {placeholder}.fits
+jhive_galwrap_products/
+└── {O}/
+    └── {F}/
+        └── {I}.{C}/
+            ├── feedfiles/
+            │   └── {L}/
+            │       └── {G}_{O}{F}-{L}.feedfile
+            ├── rms/
+            │   └── {L}/
+            │       └── {G}_{O}{F}-{L}_rms.fits
+            ├── stamps/
+            │   └── {L}/
+            │       └── {G}_{O}{F}-{L}_sci.fits
+            ├── masks/
+            │   └── {G}_{O}{F}_mask.fits
+            ├── psfs/
+            │   └── {O}{F}_{L}_{P}_psf_{I}.{C}_crop.fits
+            ├── segmaps/
+            │   └── {placeholder}.fits
+            ├── {O}{F}_{I}_filter_info.dat
+            ├── {O}{F}_{I}_depth.txt
+            └── {O}{F}_{I}.constraints
+jhive_galwrap_output/
+└── {O}/
+    └── {F}/
+        └── {I}.{C}/
+            ├── galfit_output/
+            │   └── {L}/
+            │       └── {G}_{O}{F}-{L}_model.fits
+            └── visualizations/
+                └── {L}/
+                    └── {placeholder}.fits
+```
+
+### Labelled
 
 <table>
 <tr>
@@ -112,7 +85,7 @@ Files
 
 <td align="right">
 <pre>
-input_root_dir<br><br><br>input_ofi_dir<br>input_bcgs_dir<br><br>input_science_dir<br><br>input_rms_dir<br><br>input_ofic_dir<br>input_catalogs_dir<br><br><br>input_psfs_dir<br>
+input_root_dir<br><br><br>input_ofi_dir<br>input_bcgs_dir<br><br>input_science_dir<br><br>input_rms_dir<br><br>input_ofic_dir<br>input_catalogs_dir<br><br><br>input_crossmatches_dir<br><br>input_psfs_dir<br>
 middle_root_dir<br><br><br>middle_ofic_dir<br>middle_feedfiles_dir<br><br><br>middle_rms_dir<br><br><br>middle_stamps_dir<br><br><br>middle_masks_dir<br><br>middle_psfs_dir<br><br>middle_segmaps_dir<br><br><br><br>
 output_root_dir<br><br><br>output_ofic_dir<br>output_galfit_dir<br><br><br>output_visualizations_dir<br><br>
 </pre>
@@ -134,6 +107,8 @@ galwrap_input/
             ├── catalogs/
             │   ├── {O}{F}_photutils_segmap_{I}.{C}.fits
             │   └── {O}{F}_photutils_cat_{I}.{C}.fits
+            ├── crossmatches/
+            │   └── {F1}_{F2}_crossmatch_{I}.{C}.fits
             └── psfs/
                 └── {placeholder}.fits
 galwrap_middle/
@@ -173,7 +148,7 @@ galwrap_output/
 
 <td>
 <pre>
-<br><br><br><br><br>input_bcgs_file<br><br>input_science_file<br><br>input_rms_file<br><br><br>input_segmap_file<br>input_catalog_file<br><br>input_psf_file<br>
+<br><br><br><br><br>input_bcgs_file<br><br>input_science_file<br><br>input_rms_file<br><br><br>input_segmap_file<br>input_catalog_file<br><br>input_crossmatch_file<br><br>input_psf_file<br>
 <br><br><br><br><br>middle_feedfile_file<br><br><br>middle_rms_file<br><br><br>middle_stamp_file<br><br>middle_mask_file<br><br>middle_psf_file<br><br>middle_segmap_file<br>middle_filter_file<br>middle_depth_file<br>middle_constraints_file<br>
 <br><br><br><br><br>output_galfit_file<br><br><br>output_visualization_file
 </pre>
@@ -182,7 +157,7 @@ galwrap_output/
 </tr>
 </table>
 
-## Path Names
+### Descriptions
 |Former Name|Path Name|:file_folder:|Full Path|Description|
 |:---|:---|:---:|:---|:---|
 ||`input_root_dir`|:white_check_mark:|`galwrap_input/`|
@@ -194,9 +169,11 @@ galwrap_output/
 ||`input_rms_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}/rms`|
 ||`input_rms_file`||`galwrap_input/{O}/{F}/{I}/rms/{placeholder}.fits`|
 ||`input_ofic_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/`|
-||`input_catalogs_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/catalogs`|
+||`input_catalogs_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/catalogs/`|
 ||`input_segmap_file`||`galwrap_input/{O}/{F}/{I}.{C}/{O}{F}_photutils_segmap_{I}.{C}.fits`|
 ||`input_catalog_file`||`galwrap_input/{O}/{F}/{I}.{C}/{O}{F}_photutils_cat_{I}.{C}.fits`|
+||`input_crossmatches_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/crossmatches/`|
+||`input_crossmatch_file`||`galwrap_input/{O}/{F}/{I}.{C}/crossmatches/{F1}_{F2}_crossmatch{I}.{C}.fits`|
 ||`input_psfs_dir`|:white_check_mark:|`galwrap_input/{O}/{F}/{I}.{C}/psfs`|
 ||`input_psf_file`||`galwrap_input/{O}/{F}/{I}.{C}/psfs/{placeholder}.fits`|
 ||`middle_root_dir`|:white_check_mark:|`galwrap_middle/`|
@@ -222,3 +199,34 @@ galwrap_output/
 ||`output_galfit_file`||`galwrap_output/{O}/{F}/{I}.{C}/galfit_output/{L}/{G}_{O}{F}-{L}_model.fits`|
 ||`output_visualizations_dir`|:white_check_mark:|`galwrap_output/{O}/{F}/{I}.{C}/visualizations/`|
 ||`output_visualization_file`||`galwrap_output/{O}/{F}/{I}.{C}/visualizations/{placeholder}.fits`|
+
+## [DEPRECATED] Path and Variable Names
+Please note paths and variables from previous notebooks have been renamed for
+legibility and standardization. The following table details the changes made.
+
+|Type|Former|Current|Description|
+|:---|:---|:---|:---|
+|Directory|`HOME`|`output_root`|Root for all output products.|
+|Directory|`FILTDIR`|`output_filter_info`|Information and details regarding filters.|
+|Directory|`PATH`|`output_ofic`|Output products for a given OFIC.|
+|Directory|`STAMPDIR`|`output_stamps`|Postage stamps made from science images.|
+|Directory|`MASKDIR`|`output_masks`|Masks made from segmentation maps.|
+|Directory|`RMSDIR`|`output_rms`|Weight image cutouts from input RMS maps.|
+|Directory|`FEEDDIR`|`output_feedfiles`|Generated feedfiles to run GalFit from.|
+|Directory|`SEGMAPDIR`|`output_segmaps`|Segmentation maps.|
+|Directory|`GALFITOUTDIR`|`output_galfit`|Output products from GalFit.|
+|Directory|`PSFDIR`|`output_psfs`|PSF cutouts from input PSFs.|
+|Directory|`VISDIR`|`output_visualizations`|GalFit parameter corner plots.|
+|Directory||`photometry_root`|Root for all input photometry products.|
+|Directory|`RMSMAPDIR`|`photometry_rms`|Input RMS maps.|
+|Directory||`imaging_root`|Root for all input imaging products.|
+|Directory|`DATADIR`|`imaging_of`|Input imaging products for a given object and field.|
+|Directory|`IMGDIR`|`imaging_bcgs`|Input science images with brightest cluster galaxy subtracted.|
+|Directory|`ORG_PSFDIR`|`imaging_psfs`|Input PSFs.|
+|Directory|`CATDIR`|`imaging_catalogs`|Input segmentation maps.|
+|File|`FILTINFO`|`file_filter_info`||
+|File|`DEPTH`|`file_depth`||
+|File|`SEGMAP`|`file_segmap`||
+|File|`PHOTCAT`|`file_photometric_catalog`||
+|File|`MASKNAME`|`file_mask`||
+|File|`SCINAME`|`file_science`||

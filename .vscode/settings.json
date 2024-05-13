@@ -97,6 +97,8 @@
         "arcsec",
         "bcgs",
         "COLOUR",
+        "crossmatch",
+        "crossmatches",
         "deblend",
         "feedfile",
         "feedfiles",
