@@ -42,6 +42,9 @@ GALWRAP_PATHS = {
 # Functions
 
 
+## Parameters
+
+
 def get_parameter_name(name: str) -> str:
     """Get the corresponding standardized name for a parameter name.
 
@@ -195,54 +198,6 @@ def get_parameter(
                 return resolved_parameter
 
 
-def get_directories(path: Path) -> list[Path]:
-    """Get a list of subdirectories under a path.
-
-    Parameters
-    ----------
-    path : Path
-        Path to be walked.
-
-    Returns
-    -------
-    list[Path]
-        List of subdirectories under specified path.
-
-    Raises
-    ------
-    ValueError
-        Specified path not a directory.
-    """
-    if path.is_dir():
-        return [item for item in path.iterdir() if item.is_dir()]
-    else:
-        raise ValueError(f"Path {path} is not a directory.")
-
-
-def get_files(path: Path) -> list[Path]:
-    """Get a list of files in a directory.
-
-    Parameters
-    ----------
-    path : Path
-        Path to be walked.
-
-    Returns
-    -------
-    list[Path]
-        List of files in specified directory.
-
-    Raises
-    ------
-    ValueError
-        Specified path not a directory.
-    """
-    if path.is_dir():
-        return [item for item in path.iterdir() if item.is_file()]
-    else:
-        raise ValueError(f"Path {path} is not a directory.")
-
-
 def get_parameters_from_input_dirs(
     name: str, input_root: Path
 ) -> list[str] | list[int] | list[float]:
@@ -286,6 +241,9 @@ def get_parameters_from_input_dirs(
                         for file in get_files(ic_dir / "psfs"):
                             if file.name:
                                 pass
+
+
+## Path Resolution
 
 
 def get_path_name(name: str) -> str:
@@ -793,6 +751,9 @@ def get_path(
                 / filter
                 / f"{galaxy_id}_{object}{field}-{filter}_sci.fits"
             )
+
+
+## Setup
 
 
 def setup_directories(

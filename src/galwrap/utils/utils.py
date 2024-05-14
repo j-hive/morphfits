@@ -21,6 +21,9 @@ from .. import DATA_ROOT
 ## Python
 
 
+### Path
+
+
 def get_path(path_like: str | Path) -> Path:
     """Get a Path object for a potential string.
 
@@ -35,6 +38,54 @@ def get_path(path_like: str | Path) -> Path:
         Corresponding Path object.
     """
     return Path(path_like).resolve() if isinstance(path_like, str) else path_like
+
+
+def get_directories(path: Path) -> list[Path]:
+    """Get a list of subdirectories under a path.
+
+    Parameters
+    ----------
+    path : Path
+        Path to be walked.
+
+    Returns
+    -------
+    list[Path]
+        List of subdirectories under specified path.
+
+    Raises
+    ------
+    ValueError
+        Specified path not a directory.
+    """
+    if path.is_dir():
+        return [item for item in path.iterdir() if item.is_dir()]
+    else:
+        raise ValueError(f"Path {path} is not a directory.")
+
+
+def get_files(path: Path) -> list[Path]:
+    """Get a list of files in a directory.
+
+    Parameters
+    ----------
+    path : Path
+        Path to be walked.
+
+    Returns
+    -------
+    list[Path]
+        List of files in specified directory.
+
+    Raises
+    ------
+    ValueError
+        Specified path not a directory.
+    """
+    if path.is_dir():
+        return [item for item in path.iterdir() if item.is_file()]
+    else:
+        raise ValueError(f"Path {path} is not a directory.")
 
 
 ## General
@@ -215,10 +266,6 @@ def generate_feedfile(
 
 
 if __name__ == "__main__":
-    OBJ = "a370"
-    FIELD = "ncf"
-    IMVER = "v2p0"
-    CATVER = 1
     FEEDDIR = (
         f"/arc/projects/canucs/MORPHDIR/FITDIR/{OBJ}{FIELD}/{IMVER}.{CATVER}"
         + "FEEDDIR"

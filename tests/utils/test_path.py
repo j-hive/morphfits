@@ -10,6 +10,13 @@ from galwrap.utils import path
 # Tests
 
 
+def test_get_parameter_name():
+    # Positive
+    valid_names = ["o", "obj", "object"]
+
+    # Negative
+
+
 def test_get_path_name():
     """Test `path.get_path_name` on valid and invalid path names."""
     # Positive
