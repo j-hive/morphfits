@@ -1,18 +1,14 @@
-photometry_root: /home/hansen/projects/jhive/data/photometry
-imaging_root: /home/hansen/projects/jhive/data/imaging
-output_root: /home/hansen/projects/jhive/data/galwrap_output
-objects:
-  - a370
+input_root: sandbox/filesys/jhive_galwrap_input
+product_root: sandbox/filesys/jhive_galwrap_products
+output_root: sandbox/filesys/jhive_galwrap_output
 fields:
-  - ncf
+  - "abell2744clu"
 image_versions:
-  - v2p0
+  - "grizli-v7.2"
 catalog_versions:
-  - 1
-morphology_versions:
-  - gf1
+  - "DJA-v7.2"
 filters:
-  - F140W
-  - F360M
-pixscales:
-  - 0.04
+  - "F140W"
+  - "f444wclear"
+objects:
+  - 1003

@@ -1,4 +1,4 @@
-"""Main program execution for GalWrap.
+"""Main program execution for morphology fitting.
 """
 
 # Imports
@@ -21,7 +21,7 @@ galwrap_config = config.galwrap_config
 
 # Creating logger for program and module
 main_logger = logs.create_logger()
-logger = logs.getLogger("MAIN")
+logger = logging.getLogger("MAIN")
 
 # TODO TEMP
 # Set variables

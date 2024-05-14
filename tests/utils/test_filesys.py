@@ -1,18 +1,19 @@
-"""Test the path utilities module.
+"""Test the filesystem utilities module.
 """
 
 # Imports
 
 
+from galwrap.galwrap import FICLO, GalWrapConfig
 from galwrap.utils import filesys
 
 
 # Tests
 
 
-def test_get_parameter_name():
+def test_get_parameter(galwrap_config: GalWrapConfig):
     # Positive
-    valid_names = ["o", "obj", "object"]
+    unresolved = [["input_root", "/foo/bar/", None], ["fields", None, galwrap_config]]
 
     # Negative
 

@@ -20,7 +20,7 @@ jhive_galwrap_input/
     └── {I}/
         ├── {C}/
         │   ├── crossmatches/
-        │   │   └── {F1}_{F2}_{I}_{C}_crossmatch.fits
+        │   │   └── {F1}_{F2}_{I}_{C}_crossmatch.fits???
         │   ├── {F}_{I}_{C}_pht.fits
         │   └── {F}_{I}_{C}_phz.fits
         ├── {L}/

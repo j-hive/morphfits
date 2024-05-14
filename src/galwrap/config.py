@@ -5,12 +5,21 @@
 
 
 from pathlib import Path
+import logging
 
 import yaml
 from astropy.table import Table
 
-from .galwrap import FICLO, GalWrapConfig
+from .galwrap import FICLO, GalWrapConfig, GALWRAP_PATHS
 from .utils import filesys, science
+
+
+# Logger
+
+
+logger = logging.getLogger("CONFIG")
+"""Logger object for this module.
+"""
 
 
 # Functions
@@ -111,15 +120,19 @@ def create_config(
     """
     # Load config file values
     config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
+    ## Cast and resolve paths
+    for config_key in ["input_root", "product_root", "output_root"]:
+        if config_key in config_dict:
+            config_dict[config_key] = Path(config_dict[config_key]).resolve()
 
     # Set any parameters passed through CLI call
     ## Paths
     if input_root is not None:
-        config_dict["input_root"] = science.get_path(input_root)
+        config_dict["input_root"] = filesys.get_path_obj(input_root)
     if product_root is not None:
-        config_dict["product_root"] = science.get_path(product_root)
+        config_dict["product_root"] = filesys.get_path_obj(product_root)
     if output_root is not None:
-        config_dict["output_root"] = science.get_path(output_root)
+        config_dict["output_root"] = filesys.get_path_obj(output_root)
 
     ## Multiple FICLOs
     if fields is not None:
@@ -155,9 +168,39 @@ def create_config(
 
     # TODO If parameters are still unset, assume program execution over all
     # discovered values in input directory
+
+    # Path
     ## Terminate if input root not found
     if "input_root" not in config_dict:
         raise FileNotFoundError(f"Input root not passed, terminating.")
+    ## Create other roots if not found
+    for config_key in ["product_root", "output_root"]:
+        if config_key not in config_dict:
+            input_root_typing: Path = config_dict["input_root"]
+            root = input_root_typing.parent
+            config_dict[config_key] = GALWRAP_PATHS[config_key].resolve(root=root)
+
+    # FICLOs
+    if "fields" not in config_dict:
+        config_dict["fields"] = filesys.find_parameters(
+            "field", input_root=config_dict["input_root"]
+        )
+    if "image_versions" not in config_dict:
+        config_dict["image_versions"] = filesys.find_parameters(
+            "image_version", input_root=config_dict["input_root"]
+        )
+    if "catalog_versions" not in config_dict:
+        config_dict["catalog_versions"] = filesys.find_parameters(
+            "catalog_version", input_root=config_dict["input_root"]
+        )
+    if "filters" not in config_dict:
+        config_dict["filters"] = filesys.find_parameters(
+            "filter", input_root=config_dict["input_root"]
+        )
+    if "objects" not in config_dict:
+        config_dict["objects"] = filesys.find_parameters(
+            "object", input_root=config_dict["input_root"]
+        )
 
     # Create GalWrapConfig from dict
     galwrap_config = GalWrapConfig(**config_dict)
