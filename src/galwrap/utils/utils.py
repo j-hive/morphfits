@@ -18,10 +18,29 @@ from .. import DATA_ROOT
 # Functions
 
 
+## Python
+
+
+def get_path(path_like: str | Path) -> Path:
+    """Get a Path object for a potential string.
+
+    Parameters
+    ----------
+    path_like : str | Path
+        Path which may or may not be of string type.
+
+    Returns
+    -------
+    Path
+        Corresponding Path object.
+    """
+    return Path(path_like).resolve() if isinstance(path_like, str) else path_like
+
+
 ## General
 
 
-def scale_to_name(pixscale: float) -> str:
+def get_pixname(pixscale: float) -> str:
     """Get a resolution name from its corresponding scale.
 
     Parameters
@@ -37,7 +56,7 @@ def scale_to_name(pixscale: float) -> str:
     return str(int(pixscale * 10**3)) + "mas"
 
 
-def name_to_scale(pixname: str) -> float:
+def get_pixscale(pixname: str) -> float:
     """Get a resolution scale from its corresponding name.
 
     Parameters

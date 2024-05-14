@@ -1,6 +1,0 @@
-output_root: /home/hansen/projects/jhive/data/output/galwrap/
-objects:
-  - macs0417
-  - macs1423
-fields:
-  - clu

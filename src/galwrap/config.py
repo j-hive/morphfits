@@ -1,4 +1,4 @@
-"""Configure and setup a program execution of the GalWrap package.
+"""Configure and setup a program executionOptional\[ of the GalWrap package.
 """
 
 # Imports
@@ -12,15 +12,14 @@ from pydantic import BaseModel
 import yaml
 from astropy.table import Table
 
-from . import CONFIG_ROOT
-from .utils import path, utils
+from .utils import utils
 
 
 # Classes
 
 
 class OFIC(BaseModel):
-    """Configuration model for a program execution of GalFit.
+    """Configuration model for a single program execution of GalFit.
 
     Parameters
     ----------
@@ -67,16 +66,18 @@ class GalWrapConfig(BaseModel):
 
     Attributes
     ----------
-    photometry_root : Path
-        Path to root of input photometry products.
-    imaging_root : Path
-        Path to root of input imaging products.
+    input_root : Path
+        Path to root of input products, e.g. science, RMS, PSF images, and
+        catalogs.
+    product_root : Path
+        Path to root of products produced by this program to run GALFIT, e.g.
+        stamp, sigma, mask, or psf images.
     output_root : Path
-        Path to root of directory to which to write output products.
+        Path to root of directory to which to write GALFIT output products.
     objects : list[str] | None, optional
         List of objects to execute this program over, by default None.
     fields : list[str] | None, optional
-        List of fields to execute this program over.
+        List of fields to execute this program over, by default None.
     image_versions : list[str] | None, optional
         List of image versions to execute this program over, by default None.
     catalog_versions : list[int] | None, optional
@@ -88,10 +89,12 @@ class GalWrapConfig(BaseModel):
         List of filters to execute this program over, by default None.
     pixscales : list[float] | None, optional
         List of pixscales to execute this program over, by default None.
+    galaxy_ids : list[int] | None, optional
+        List of object indices to execute this program over, by default None.
     """
 
-    photometry_root: Path
-    imaging_root: Path
+    input_root: Path
+    product_root: Path
     output_root: Path
     objects: Optional[list[str]] = None
     fields: Optional[list[str]] = None
@@ -100,6 +103,7 @@ class GalWrapConfig(BaseModel):
     morphology_versions: Optional[list[str]] = None
     filters: Optional[list[str]] = None
     pixscales: Optional[list[float]] = None
+    galaxy_ids: Optional[list[int]] = None
 
     def get_ofics(
         self,
@@ -110,6 +114,7 @@ class GalWrapConfig(BaseModel):
         morphology_versions: list[str] | None = None,
         filters: list[str] | None = None,
         pixscales: list[float] | None = None,
+        galaxy_ids: list[int] | None = None,
     ) -> Generator[OFIC, None, None]:
         """Generate OFIC permutations from input configurations.
 
@@ -136,12 +141,15 @@ class GalWrapConfig(BaseModel):
         pixscales : list[float] | None, optional
             List of pixel scales over which to execute this program, by default
             None (all of them).
+        galaxy_ids : list[int] | None, optional
+            List of galaxy object indices over which to execute this program, by
+            default None (all of them).
 
         Yields
         ------
         OFIC
             OFIC permutation from specified objects, fields, image, catalog, and
-            morphology versions, filters, and pixel scales.
+            morphology versions, filters, pixel scales, and galaxy IDs.
         """
         # Terminate if necessary input not specified
         if (
@@ -152,6 +160,7 @@ class GalWrapConfig(BaseModel):
             or ((morphology_versions is None) and (self.morphology_versions is None))
             or ((filters is None) and (self.filters is None))
             or ((pixscales is None) and (self.pixscales is None))
+            or ((galaxy_ids is None) and (self.galaxy_ids is None))
         ):
             raise ValueError("Necessary input for OFIC configuration not specified.")
 
@@ -164,6 +173,7 @@ class GalWrapConfig(BaseModel):
             morphology_version,
             filter,
             pixscale,
+            galaxy_id,
         ) in itertools.product(
             self.objects if objects is None else objects,
             self.fields if fields is None else fields,
@@ -176,6 +186,7 @@ class GalWrapConfig(BaseModel):
             ),
             self.filters if filters is None else filters,
             self.pixscales if pixscales is None else pixscales,
+            self.galaxy_ids if galaxy_ids is None else galaxy_ids,
         ):
             yield OFIC(
                 object=object,
@@ -185,6 +196,7 @@ class GalWrapConfig(BaseModel):
                 morphology_version=morphology_version,
                 filter=filter,
                 pixscale=pixscale,
+                galaxy_id=galaxy_id,
             )
 
 
@@ -192,68 +204,131 @@ class GalWrapConfig(BaseModel):
 
 
 def create_config(
-    config_path: str | Path = CONFIG_ROOT / "config.yaml",
+    config_path: str | Path | None = None,
+    input_root: str | Path | None = None,
+    product_root: str | Path | None = None,
+    output_root: str | Path | None = None,
+    object: str | None = None,
+    objects: list[str] | None = None,
+    field: str | None = None,
+    fields: list[str] | None = None,
+    image_version: str | None = None,
+    image_versions: list[str] | None = None,
+    catalog_version: int | None = None,
+    catalog_versions: list[int] | None = None,
+    morphology_version: str | None = None,
+    morphology_versions: list[str] | None = None,
+    filter: str | None = None,
+    filters: list[str] | None = None,
+    pixscale: float | None = None,
+    pixscales: list[float] | None = None,
+    galaxy_id: int | None = None,
+    galaxy_ids: list[int] | None = None,
 ) -> GalWrapConfig:
-    """Create a configuration object from a user-created configuration file,
-    using default values where unspecified.
+    """Create a configuration object from hierarchically preferred variables, in
+    order of CLI passed values, then config file declared values, then values
+    found by directory discovery.
 
     Parameters
     ----------
-    config_path : str | Path, optional
-        Path to user config yaml file, by default CONFIG_ROOT / "config.yaml".
+    config_path : str | Path | None, optional
+        Path to user config yaml file, by default None (no user config file
+        provided).
 
     Returns
     -------
     GalWrapConfig
         A configuration object for this program execution.
     """
-    # Load default and config dicts from config files
-    default_config_dict = yaml.safe_load(open(CONFIG_ROOT / "default.yaml"))
-    # TODO determine how this is read from user
-    config_dict = yaml.safe_load(open(config_path))
+    # Load config file values
+    config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
 
-    # Set any required parameters not set by user to default
-    ## Iterate over keys in default config and add to config if not set
-    for config_key in default_config_dict:
-        if config_key not in config_dict:
-            config_dict[config_key] = default_config_dict[config_key]
+    # Set any parameters passed through CLI call
+    ## Paths
+    if input_root is not None:
+        config_dict["input_root"] = utils.get_path(input_root)
+    if product_root is not None:
+        config_dict["product_root"] = utils.get_path(product_root)
+    if output_root is not None:
+        config_dict["output_root"] = utils.get_path(output_root)
+
+    ## Multiple OFICs
+    if objects is not None:
+        config_dict["objects"] = objects
+    if fields is not None:
+        config_dict["fields"] = fields
+    if image_versions is not None:
+        config_dict["image_versions"] = image_versions
+    if catalog_versions is not None:
+        config_dict["catalog_versions"] = catalog_versions
+    if morphology_versions is not None:
+        config_dict["morphology_versions"] = morphology_versions
+    if filters is not None:
+        config_dict["filters"] = filters
+    if pixscales is not None:
+        config_dict["pixscales"] = pixscales
+    if galaxy_ids is not None:
+        config_dict["galaxy_ids"] = galaxy_ids
+
+    ## Single OFICs - note this will override multiple OFICs if set
+    if object is not None:
+        config_dict["objects"] = [object]
+    if field is not None:
+        config_dict["fields"] = [field]
+    if image_version is not None:
+        config_dict["image_versions"] = [image_version]
+    if catalog_version is not None:
+        config_dict["catalog_versions"] = [catalog_version]
+    if morphology_version is not None:
+        config_dict["morphology_versions"] = [morphology_version]
+    if filter is not None:
+        config_dict["filters"] = [filter]
+    if pixscale is not None:
+        config_dict["pixscales"] = [pixscale]
+    if galaxy_id is not None:
+        config_dict["galaxy_ids"] = [galaxy_id]
+
+    # If parameters are still unset, assume program execution over all
+    # discovered values in input directory
+    if "objects" not in config_dict:
+        config_dict["objects"] = 2
 
     # Create GalWrapConfig from dict
     galwrap_config = GalWrapConfig(**config_dict)
 
-    # Setup directories
-    path.setup_directories(galwrap_config=galwrap_config)
+    # # Setup directories
+    # path.setup_directories(galwrap_config=galwrap_config)
 
-    # Create filter info tables
-    ## TODO set how ofic is chosen
-    input_science_files: list[Path] = path.get_path(
-        "file_science_images", galwrap_config=galwrap_config, ofic=ofic
-    )
-    for input_science_file in input_science_files:
-        galwrap_config.filters.append(
-            input_science_file.name.split("-")[1].split("_")[0]
-        )
-    ## TODO is this where pixscales are from?
-    galwrap_config.pixscales.append("40mas")
+    # # Create filter info tables
+    # ## TODO set how ofic is chosen
+    # input_science_files: list[Path] = path.get_path(
+    #     "file_science_images", galwrap_config=galwrap_config, ofic=ofic
+    # )
+    # for input_science_file in input_science_files:
+    #     galwrap_config.filters.append(
+    #         input_science_file.name.split("-")[1].split("_")[0]
+    #     )
+    # ## TODO is this where pixscales are from?
+    # galwrap_config.pixscales.append("40mas")
 
-    ## Create table of three columns in order of filters, pixscales, and pixnames
-    num_filters = len(galwrap_config.filters)
-    filter_info = Table(
-        [
-            galwrap_config.filters,
-            [galwrap_config.pixscales[0] for i in range(num_filters)],
-            [
-                utils.scale_to_name(galwrap_config.pixscales[0])
-                for i in range(num_filters)
-            ],
-        ]
-    )
+    # ## Create table of three columns in order of filters, pixscales, and pixnames
+    # num_filters = len(galwrap_config.filters)
+    # filter_info = Table(
+    #     [
+    #         galwrap_config.filters,
+    #         [galwrap_config.pixscales[0] for i in range(num_filters)],
+    #         [
+    #             utils.scale_to_name(galwrap_config.pixscales[0])
+    #             for i in range(num_filters)
+    #         ],
+    #     ]
+    # )
 
-    ## Write table to file
-    ascii.write(
-        filter_info,
-        path.get_path("file_filter_info", galwrap_config=galwrap_config, ofic=ofic),
-    )
+    # ## Write table to file
+    # ascii.write(
+    #     filter_info,
+    #     path.get_path("file_filter_info", galwrap_config=galwrap_config, ofic=ofic),
+    # )
 
     # Return created config object
     return galwrap_config
@@ -262,6 +337,6 @@ def create_config(
 # Instantiations
 
 
-galwrap_config = create_config()
+# galwrap_config = create_config()
 """Config object instantiation.
 """
