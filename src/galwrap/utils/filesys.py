@@ -7,28 +7,12 @@ GalWrap.
 
 from pathlib import Path
 
-from pydantic import BaseModel
-import yaml
-
 from .. import PATH_NAMES
-from ..config import GalWrapConfig, OFIC
-from . import utils
+from ..galwrap import GalWrapPath, FICLO, GalWrapConfig
+from . import science
 
 
-# GalWrapPath
-
-
-class GalWrapPath(BaseModel):
-    file: bool
-    name: str
-    path: str
-    alts: list[str]
-
-
-## GalWrapPath Functions
-
-
-## GalWrapPath Constants
+# Instants
 
 
 GALWRAP_PATHS = {
@@ -40,6 +24,73 @@ GALWRAP_PATHS = {
 
 
 # Functions
+
+
+## Utility
+
+
+def get_path_obj(path_like: str | Path) -> Path:
+    """Get a Path object for a potential string.
+
+    Parameters
+    ----------
+    path_like : str | Path
+        Path which may or may not be of string type.
+
+    Returns
+    -------
+    Path
+        Corresponding Path object.
+    """
+    return Path(path_like).resolve() if isinstance(path_like, str) else path_like
+
+
+def get_directories(path: Path) -> list[Path]:
+    """Get a list of subdirectories under a path.
+
+    Parameters
+    ----------
+    path : Path
+        Path to be walked.
+
+    Returns
+    -------
+    list[Path]
+        List of subdirectories under specified path.
+
+    Raises
+    ------
+    ValueError
+        Specified path not a directory.
+    """
+    if path.is_dir():
+        return [item for item in path.iterdir() if item.is_dir()]
+    else:
+        raise ValueError(f"Path {path} is not a directory.")
+
+
+def get_files(path: Path) -> list[Path]:
+    """Get a list of files in a directory.
+
+    Parameters
+    ----------
+    path : Path
+        Path to be walked.
+
+    Returns
+    -------
+    list[Path]
+        List of files in specified directory.
+
+    Raises
+    ------
+    ValueError
+        Specified path not a directory.
+    """
+    if path.is_dir():
+        return [item for item in path.iterdir() if item.is_file()]
+    else:
+        raise ValueError(f"Path {path} is not a directory.")
 
 
 ## Parameters
@@ -475,7 +526,7 @@ def get_path(
                         ofic=ofic,
                         imaging_root=imaging_root,
                         galwrap_config=galwrap_config,
-                    ).glob(f"*{utils.scale_to_name(pixscale)}*_sci.fits")
+                    ).glob(f"*{science.scale_to_name(pixscale)}*_sci.fits")
                 )
             # Paths to science images for multiple pixscales
             except AttributeError:
@@ -492,7 +543,7 @@ def get_path(
                             ofic=ofic,
                             imaging_root=imaging_root,
                             galwrap_config=galwrap_config,
-                        ).glob(f"*{utils.scale_to_name(pixscale)}*_sci.fits")
+                        ).glob(f"*{science.scale_to_name(pixscale)}*_sci.fits")
                     )
 
                     # Add paths to total list

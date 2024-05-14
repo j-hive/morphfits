@@ -10,7 +10,7 @@ from pathlib import Path
 import typer
 
 from . import config
-from .utils import log, path
+from .utils import filesys, logs
 
 
 # Execution
@@ -20,8 +20,8 @@ from .utils import log, path
 galwrap_config = config.galwrap_config
 
 # Creating logger for program and module
-main_logger = log.create_logger()
-logger = logging.getLogger("MAIN")
+main_logger = logs.create_logger()
+logger = logs.getLogger("MAIN")
 
 # TODO TEMP
 # Set variables
@@ -29,7 +29,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.table import Table
 
-tab = fits.open(path.get_path("file_photometry_catalog"))[1]
+tab = fits.open(filesys.get_path("file_photometry_catalog"))[1]
 CAT = Table(tab.data)
 TOT_FLAG = (
     (CAT["USE_PHOT"] == True)
