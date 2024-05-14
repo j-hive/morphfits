@@ -8,8 +8,6 @@ from importlib import resources
 from pathlib import Path
 import yaml
 
-# from . import utils
-
 
 # Constants
 
@@ -40,6 +38,6 @@ LOG_ROOT = ROOT / "logs"
 ## Dictionaries
 
 
-PATH_NAMES = yaml.safe_load(open(DATA_ROOT / "path_names.yaml"))
+PATH_NAMES = yaml.safe_load(open(DATA_ROOT / "galwrap_path_names.yaml"))
 """Dict of standardized path names and recognized alternative names.
 """

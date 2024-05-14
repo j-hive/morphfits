@@ -7,15 +7,42 @@ GalWrap.
 
 from pathlib import Path
 
+from pydantic import BaseModel
+import yaml
+
 from .. import PATH_NAMES
 from ..config import GalWrapConfig, OFIC
 from . import utils
 
 
+# GalWrapPath
+
+
+class GalWrapPath(BaseModel):
+    file: bool
+    name: str
+    path: str
+    alts: list[str]
+
+
+## GalWrapPath Functions
+
+
+## GalWrapPath Constants
+
+
+GALWRAP_PATHS = {
+    path_name: GalWrapPath(**path_dict) for path_name, path_dict in PATH_NAMES.items()
+}
+"""Dict of paths used in GalWrap, where the key, value pair is the path's
+`path_name`, then a `GalWrapPath` instance.
+"""
+
+
 # Functions
 
 
-def resolve_parameter_name(name: str) -> str:
+def get_parameter_name(name: str) -> str:
     """Get the corresponding standardized name for a parameter name.
 
     Parameters
@@ -35,7 +62,7 @@ def resolve_parameter_name(name: str) -> str:
 
     Notes
     -----
-    Internal secondary function used by :func:``resolve_parameter``.
+    Internal secondary function used by :func:``get_parameter``.
     """
     # Set name for case-less comparison
     name = name.casefold()
@@ -99,7 +126,7 @@ def resolve_parameter_name(name: str) -> str:
         raise NotImplementedError(f"Parameter {name} unrecognized.")
 
 
-def resolve_parameter(
+def get_parameter(
     name: str,
     parameter: int | float | str | Path | list[float] | list[str] | None,
     instance: GalWrapConfig | OFIC | None,
@@ -131,7 +158,7 @@ def resolve_parameter(
     Internal function used by :func:``get_path``.
     """
     # Resolve parameter name
-    name = resolve_parameter_name(name)
+    name = get_parameter_name(name)
 
     # Validate parameter existence and return corresponding value, in preference
     # of directly passed parameter, then object instance attribute
@@ -168,13 +195,106 @@ def resolve_parameter(
                 return resolved_parameter
 
 
-def resolve_path_name(name: str) -> str:
-    """Get internally-standardized name of path corresponding to specified name.
+def get_directories(path: Path) -> list[Path]:
+    """Get a list of subdirectories under a path.
+
+    Parameters
+    ----------
+    path : Path
+        Path to be walked.
+
+    Returns
+    -------
+    list[Path]
+        List of subdirectories under specified path.
+
+    Raises
+    ------
+    ValueError
+        Specified path not a directory.
+    """
+    if path.is_dir():
+        return [item for item in path.iterdir() if item.is_dir()]
+    else:
+        raise ValueError(f"Path {path} is not a directory.")
+
+
+def get_files(path: Path) -> list[Path]:
+    """Get a list of files in a directory.
+
+    Parameters
+    ----------
+    path : Path
+        Path to be walked.
+
+    Returns
+    -------
+    list[Path]
+        List of files in specified directory.
+
+    Raises
+    ------
+    ValueError
+        Specified path not a directory.
+    """
+    if path.is_dir():
+        return [item for item in path.iterdir() if item.is_file()]
+    else:
+        raise ValueError(f"Path {path} is not a directory.")
+
+
+def get_parameters_from_input_dirs(
+    name: str, input_root: Path
+) -> list[str] | list[int] | list[float]:
+    # TODO note will get FIC for all O, but not all O will have each FIC
+    # so skip galfit run if OFIC doesn't have input
+
+    name = get_parameter_name(name)
+    parameters = []
+
+    if "object" in name:
+        for object_dir in get_directories(input_root):
+            if object_dir.name not in parameters:
+                parameters.append(object_dir.name)
+    elif "field" in name:
+        for object_dir in get_directories(input_root):
+            for field_dir in get_directories(object_dir):
+                if field_dir.name not in parameters:
+                    parameters.append(field_dir.name)
+    elif "image" in name:
+        for object_dir in get_directories(input_root):
+            for field_dir in get_directories(object_dir):
+                for ic_dir in get_directories(field_dir):
+                    if "." in ic_dir.name:
+                        if ic_dir.name.split(".")[0] not in parameters:
+                            parameters.append(ic_dir.name.split(".")[0])
+                    else:
+                        if ic_dir.name not in parameters:
+                            parameters.append(ic_dir.name)
+    elif "catalog" in name:
+        for object_dir in get_directories(input_root):
+            for field_dir in get_directories(object_dir):
+                for ic_dir in get_directories(field_dir):
+                    if "." in ic_dir.name:
+                        if ic_dir.name.split(".")[1] not in parameters:
+                            parameters.append(int(ic_dir.name.split(".")[1]))
+    elif "filter" in name:
+        for object_dir in get_directories(input_root):
+            for field_dir in get_directories(object_dir):
+                for ic_dir in get_directories(field_dir):
+                    if "." in ic_dir.name:
+                        for file in get_files(ic_dir / "psfs"):
+                            if file.name:
+                                pass
+
+
+def get_path_name(name: str) -> str:
+    """Get internally-standardized name of path corresponding to passed name.
 
     Parameters
     ----------
     name: str
-        Name of directory or file, e.g. `STAMPDIR` or `stamps`.
+        Name of directory or file, e.g. `input_images`.
 
     Returns
     -------
@@ -192,65 +312,52 @@ def resolve_path_name(name: str) -> str:
     -----
     A path name is resolvable if its casefold is equal to
     1. The standardized path name itself
-        e.g `output_stamps`
+        e.g `input_images`
     2. A recognized alternative name
-        e.g. `stamps` for `output_stamps`
-    3. The standardized path name, un-pluralized
-        e.g. `output_stamp` for `output_stamps`
-    4. The standardized path name, separated by spaces rather than underscores
-        e.g. `output stamps` for `output_stamps`
-    5. The standardized path name, space-separated, and with its word order
-       reversed
-        e.g. `stamps output` for `output_stamps`
-    6. The standardized path name, un-pluralized, space-separated, and with its
-       word order reversed
-        e.g. `stamp output` for `output_stamps`
+        e.g. `images` for `input_images`
+    3. The standardized path name, separated by spaces rather than underscores
+        e.g. `input images` for `input_images`
+    4. The standardized path name, space-separated, with a corresponding `dir`
+       or `file` suffix
+        e.g. `input images dir` for `input_images`
+    5. The standardized path name, space-separated, suffixed, un-pluralized
+        e.g. `input image dir` for `input_images`
 
     See Also
     --------
-    data/path_names.yaml
+    data/galwrap_path_names.yaml
         List of recognized alternative path names for each path.
     """
     # Terminate if name is not str
     if not isinstance(name, str):
         raise TypeError(f"Path name {name} must be `str`, not {type(name)}.")
 
-    # Find and return path name among recognized names
-    for path_name, recognized_names in (
-        PATH_NAMES["photometry"] | PATH_NAMES["imaging"] | PATH_NAMES["output"]
-    ).items():
-        # 1. Exact name match
-        if name.casefold() == path_name.casefold():
-            matching_name = True
-        # 2. Alternative name match
-        elif name.casefold() in [r_n.casefold() for r_n in recognized_names]:
-            matching_name = True
-        # 3. Un-pluralized match
-        elif ("s" == path_name[-1]) and (name.casefold() == path_name[:-1].casefold()):
-            matching_name = True
-        # 4. Space-separated match
-        elif name.casefold() == " ".join(path_name.casefold().split("_")):
-            matching_name = True
-        # 5. Case 4 and word order reversed
-        elif name.casefold() == " ".join(
-            path_name.casefold().split("_")[1:] + [path_name.casefold().split("_")[0]]
-        ):
-            matching_name = True
-        # 6. Cases 3 and 5
-        elif ("s" == path_name[-1]) and (
-            name.casefold()
-            == " ".join(
-                path_name[:-1].casefold().split("_")[1:]
-                + [path_name[:-1].casefold().split("_")[0]]
-            )
-        ):
-            matching_name = True
-        # Otherwise not matching, continue search
-        else:
-            matching_name = False
+    # Set name for case-less comparison
+    name = name.casefold()
 
-        # Return standardized path name if matching
-        if matching_name:
+    # Find and return path name among recognized names
+    for path_name, path_item in GALWRAP_PATHS.items():
+        # 1. Exact match
+        if name == path_name:
+            return path_name
+
+        # 2. Alternate name match
+        if name in path_item.alts:
+            return path_name
+
+        # 3. Space rather than underscore delimiter
+        path_name_case_3 = " ".join(path_name.split("_"))
+        if ("_" in path_name) and (name == path_name_case_3):
+            return path_name
+
+        # 4. Space delimiter and `dir` or `file` suffix
+        if name == path_name_case_3 + " file" if path_item.file else " dir":
+            return path_name
+
+        # 5. Space delimiter, `dir` or `file` suffix, and un-pluralized
+        if ("s" == path_name[-1]) and (
+            name == path_name_case_3[:-1] + " file" if path_item.file else " dir"
+        ):
             return path_name
 
     # Terminate if name not found
@@ -331,19 +438,19 @@ def get_path(
         Standardized path names and their recognized alternative names.
     """
     # Get corresponding standardized path name
-    path_name = resolve_path_name(name)
+    path_name = get_path_name(name)
 
     # All paths require an object, field, and image version
-    object = resolve_parameter("object", object, ofic)
-    field = resolve_parameter("field", field, ofic)
-    image_version = resolve_parameter("image_version", image_version, ofic)
+    object = get_parameter("object", object, ofic)
+    field = get_parameter("field", field, ofic)
+    image_version = get_parameter("image_version", image_version, ofic)
 
     # Return corresponding path
     match path_name:
         # Photometry
         ## Parent
         case "photometry_ofi":
-            photometry_root = resolve_parameter(
+            photometry_root = get_parameter(
                 "photometry_root", photometry_root, galwrap_config
             )
             return photometry_root / object / field / image_version
@@ -365,14 +472,10 @@ def get_path(
         # Imaging
         ## Parent
         case "imaging_of":
-            imaging_root = resolve_parameter(
-                "imaging_root", imaging_root, galwrap_config
-            )
+            imaging_root = get_parameter("imaging_root", imaging_root, galwrap_config)
             return imaging_root / object / field
         case "imaging_ofic":
-            catalog_version = resolve_parameter(
-                "catalog_version", catalog_version, ofic
-            )
+            catalog_version = get_parameter("catalog_version", catalog_version, ofic)
             return (
                 get_path(
                     name="imaging_of",
@@ -404,7 +507,7 @@ def get_path(
             # TODO handle filters too
             # Paths to science images for single pixscale
             try:
-                pixscale = resolve_parameter("pixscale", pixscale, ofic)
+                pixscale = get_parameter("pixscale", pixscale, ofic)
                 return list(
                     get_path(
                         name="imaging_sci",
@@ -418,7 +521,7 @@ def get_path(
                 )
             # Paths to science images for multiple pixscales
             except AttributeError:
-                pixscales = resolve_parameter("pixscales", pixscales, galwrap_config)
+                pixscales = get_parameter("pixscales", pixscales, galwrap_config)
                 science_images = []
                 for pixscale in pixscales:
                     # Get paths to each science image
@@ -514,10 +617,8 @@ def get_path(
         # Output
         ## Parent
         case "output_ofic":
-            output_root = resolve_parameter("output_root", output_root, galwrap_config)
-            catalog_version = resolve_parameter(
-                "catalog_version", catalog_version, ofic
-            )
+            output_root = get_parameter("output_root", output_root, galwrap_config)
+            catalog_version = get_parameter("catalog_version", catalog_version, ofic)
             return output_root / object / field / f"{image_version}.{catalog_version}"
         ## OFIC Directories
         case "output_segmaps":
@@ -676,8 +777,8 @@ def get_path(
                 / f"{galaxy_id}_{object}{field}_mask.fits"
             )
         case "file_science":
-            filter = resolve_parameter("filter", filter, ofic)
-            galaxy_id = resolve_parameter("galaxy_id", galaxy_id, ofic)
+            filter = get_parameter("filter", filter, ofic)
+            galaxy_id = get_parameter("galaxy_id", galaxy_id, ofic)
             return (
                 get_path(
                     name="output_stamps",
