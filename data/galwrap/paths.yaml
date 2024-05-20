@@ -1,0 +1,153 @@
+galwrap_root:
+  file: False
+  path: "."
+  alts:
+    - root
+
+# Input
+## Directories
+input_root:
+  file: False
+  path: "[galwrap_root]/input"
+  alts:
+    - inputs
+input_psfs:
+  file: False
+  path: "[input_root]/psfs"
+  alts:
+    - original psfs
+input_imver:
+  file: False
+  path: "[input_root]/{F}/{I}"
+  alts:
+    - input image version
+input_images:
+  file: False
+  path: "[input_imver]/{L}"
+  alts:
+    - images
+## Files
+rawpsf:
+  file: True
+  path: "[input_psfs]/PSF_NIRCam_in_flight_opd_filter_{L}.fits"
+  alts:
+    - raw psf
+    - raw psf file
+    - input psf
+    - input psf file
+segmap:
+  file: True
+  path: "[input_imver]/{F}-{I}-ir_seg.fits"
+  alts:
+    - segmentation map
+    - segmentation map file
+catalog:
+  file: True
+  path: "[input_imver]/{F}-{I}-fix_phot_apcorr.fits"
+  alts:
+    - input catalog
+    - input catalog file
+exposure:
+  file: True
+  path: "[input_images]/{F}-{I}-{L}_dr*_exp.fits.gz"
+  alts:
+    - exp
+    - exposure map
+science:
+  file: True
+  path: "[input_images]/{F}-{I}-{L}_dr*_sci.fits.gz"
+  alts:
+    - sci
+    - input image
+weights:
+  file: True
+  path: "[input_images]/{F}-{I}-{L}_dr*_wht.fits.gz"
+  alts:
+    - wht
+    - weight map
+
+# Products
+## Directories
+product_root:
+  file: False
+  path: "[galwrap_root]/products"
+  alts:
+    - products
+product_psfs:
+  file: False
+  path: "[product_root]/psfs"
+  alts:
+    - psfs
+product_ficlo:
+  file: False
+  path: "[product_root]/{F}/{I}/{C}/{L}/{O}"
+  alts:
+    - ficlo products
+## Files
+constraints:
+  file: True
+  path: "[product_root]/default.constraints"
+  alts:
+    - default constraints
+template:
+  file: True
+  path: "[product_root]/template.feedfile"
+  alts:
+    - template feedfile
+    - feedfile template
+psf:
+  file: True
+  path: "[product_psfs]/{L}_{P}_psf.fits"
+  alts:
+    - psf product
+    - cropped psf
+feedfile:
+  file: True
+  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}.feedfile"
+  alts:
+    - feedme
+stamp:
+  file: True
+  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}_stamp.fits"
+  alts:
+    - cutout
+sigma:
+  file: True
+  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}_sigma.fits"
+  alts:
+    - rms
+    - variance
+mask:
+  file: True
+  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}_mask.fits"
+  alts:
+    - segmap cutout
+
+# Output
+## Directories
+output_root:
+  file: False
+  path: "[galwrap_root]/output"
+  alts:
+    - outputs
+output_ficlo:
+  file: False
+  path: "[output_root]/{F}/{I}/{C}/{L}/{O}"
+  alts:
+    - ficlo output
+output_plots:
+  file: False
+  path: "[output_ficlo]/plots"
+  alts:
+    - ficlo plots
+## Files
+model:
+  file: True
+  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_model.fits"
+  alts:
+    - galfit fit
+comparison:
+  file: True
+  path: "[output_plots]/{F}_{I}_{C}_{L}_{O}_comparison.png"
+  alts:
+    - comparison plot
