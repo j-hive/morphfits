@@ -7,18 +7,35 @@ resolve circular dependency issues.
 
 import logging
 import itertools
+import re
 from pathlib import Path
 from typing import Optional, Generator, Annotated
 
 from pydantic import BaseModel, StringConstraints
 
-from .. import PATH_NAMES
+from .. import ROOT
+from . import GALWRAP_PATH_NAMES
 
 
-# Logging
+# Constants
 
 
 logger = logging.getLogger("GALWRAP")
+"""Logging object for this module.
+"""
+
+
+TEMPLATE_MAPPINGS = {
+    "F": "field",
+    "F2": "field_2",
+    "I": "image_version",
+    "C": "catalog_version",
+    "L": "filter",
+    "O": "object",
+    "P": "pixname",
+}
+"""Dict mapping from template abbreviations to parameter names.
+"""
 
 
 # Classes
@@ -100,6 +117,9 @@ class GalWrapConfig(BaseModel):
         List of filter bands over which to execute GALFIT.
     objects : list[int]
         List of target IDs over which to execute GALFIT, for each catalog.
+    galwrap_root : Path, optional
+        Path to root directory containing all of input, product, and output
+        directories, by default the repository root.
     pixscales : list[float], optional
         List of pixel scales over which to execute GALFIT, by default only `0.04`,
         corresponding to "40mas".
@@ -115,6 +135,7 @@ class GalWrapConfig(BaseModel):
     catalog_versions: list[str]
     filters: list[str]
     objects: list[int]
+    galwrap_root: Path = ROOT
     pixscales: list[float] = [0.04]
     morphology_versions: list[str] = ["galfit"]
 
@@ -202,105 +223,20 @@ class GalWrapPath(BaseModel):
     ----------
     file : bool
         Flag for whether path is a file.
-    name : str
-        Name of directory or file path points to.
     path : str
-        Full path to directory or file path points to, as a string with
-        templates (i.e. keywords wrapped in curly braces, e.g. {L} or {root}).
+        Path to object (directory or file) as a template, where other paths are
+        wrapped by square brackets and parameters are wrapped by curly brackets,
+        e.g. `[input_root]/{F}/{I}`.
     alts : list[sr]
         List of recognized alternate names for this path.
     """
 
     file: bool
-    name: str
     path: str
     alts: list[str]
 
-    def _replace_template(
-        node_name: str,
-        root: str | Path | None = None,
-        field: str | None = None,
-        field_2: str | None = None,
-        image_version: str | None = None,
-        catalog_version: str | None = None,
-        filter: str | None = None,
-        object: int | None = None,
-        pixname: str | None = None,
-    ) -> str:
-        """Get a corresponding value for a string template, i.e. '{template_name}'.
-
-        Parameters
-        ----------
-        node_name : str
-            Name of node
-        root : str | Path | None, optional
-            Path to root data directory containing input, products, and output
-            directories, by default None.
-        field : str | None, optional
-            Field of observation, by default None.
-        field_2 : str | None, optional
-            Second field to compare to first, by default None. Only used for
-            crossmatch files.
-        image_version : str | None, optional
-            Image version of science frame, by default None.
-        catalog_version : str | None, optional
-            Catalog version of science frame, by default None.
-        filter : str | None, optional
-            Filter used in observation, by default None.
-        object : int | None, optional
-            Target galaxy or cluster ID in science frame, by default None.
-        pixname : str | None, optional
-            Pixel scale in human-friendly format, by default None.
-
-        Returns
-        -------
-        str
-            Template replaced with corresponding value.
-
-        Raises
-        ------
-        ValueError
-            Template unrecognized or missing value.
-        """
-        template_name = node_name.split("{")[1].split("}")[0]
-        # If template_name is parent path, resolve that and return
-        if template_name in GALWRAP_PATHS:
-            return GALWRAP_PATHS[template_name]._resolve_single(
-                root=root,
-                field=field,
-                field_2=field_2,
-                image_version=image_version,
-                catalog_version=catalog_version,
-                filter=filter,
-                object=object,
-                pixname=pixname,
-            )
-        # If template_name is variable, return corresponding passed variable
-        elif (template_name == "root") and (root is not None):
-            return str(root) if isinstance(root, Path) else root
-        elif (template_name == "F") and (field is not None):
-            return field
-        elif (template_name == "F2") and (field_2 is not None):
-            return field_2
-        elif (template_name == "I") and (image_version is not None):
-            return image_version
-        elif (template_name == "C") and (catalog_version is not None):
-            return catalog_version
-        elif (template_name == "L") and (filter is not None):
-            return filter
-        elif (template_name == "O") and (object is not None):
-            return str(object)
-        elif (template_name == "P") and (pixname is not None):
-            return pixname
-        # Otherwise, template_name is unrecognized or not passed a value
-        else:
-            raise ValueError(
-                f"Template '{template_name}' unrecognized " + f"or missing a value."
-            )
-
     def resolve(
         self,
-        root: str | Path | None = None,
         field: str | None = None,
         field_2: str | None = None,
         image_version: str | None = None,
@@ -314,9 +250,6 @@ class GalWrapPath(BaseModel):
 
         Parameters
         ----------
-        root : str | Path | None, optional
-            Path to root data directory containing input, products, and output
-            directories, by default None.
         field : str | None, optional
             Field of observation, by default None.
         field_2 : str | None, optional
@@ -338,84 +271,52 @@ class GalWrapPath(BaseModel):
         Path
             Full path to directory or file corresponding to this path object.
         """
-        # Populate list with replaced directory and file names
-        str_nodes = []
-        # Iterate over each node, i.e. directory level or file if leaf node
-        for node_name in self.path.split("/"):
-            # If curly brace is in the node name, the whole name is a template
-            if "{" in node_name:
-                # Leaf nodes are handled differently
-                if node_name == "{name}":
-                    # Filenames are templates separated by underscores
-                    if self.file:
-                        filename_segments = []
-                        for filename_segment in node_name.split("_"):
-                            filename_segments.append(
-                                GalWrapPath._replace_template(
-                                    node_name=filename_segment,
-                                    root=root,
-                                    field=field,
-                                    field_2=field_2,
-                                    image_version=image_version,
-                                    catalog_version=catalog_version,
-                                    filter=filter,
-                                    object=object,
-                                    pixname=pixname,
-                                )
-                                if "{" in filename_segment
-                                else filename_segment
-                            )
-                        str_nodes.append("_".join(filename_segments))
-                    # Directory names are always templates or strings
-                    else:
-                        str_nodes.append(
-                            GalWrapPath._replace_template(
-                                node_name=self.name,
-                                root=root,
-                                field=field,
-                                field_2=field_2,
-                                image_version=image_version,
-                                catalog_version=catalog_version,
-                                filter=filter,
-                                object=object,
-                                pixname=pixname,
-                            )
-                            if "{" in self.name
-                            else self.name
-                        )
-                # If the node has a brace and is not a leaf node
-                str_nodes.append(
-                    GalWrapPath._replace_template(
-                        node_name=node_name,
-                        root=root,
-                        field=field,
-                        field_2=field_2,
-                        image_version=image_version,
-                        catalog_version=catalog_version,
-                        filter=filter,
-                        object=object,
-                        pixname=pixname,
+        parameters = locals()
+        resolved_path = self.path
+
+        # Fill templates
+        # Resolve other paths
+        if "[" in resolved_path:
+            pattern = "(\[.*\])"
+            path_name = re.match(pattern, resolved_path).group()[1:-1]
+            resolved_path = re.sub(
+                pattern,
+                GALWRAP_PATHS[path_name].resolve(
+                    field=field,
+                    field_2=field_2,
+                    image_version=image_version,
+                    catalog_version=catalog_version,
+                    filter=filter,
+                    object=object,
+                    pixname=pixname,
+                ),
+                resolved_path,
+            )
+        # Fill templates
+        for template in TEMPLATE_MAPPINGS:
+            if "{" + template + "}" in resolved_path:
+                if parameters[TEMPLATE_MAPPINGS[template]] is not None:
+                    resolved_path = re.sub(
+                        "({" + template + "})",
+                        str(parameters[TEMPLATE_MAPPINGS[template]]),
+                        resolved_path,
                     )
-                )
-            # If the node does not have a template in its name
-            else:
-                str_nodes.append(node_name)
+                else:
+                    raise ValueError(
+                        f"Missing {TEMPLATE_MAPPINGS[template]} "
+                        + f"to resolve path {self.path}."
+                    )
 
-        # Join paths together and cast to full path
-        full_path = Path("/".join(str_nodes)).resolve()
-
-        # Only return if the path points to an existing directory or file
-        if full_path.exists():
-            return full_path
-        else:
-            logger.info(f"{full_path} does not exist, skipping.")
+        # Return resolved path
+        return resolved_path
 
 
 # Instants
 
 
 GALWRAP_PATHS = {
-    path_name: GalWrapPath(**path_dict) for path_name, path_dict in PATH_NAMES.items()
+    path_name: GalWrapPath(**path_dict)
+    for path_name, path_dict in GALWRAP_PATH_NAMES.items()
 }
 """Dict of paths used in GalWrap, where the key, value pair is the path's
 `path_name`, then a `GalWrapPath` instance.

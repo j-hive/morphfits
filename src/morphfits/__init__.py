@@ -6,7 +6,6 @@
 
 from importlib import resources
 from pathlib import Path
-import yaml
 
 
 # Constants
@@ -32,12 +31,4 @@ DATA_ROOT = ROOT / "data"
 
 LOG_ROOT = ROOT / "logs"
 """Path to root of the logs directory.
-"""
-
-
-## Dictionaries
-
-
-PATH_NAMES = yaml.safe_load(open(DATA_ROOT / "galwrap_path_names.yaml"))
-"""Dict of standardized path names and recognized alternative names.
 """
