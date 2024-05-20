@@ -19,7 +19,7 @@ from .. import LOG_ROOT
 ## Logging
 
 
-LOGGER_FILENAME = LOG_ROOT / "galwrap.log"
+LOGGER_FILENAME = LOG_ROOT / "morphfits.log"
 """Default log file path.
 """
 

@@ -1,4 +1,4 @@
-"""Utility functions for GalWrap.
+"""Science utility functions for MorphFITS.
 """
 
 # Imports

@@ -1,4 +1,4 @@
-"""GalWrap.
+"""Modules and subpackages for the MorphFITS program.
 """
 
 # Imports

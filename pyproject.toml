@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "galwrap"
+name = "morphfits"
 version = "0.1.0"
 description = ""
 authors = ["Lamiya", "Mubdi <mubdi@sidratresearch.com>", "Hansen <hansen@sidratresearch.com>"]

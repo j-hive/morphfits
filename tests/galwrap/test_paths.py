@@ -1,4 +1,4 @@
-"""Test the filesystem utilities module.
+"""Test the GalWrap paths utilities module.
 """
 
 # Imports

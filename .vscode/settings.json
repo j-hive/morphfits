@@ -131,6 +131,7 @@
         "maskname",
         "milli",
         "MORPHDIR",
+        "morphfits",
         "ndimage",
         "ofic",
         "photcat",
@@ -144,6 +145,7 @@
         "segmaps",
         "statmorph",
         "Subimage",
+        "subpackages",
         "toolkits",
         "tqdm",
         "zeropoint"

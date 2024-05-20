@@ -1,4 +1,4 @@
-"""Configure and setup a program executionOptional\[ of the GalWrap package.
+"""Configure and setup a program execution of the GalWrap package.
 """
 
 # Imports
@@ -47,9 +47,11 @@ def create_config(
     morphology_version: str | None = None,
     morphology_versions: list[str] | None = None,
 ) -> GalWrapConfig:
-    """Create a configuration object from hierarchically preferred variables, in
-    order of CLI passed values, then config file declared values, then values
-    found by directory discovery.
+    """Create a GalWrap configuration object from hierarchically preferred
+    variables, in order of values from
+        1. CLI call from terminal
+        2. Specified config file,
+        3. Filesystem discovery
 
     Parameters
     ----------

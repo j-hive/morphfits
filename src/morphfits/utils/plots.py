@@ -1,4 +1,4 @@
-"""Visualize output data from GalWrap.
+"""Visualize output data from MorphFITS.
 """
 
 # Imports

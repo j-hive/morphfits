@@ -1,6 +1,2 @@
-"""Utilities for GalWrap.
+"""Utility modules for MorphFITS.
 """
-
-# Imports
-
-from . import science

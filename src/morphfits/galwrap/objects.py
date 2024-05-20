@@ -1,4 +1,5 @@
-"""Main module for execution of GalWrap.
+"""Object models used in various modules of GalWrap. These objects are here to
+resolve circular dependency issues.
 """
 
 # Imports

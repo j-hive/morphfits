@@ -1,4 +1,4 @@
-"""Test the utilities module.
+"""Test the science utilities module.
 """
 
 # Imports
