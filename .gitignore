@@ -1,6 +1,10 @@
 # User-defined
 sandbox/
 *.log
+galwrap_input/
+galwrap_products/
+galwrap_output/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

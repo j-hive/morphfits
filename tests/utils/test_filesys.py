@@ -4,8 +4,8 @@
 # Imports
 
 
-from galwrap.galwrap import FICLO, GalWrapConfig
-from galwrap.utils import filesys
+from morphfits.galwrap.objects import FICLO, GalWrapConfig
+from morphfits.galwrap import paths
 
 
 # Tests
@@ -24,9 +24,9 @@ def test_get_path_name():
     ## Case 1
     valid_names = ["input_root", "catalogs", "product_root", "object_products", "plots"]
     for valid_name in valid_names:
-        if filesys.get_path_name(valid_name) != valid_name:
+        if paths.get_path_name(valid_name) != valid_name:
             assert ValueError(
-                f"Expected {valid_name}, got {filesys.get_path_name(valid_name)}."
+                f"Expected {valid_name}, got {paths.get_path_name(valid_name)}."
             )
 
     ## Case 2
@@ -38,10 +38,10 @@ def test_get_path_name():
         "plots": "visualizations",
     }
     for valid_name, valid_alt_name in valid_alt_names.items():
-        if filesys.get_path_name(valid_alt_name) != valid_name:
+        if paths.get_path_name(valid_alt_name) != valid_name:
             assert ValueError(
                 f"Expected {valid_name} for {valid_alt_name}, "
-                + f"got {filesys.get_path_name(valid_alt_name)}."
+                + f"got {paths.get_path_name(valid_alt_name)}."
             )
 
     ## Case 3
@@ -51,10 +51,10 @@ def test_get_path_name():
         "object_products": "object products",
     }
     for valid_name, valid_space_name in valid_space_names.items():
-        if filesys.get_path_name(valid_space_name) != valid_name:
+        if paths.get_path_name(valid_space_name) != valid_name:
             assert ValueError(
                 f"Expected {valid_name} for {valid_space_name}, "
-                + f"got {filesys.get_path_name(valid_space_name)}."
+                + f"got {paths.get_path_name(valid_space_name)}."
             )
 
     ## Case 4
@@ -66,10 +66,10 @@ def test_get_path_name():
         "comparison_plot": "comparison plot file",
     }
     for valid_name, valid_suffix_name in valid_suffix_names.items():
-        if filesys.get_path_name(valid_suffix_name) != valid_name:
+        if paths.get_path_name(valid_suffix_name) != valid_name:
             assert ValueError(
                 f"Expected {valid_name} for {valid_suffix_name}, "
-                + f"got {filesys.get_path_name(valid_suffix_name)}."
+                + f"got {paths.get_path_name(valid_suffix_name)}."
             )
 
     ## Case 5
@@ -80,10 +80,10 @@ def test_get_path_name():
         "plots": "plot dir",
     }
     for valid_name, valid_unpluralized_name in valid_unpluralized_names.items():
-        if filesys.get_path_name(valid_unpluralized_name) != valid_name:
+        if paths.get_path_name(valid_unpluralized_name) != valid_name:
             assert ValueError(
                 f"Expected {valid_name} for {valid_unpluralized_name}, "
-                + f"got {filesys.get_path_name(valid_unpluralized_name)}."
+                + f"got {paths.get_path_name(valid_unpluralized_name)}."
             )
 
     # Negative
@@ -91,7 +91,7 @@ def test_get_path_name():
     invalid_names = [0, 0.0, True]
     for invalid_name in invalid_names:
         try:
-            filesys.get_path_name(invalid_name)
+            paths.get_path_name(invalid_name)
             assert AssertionError(
                 f"Name {invalid_name} of type "
                 + f"{type(invalid_name)} expected to raise TypeError."
@@ -103,7 +103,7 @@ def test_get_path_name():
     invalid_names = ["hey", "sigma image cutout", "sigma_root", "VISDIR"]
     for invalid_name in invalid_names:
         try:
-            filesys.get_path_name(invalid_name)
+            paths.get_path_name(invalid_name)
             assert AssertionError(f"Name {invalid_name} expected to raise ValueError.")
         except ValueError:
             continue

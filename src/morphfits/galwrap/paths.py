@@ -8,8 +8,8 @@ GalWrap.
 from pathlib import Path
 
 from .. import PATH_NAMES
-from ..galwrap import GalWrapPath, FICLO, GalWrapConfig
-from . import science
+from .objects import GalWrapPath, FICLO, GalWrapConfig
+from ..utils import science
 
 
 
@@ -149,19 +149,36 @@ def get_parameter(
                 return resolved_parameter
 
 
-def get_parameters_from_input_dirs(
-    name: str, input_root: Path
+def find_parameter_from_input(
+    parameter_name: str, input_root: Path
 ) -> list[str] | list[int] | list[float]:
-    # TODO note will get FIC for all O, but not all O will have each FIC
-    # so skip galfit run if OFIC doesn't have input
-
-    name = get_parameter_name(name)
     parameters = []
 
-    if "object" in name:
-        for object_dir in get_directories(input_root):
-            if object_dir.name not in parameters:
-                parameters.append(object_dir.name)
+    if parameter_name == "field":
+        for field_dir in get_directories(input_root):
+            if field_dir.name not in parameters:
+                parameters.append(field_dir.name)
+    elif parameter_name == "image_version":
+        for field_dir in get_directories(input_root):
+            for image_dir in get_directories(field_dir):
+                if image_dir.name not in parameters:
+                    parameters.append(image_dir.name)
+    elif parameter_name == "catalog_version":
+        for field_dir in get_directories(input_root):
+            for image_dir in get_directories(field_dir):
+                for catalog_dir in get_directories(image_dir):
+                    if catalog_dir.name not in parameters:
+                        parameters.append(catalog_dir.name)
+    elif parameter_name == "filter":
+        for filter_dir in get_directories(input_root):
+            # TODO add filters, catalogs, as directory before
+            pass
+        for field_dir in get_directories(input_root):
+            for image_dir in get_directories(field_dir):
+                for filter_dir in get_directories(image_dir):
+                    if filter_dir.name not in parameters:
+                        parameters.append(filter_dir.name)
+
     elif "field" in name:
         for object_dir in get_directories(input_root):
             for field_dir in get_directories(object_dir):

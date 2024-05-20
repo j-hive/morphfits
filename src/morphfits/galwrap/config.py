@@ -10,8 +10,10 @@ import logging
 import yaml
 from astropy.table import Table
 
-from .galwrap import FICLO, GalWrapConfig, GALWRAP_PATHS
-from .utils import filesys, science
+from . import paths
+
+from .objects import FICLO, GalWrapConfig, GALWRAP_PATHS
+from ..utils import science
 
 
 # Logger
@@ -128,11 +130,11 @@ def create_config(
     # Set any parameters passed through CLI call
     ## Paths
     if input_root is not None:
-        config_dict["input_root"] = filesys.get_path_obj(input_root)
+        config_dict["input_root"] = paths.get_path_obj(input_root)
     if product_root is not None:
-        config_dict["product_root"] = filesys.get_path_obj(product_root)
+        config_dict["product_root"] = paths.get_path_obj(product_root)
     if output_root is not None:
-        config_dict["output_root"] = filesys.get_path_obj(output_root)
+        config_dict["output_root"] = paths.get_path_obj(output_root)
 
     ## Multiple FICLOs
     if fields is not None:
@@ -182,23 +184,23 @@ def create_config(
 
     # FICLOs
     if "fields" not in config_dict:
-        config_dict["fields"] = filesys.find_parameters(
+        config_dict["fields"] = paths.find_parameters(
             "field", input_root=config_dict["input_root"]
         )
     if "image_versions" not in config_dict:
-        config_dict["image_versions"] = filesys.find_parameters(
+        config_dict["image_versions"] = paths.find_parameters(
             "image_version", input_root=config_dict["input_root"]
         )
     if "catalog_versions" not in config_dict:
-        config_dict["catalog_versions"] = filesys.find_parameters(
+        config_dict["catalog_versions"] = paths.find_parameters(
             "catalog_version", input_root=config_dict["input_root"]
         )
     if "filters" not in config_dict:
-        config_dict["filters"] = filesys.find_parameters(
+        config_dict["filters"] = paths.find_parameters(
             "filter", input_root=config_dict["input_root"]
         )
     if "objects" not in config_dict:
-        config_dict["objects"] = filesys.find_parameters(
+        config_dict["objects"] = paths.find_parameters(
             "object", input_root=config_dict["input_root"]
         )
 

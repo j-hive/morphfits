@@ -9,8 +9,10 @@ from pathlib import Path
 
 import typer
 
-from . import config
-from .utils import filesys, logs
+from .galwrap import paths
+
+from .galwrap.objects import config
+from .utils import logs
 
 
 # Execution
@@ -29,7 +31,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.table import Table
 
-tab = fits.open(filesys.get_path("file_photometry_catalog"))[1]
+tab = fits.open(paths.get_path("file_photometry_catalog"))[1]
 CAT = Table(tab.data)
 TOT_FLAG = (
     (CAT["USE_PHOT"] == True)

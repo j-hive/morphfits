@@ -11,7 +11,7 @@ from typing import Optional, Generator, Annotated
 
 from pydantic import BaseModel, StringConstraints
 
-from . import PATH_NAMES
+from .. import PATH_NAMES
 
 
 # Logging

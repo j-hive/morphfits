@@ -7,7 +7,7 @@
 from pathlib import Path
 import pytest
 
-from galwrap import config
+from morphfits.galwrap.objects import config
 
 
 # Fixtures

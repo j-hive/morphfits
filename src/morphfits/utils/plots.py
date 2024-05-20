@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 # See montage.ipac.caltech.edu/MontageNotebooks/mSubimage.html for more info
 import MontagePy
 
-from .. import config
+from ..galwrap.objects import config
 
 
 ## Typing
@@ -25,7 +25,7 @@ from numpy import ndarray
 from matplotlib.pyplot import Figure
 from matplotlib.axes import Axes
 
-from ..config import GalWrapConfig
+from ..galwrap.config import GalWrapConfig
 
 
 # Constants
