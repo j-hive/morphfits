@@ -4,16 +4,13 @@
 # Imports
 
 
-from pathlib import Path
 import logging
+from pathlib import Path
 
 import yaml
-from astropy.table import Table
 
 from . import paths
-
-from .objects import FICLO, GalWrapConfig, GALWRAP_PATHS
-from ..utils import science
+from .objects import GalWrapConfig
 
 
 # Logger
@@ -29,6 +26,7 @@ logger = logging.getLogger("CONFIG")
 
 def create_config(
     config_path: str | Path | None = None,
+    galwrap_root: str | Path | None = None,
     input_root: str | Path | None = None,
     product_root: str | Path | None = None,
     output_root: str | Path | None = None,
@@ -58,6 +56,9 @@ def create_config(
     config_path : str | Path | None, optional
         Path to user config yaml file, by default None (no user config file
         provided).
+    galwrap_root : str | Path | None, optional
+        Path to root directory of GalWrap filesystem, by default None (not
+        passed through CLI).
     input_root : str | Path | None, optional
         Path to root directory of input products, e.g. catalogs, science images,
         and PSFs, by default None (not passed through CLI).
@@ -125,18 +126,30 @@ def create_config(
     # Load config file values
     config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
     ## Cast and resolve paths
-    for config_key in ["input_root", "product_root", "output_root"]:
+    for config_key in ["galwrap_root", "input_root", "product_root", "output_root"]:
         if config_key in config_dict:
             config_dict[config_key] = Path(config_dict[config_key]).resolve()
 
     # Set any parameters passed through CLI call
     ## Paths
+    if galwrap_root is not None:
+        config_dict["galwrap_root"] = paths.get_path_obj(galwrap_root)
     if input_root is not None:
         config_dict["input_root"] = paths.get_path_obj(input_root)
     if product_root is not None:
         config_dict["product_root"] = paths.get_path_obj(product_root)
     if output_root is not None:
         config_dict["output_root"] = paths.get_path_obj(output_root)
+
+    ### Terminate if input root not found
+    if "input_root" not in config_dict:
+        raise FileNotFoundError(f"Input root not passed, terminating.")
+    if "galwrap_root" not in config_dict:
+        config_dict["galwrap_root"] = config_dict["input_root"].parent
+    if "product_root" not in config_dict:
+        config_dict["product_root"] = config_dict["galwrap_root"] / "products"
+    if "output_root" not in config_dict:
+        config_dict["output_root"] = config_dict["galwrap_root"] / "output"
 
     ## Multiple FICLOs
     if fields is not None:
@@ -170,86 +183,21 @@ def create_config(
     if morphology_version is not None:
         config_dict["morphology_versions"] = [morphology_version]
 
-    # TODO If parameters are still unset, assume program execution over all
+    # If parameters are still unset, assume program execution over all
     # discovered values in input directory
+    for parameter in [
+        "field",
+        "image_version",
+        # "catalog_version",
+        "filter",
+        "object",
+        # "pixscale",
+    ]:
+        if parameter + "s" not in config_dict:
+            config_dict[parameter + "s"] = paths.find_parameter_from_input(
+                parameter, config_dict["input_root"]
+            )
 
-    # Path
-    ## Terminate if input root not found
-    if "input_root" not in config_dict:
-        raise FileNotFoundError(f"Input root not passed, terminating.")
-    ## Create other roots if not found
-    for config_key in ["product_root", "output_root"]:
-        if config_key not in config_dict:
-            input_root_typing: Path = config_dict["input_root"]
-            root = input_root_typing.parent
-            config_dict[config_key] = GALWRAP_PATHS[config_key].resolve(root=root)
-
-    # FICLOs
-    if "fields" not in config_dict:
-        config_dict["fields"] = paths.find_parameters(
-            "field", input_root=config_dict["input_root"]
-        )
-    if "image_versions" not in config_dict:
-        config_dict["image_versions"] = paths.find_parameters(
-            "image_version", input_root=config_dict["input_root"]
-        )
-    if "catalog_versions" not in config_dict:
-        config_dict["catalog_versions"] = paths.find_parameters(
-            "catalog_version", input_root=config_dict["input_root"]
-        )
-    if "filters" not in config_dict:
-        config_dict["filters"] = paths.find_parameters(
-            "filter", input_root=config_dict["input_root"]
-        )
-    if "objects" not in config_dict:
-        config_dict["objects"] = paths.find_parameters(
-            "object", input_root=config_dict["input_root"]
-        )
-
-    # Create GalWrapConfig from dict
+    # Create and return GalWrapConfig object from dict
     galwrap_config = GalWrapConfig(**config_dict)
-
-    # # Setup directories
-    # path.setup_directories(galwrap_config=galwrap_config)
-
-    # # Create filter info tables
-    # ## TODO set how ofic is chosen
-    # input_science_files: list[Path] = path.get_path(
-    #     "file_science_images", galwrap_config=galwrap_config, ofic=ofic
-    # )
-    # for input_science_file in input_science_files:
-    #     galwrap_config.filters.append(
-    #         input_science_file.name.split("-")[1].split("_")[0]
-    #     )
-    # ## TODO is this where pixscales are from?
-    # galwrap_config.pixscales.append("40mas")
-
-    # ## Create table of three columns in order of filters, pixscales, and pixnames
-    # num_filters = len(galwrap_config.filters)
-    # filter_info = Table(
-    #     [
-    #         galwrap_config.filters,
-    #         [galwrap_config.pixscales[0] for i in range(num_filters)],
-    #         [
-    #             utils.scale_to_name(galwrap_config.pixscales[0])
-    #             for i in range(num_filters)
-    #         ],
-    #     ]
-    # )
-
-    # ## Write table to file
-    # ascii.write(
-    #     filter_info,
-    #     path.get_path("file_filter_info", galwrap_config=galwrap_config, ofic=ofic),
-    # )
-
-    # Return created config object
     return galwrap_config
-
-
-# Instantiations
-
-
-galwrap_config = create_config()
-"""Config object instantiation.
-"""
