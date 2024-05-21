@@ -48,6 +48,7 @@ jhive_galwrap/
 │       └── {I}/
 │           └── {C}/
 │               └── {L}/
+│                   ├── {F}_{I}_{C}_{L}_full_sigma.fits
 │                   └── {O}/
 │                       ├── {F}_{I}_{C}_{L}_{O}.feedfile
 │                       ├── {F}_{I}_{C}_{L}_{O}_stamp.fits
@@ -100,6 +101,7 @@ jhive_galwrap/
 │       └── I/
 │           └── C/
 │               └── L/
+│                   ├── F_I_C_L_full_sigma.fits
 │                   └── O/
 │                       ├── F_I_C_L_O.feedfile
 │                       ├── F_I_C_L_O_stamp.fits
@@ -139,7 +141,8 @@ galwrap_root/
 │   └── .../
 │       └── .../
 │           └── .../
-│               └── .../
+│               └── product_ficl/
+│                   ├── fullsigma
 │                   └── product_ficlo/
 │                       ├── feedfile
 │                       ├── stamp
@@ -179,6 +182,8 @@ galwrap_root/
 |:pencil:|Product|`template`|Template GALFIT feedfile to be overwritten with data for each object.|
 |:file_folder:|Product|`product_psfs`|Directory containing cropped PSFs.|
 |:framed_picture:|Product|`psf`|Cropped PSF file given a filter and pixel scale.|
+|:file_folder:|Product|`product_ficl`|Directory containing files for a given field, image version, catalog version, and filter (FICL).|
+|:framed_picture:|Product|`fullsigma`|Full sigma map for a given FICL. These are very intensive to generate.|
 |:file_folder:|Product|`product_ficlo`|Directory containing files for a given field, image version, catalog version, filter, and object (FICLO).|
 |:pencil:|Product|`feedfile`|Configurations for a single GALFIT run for a given FICLO.|
 |:framed_picture:|Product|`stamp`|Cropped science frame for a given object matched against a catalog.|

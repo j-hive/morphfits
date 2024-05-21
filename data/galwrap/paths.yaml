@@ -37,7 +37,7 @@ rawpsf:
     - input psf file
 segmap:
   file: True
-  path: "[input_imver]/{F}-{I}-ir_seg.fits"
+  path: "[input_imver]/{F}-{I}-ir_seg.fits.gz"
   alts:
     - segmentation map
     - segmentation map file
@@ -49,19 +49,19 @@ catalog:
     - input catalog file
 exposure:
   file: True
-  path: "[input_images]/{F}-{I}-{L}_dr*_exp.fits.gz"
+  path: "[input_images]/{F}-{I}-{L}*_dr*_exp.fits.gz"
   alts:
     - exp
     - exposure map
 science:
   file: True
-  path: "[input_images]/{F}-{I}-{L}_dr*_sci.fits.gz"
+  path: "[input_images]/{F}-{I}-{L}*_dr*_sci.fits.gz"
   alts:
     - sci
     - input image
 weights:
   file: True
-  path: "[input_images]/{F}-{I}-{L}_dr*_wht.fits.gz"
+  path: "[input_images]/{F}-{I}-{L}*_dr*_wht.fits.gz"
   alts:
     - wht
     - weight map
@@ -78,6 +78,11 @@ product_psfs:
   path: "[product_root]/psfs"
   alts:
     - psfs
+product_ficl:
+  file: False
+  path: "[product_root]/{F}/{I}/{C}/{L}"
+  alts:
+    - ficl products
 product_ficlo:
   file: False
   path: "[product_root]/{F}/{I}/{C}/{L}/{O}"
@@ -119,7 +124,7 @@ sigma:
     - variance
 mask:
   file: True
-  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}_mask.fits"
+  path: "[product_ficlo]/{F}_{I}_{C}_{O}_mask.fits"
   alts:
     - segmap cutout
 

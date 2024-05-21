@@ -312,7 +312,7 @@ def get_path(
     input_root: Path | None = None,
     product_root: Path | None = None,
     output_root: Path | None = None,
-    FICLO: FICLO | None = None,
+    ficlo: FICLO | None = None,
     field: str | None = None,
     fields: list[str] | None = None,
     image_version: str | None = None,
@@ -337,12 +337,12 @@ def get_path(
 
     ## FICLOs
     ### Single
-    field = get_parameter("field", field, FICLO)
-    image_version = get_parameter("image_version", image_version, FICLO)
-    catalog_version = get_parameter("catalog_version", catalog_version, FICLO)
-    filter = get_parameter("filter", filter, FICLO)
-    object = get_parameter("object", object, FICLO)
-    pixscale = get_parameter("pixscale", pixscale, FICLO)
+    field = get_parameter("field", field, ficlo)
+    image_version = get_parameter("image_version", image_version, ficlo)
+    catalog_version = get_parameter("catalog_version", catalog_version, ficlo)
+    filter = get_parameter("filter", filter, ficlo)
+    object = get_parameter("object", object, ficlo)
+    pixscale = get_parameter("pixscale", pixscale, ficlo)
 
     ### Multiple
     fields = (
