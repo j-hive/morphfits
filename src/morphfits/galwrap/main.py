@@ -7,7 +7,7 @@
 import logging
 from pathlib import Path
 
-from . import config, paths
+from . import config, paths, products
 
 
 # Constants
@@ -16,7 +16,11 @@ from . import config, paths
 logger = logging.getLogger("GALWRAP")
 
 
-# Main
+# Functions
+
+
+def run_galfit():
+    pass
 
 
 def main(
@@ -77,13 +81,11 @@ def main(
     )
     paths.setup_galwrap_paths(galwrap_config=galwrap_config)
 
-    # Create products if nonexistent
-    ## Mask
-    ## PSF
-    ## Sigma
-    ## For each FICLO
-    ### Stamp
-    ### Feedfile
+    # Create products if nonexistent, for each FICLO
+    logger.info("Generating products from input data, where nonexistent.")
+    # products.generate_all_products(galwrap_config=galwrap_config)
+    for ficlo in galwrap_config.get_ficlos():
+        products.generate_products(ficlo=ficlo, galwrap_config=galwrap_config)
 
     # Run GALFIT
     ## For each FICLO
