@@ -5,9 +5,11 @@
 
 
 import logging
+from subprocess import Popen, PIPE, STDOUT
 from pathlib import Path
 
-from . import config, paths, products
+from . import config, paths, products, GALWRAP_DATA_ROOT
+from .setup import FICLO, GalWrapConfig
 
 
 # Constants
@@ -19,8 +21,34 @@ logger = logging.getLogger("GALWRAP")
 # Functions
 
 
-def run_galfit():
-    pass
+def run_galfit(ficlo: FICLO, galwrap_config: GalWrapConfig):
+    # Get paths
+    feedfile_path = paths.get_path(
+        "feedfile", galwrap_config=galwrap_config, ficlo=ficlo
+    )
+    model_path = paths.get_path("model", galwrap_config=galwrap_config, ficlo=ficlo)
+
+    # Run subprocess and pipe output
+    logger.info(f"Running GALFIT.")
+    process = Popen(
+        f"cd {str(GALWRAP_DATA_ROOT)} && galfit {str(feedfile_path)}",
+        stdout=PIPE,
+        shell=True,
+        stderr=STDOUT,
+        bufsize=1,
+        close_fds=True,
+    )
+    process_log = []
+    for line in iter(process.stdout.readline, b""):
+        process_log.append(line.rstrip().decode("utf-8"))
+    process.stdout.close()
+    process.wait()
+
+    # Remove GALFIT output
+    if (process.returncode == 1) and (model_path.exists()):
+        for path in GALWRAP_DATA_ROOT.iterdir():
+            if ("log" in path.name) or ("galfit." in path.name):
+                path.unlink()
 
 
 def main(
@@ -49,9 +77,9 @@ def main(
     # Setup
     ## Create configuration object
     if config_path is not None:
-        logger.info(f"Creating configuration object from config file at {config_path}")
+        logger.info(f"Creating configuration object from config file.")
     else:
-        logger.info(f"Creating configuration object with input root at {input_root}")
+        logger.info(f"Creating configuration object from passed values.")
     galwrap_config = config.create_config(
         config_path=config_path,
         galwrap_root=galwrap_root,
@@ -75,10 +103,7 @@ def main(
     )
 
     ## Setup product and output directories if nonexistent
-    logger.info(
-        "Setting up product and output directories "
-        + f"where missing at {galwrap_config.galwrap_root}"
-    )
+    logger.info("Setting up product and output directories where missing.")
     paths.setup_galwrap_paths(galwrap_config=galwrap_config)
 
     # Create products if nonexistent, for each FICLO
@@ -87,8 +112,10 @@ def main(
     for ficlo in galwrap_config.get_ficlos():
         products.generate_products(ficlo=ficlo, galwrap_config=galwrap_config)
 
-    # Run GALFIT
-    ## For each FICLO
+    # Run GALFIT, for each FICLO
+    logger.info("Running GALFIT for each configuration.")
+    for ficlo in galwrap_config.get_ficlos():
+        run_galfit(ficlo=ficlo, galwrap_config=galwrap_config)
 
     # Make plots
     ## For each FICLO
