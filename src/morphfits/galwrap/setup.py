@@ -192,7 +192,31 @@ class GalWrapConfig(BaseModel):
             self.objects if objects is None else objects,
             self.pixscales if pixscales is None else pixscales,
         ):
-            # Check for input existence
+            # Skip FICLO if any input missing
+            missing_input = False
+            for required_input in [
+                "rawpsf",
+                "segmap",
+                "catalog",
+                "exposure",
+                "science",
+                "weights",
+            ]:
+                if (
+                    not GALWRAP_PATHS[required_input]
+                    .resolve(
+                        galwrap_root=self.galwrap_root,
+                        input_root=self.input_root,
+                        field=field,
+                        image_version=image_version,
+                        filter=filter,
+                    )
+                    .exists()
+                ):
+                    missing_input = True
+                    break
+            if missing_input:
+                continue
 
             yield FICLO(
                 field=field,
@@ -315,11 +339,27 @@ class GalWrapPath(BaseModel):
             if "{" + template + "}" in resolved_path:
                 if parameters[TEMPLATE_MAPPINGS[template]] is not None:
                     if template == "L":
-                        resolved_path = re.sub(
-                            "({" + template + "})",
-                            str(parameters[TEMPLATE_MAPPINGS[template]].split("-")[0]),
-                            resolved_path,
-                        )
+                        # Simulated PSFs have capitalized filters in name
+                        if "PSF_NIRCam" in resolved_path:
+                            resolved_path = re.sub(
+                                "({" + template + "})",
+                                str(
+                                    parameters[TEMPLATE_MAPPINGS[template]].split("-")[
+                                        0
+                                    ]
+                                ).upper(),
+                                resolved_path,
+                            )
+                        else:
+                            resolved_path = re.sub(
+                                "({" + template + "})",
+                                str(
+                                    parameters[TEMPLATE_MAPPINGS[template]].split("-")[
+                                        0
+                                    ]
+                                ),
+                                resolved_path,
+                            )
                     else:
                         resolved_path = re.sub(
                             "({" + template + "})",
