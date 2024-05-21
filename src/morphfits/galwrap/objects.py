@@ -111,12 +111,14 @@ class GalWrapConfig(BaseModel):
         List of fields over which to execute GALFIT.
     image_versions : list[str]
         List of image versions over which to execute GALFIT.
-    catalog_versions : list[str]
-        List of catalog versions over which to execute GALFIT.
     filters : list[str]
         List of filter bands over which to execute GALFIT.
-    objects : list[int]
-        List of target IDs over which to execute GALFIT, for each catalog.
+    catalog_versions : list[str], optional
+        List of catalog versions over which to execute GALFIT, by default "DJA
+        DR3".
+    objects : list[int], optional
+        List of target IDs over which to execute GALFIT, for each catalog, by
+        default all targets.
     galwrap_root : Path, optional
         Path to root directory containing all of input, product, and output
         directories, by default the repository root.
@@ -132,9 +134,9 @@ class GalWrapConfig(BaseModel):
     output_root: Path
     fields: list[str]
     image_versions: list[str]
-    catalog_versions: list[str]
     filters: list[str]
-    objects: list[int]
+    catalog_versions: list[str] = ["dja-dr3"]
+    objects: list[int] = []
     galwrap_root: Path = ROOT
     pixscales: list[float] = [0.04]
     morphology_versions: list[str] = ["galfit"]
@@ -237,6 +239,10 @@ class GalWrapPath(BaseModel):
 
     def resolve(
         self,
+        galwrap_root: Path | None = None,
+        input_root: Path | None = None,
+        product_root: Path | None = None,
+        output_root: Path | None = None,
         field: str | None = None,
         field_2: str | None = None,
         image_version: str | None = None,
@@ -250,6 +256,14 @@ class GalWrapPath(BaseModel):
 
         Parameters
         ----------
+        galwrap_root : Path | None, optional
+            Path to root of GalWrap filesystem, by default None.
+        input_root : Path | None, optional
+            Path to input root of GalWrap filesystem, by default None.
+        product_root : Path | None, optional
+            Path to products root of GalWrap filesystem, by default None.
+        output_root : Path | None, optional
+            Path to output root of GalWrap filesystem, by default None.
         field : str | None, optional
             Field of observation, by default None.
         field_2 : str | None, optional
@@ -279,19 +293,32 @@ class GalWrapPath(BaseModel):
         if "[" in resolved_path:
             pattern = "(\[.*\])"
             path_name = re.match(pattern, resolved_path).group()[1:-1]
-            resolved_path = re.sub(
-                pattern,
-                GALWRAP_PATHS[path_name].resolve(
-                    field=field,
-                    field_2=field_2,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    filter=filter,
-                    object=object,
-                    pixname=pixname,
-                ),
-                resolved_path,
-            )
+            if ("root" in path_name) and (parameters[path_name] is not None):
+                resolved_path = re.sub(
+                    pattern,
+                    str(parameters[path_name]),
+                    resolved_path,
+                )
+            else:
+                resolved_path = re.sub(
+                    pattern,
+                    str(
+                        GALWRAP_PATHS[path_name].resolve(
+                            galwrap_root=galwrap_root,
+                            input_root=input_root,
+                            product_root=product_root,
+                            output_root=output_root,
+                            field=field,
+                            field_2=field_2,
+                            image_version=image_version,
+                            catalog_version=catalog_version,
+                            filter=filter,
+                            object=object,
+                            pixname=pixname,
+                        )
+                    ),
+                    resolved_path,
+                )
         # Fill templates
         for template in TEMPLATE_MAPPINGS:
             if "{" + template + "}" in resolved_path:
@@ -307,8 +334,18 @@ class GalWrapPath(BaseModel):
                         + f"to resolve path {self.path}."
                     )
 
+        resolved_path_obj = Path(resolved_path).resolve()
+
+        # Resolve drc/drz
+        if (resolved_path_obj.name[-8:] == ".fits.gz") and (
+            "*" in resolved_path_obj.name
+        ):
+            resolved_path_obj = list(
+                resolved_path_obj.parent.glob(resolved_path_obj.name)
+            )[0]
+
         # Return resolved path
-        return resolved_path
+        return resolved_path_obj
 
 
 # Instants

@@ -7,10 +7,10 @@ GalWrap.
 
 from pathlib import Path
 
-from .. import PATH_NAMES
-from .objects import GalWrapPath, FICLO, GalWrapConfig
-from ..utils import science
+from astropy.table import Table
 
+from .objects import GalWrapPath, FICLO, GalWrapConfig, GALWRAP_PATHS
+from ..utils import science
 
 
 # Functions
@@ -20,7 +20,7 @@ from ..utils import science
 
 
 def get_path_obj(path_like: str | Path) -> Path:
-    """Get a Path object for a potential string.
+    """Get a resolved Path object for a potential string.
 
     Parameters
     ----------
@@ -32,7 +32,9 @@ def get_path_obj(path_like: str | Path) -> Path:
     Path
         Corresponding Path object.
     """
-    return Path(path_like).resolve() if isinstance(path_like, str) else path_like
+    return (
+        Path(path_like).resolve() if isinstance(path_like, str) else path_like.resolve()
+    )
 
 
 def get_directories(path: Path) -> list[Path]:
@@ -83,7 +85,7 @@ def get_files(path: Path) -> list[Path]:
         raise ValueError(f"Path {path} is not a directory.")
 
 
-## Parameters
+## Parameter
 
 
 def get_parameter(
@@ -93,7 +95,10 @@ def get_parameter(
 ) -> int | float | str | Path | list[float] | list[str]:
     """Get the hierarchically preferred value for a parameter, where parameter
     refers to a program execution's configuration variables, e.g. `field` or
-    `filter`.
+    `filter`, in order of value passed from
+        1. Function call parameter
+        2. Attribute in object instance
+        3. None if neither are passed
 
     Parameters
     ----------
@@ -110,11 +115,6 @@ def get_parameter(
         Hierarchically preferred value, in order of directly passed value, then
         that of the instance.
 
-    Raises
-    ------
-    AttributeError
-        Value passed neither directly nor via object.
-
     Notes
     -----
     Internal function used by :func:``get_path``. Should not be exposed to user,
@@ -122,96 +122,111 @@ def get_parameter(
     """
     # Validate parameter existence and return corresponding value, in preference
     # of directly passed parameter, then object instance attribute
-
     ## Multiple parameters
     if name[-1] == "s":
-        if (parameter is None) and (
-            (instance is None) or (len(vars(instance)[name]) == 0)
-        ):
-            raise AttributeError(f"{name.capitalize()} not passed.")
-        else:
-            return vars(instance)[name] if parameter is None else parameter
-
-    ## Single parameters
-    else:
-        if (parameter is None) and (instance is None):
-            raise AttributeError(f"{name.capitalize()} not passed.")
-        else:
-            resolved_parameter = (
-                vars(instance)[name] if parameter is None else parameter
-            )
-
-            ### Path parameters
-            if "root" in name:
-                return get_path_obj(resolved_parameter)
-            ### Other parameters
+        if parameter is None:
+            if (instance is None) or (len(vars(instance)[name]) == 0):
+                return None
             else:
-                return resolved_parameter
+                return vars(instance)[name]
+        else:
+            return parameter
+    ## Single parameter
+    else:
+        if parameter is None:
+            if instance is None:
+                return None
+            else:
+                return (
+                    get_path_obj(vars(instance)[name])
+                    if "root" in name
+                    else vars(instance)[name]
+                )
+        else:
+            return get_path_obj(parameter) if "root" in name else parameter
 
 
 def find_parameter_from_input(
     parameter_name: str, input_root: Path
-) -> list[str] | list[int] | list[float]:
-    parameters = []
+) -> list[str] | list[int]:
+    """Find parameter values from an input directory.
 
-    if parameter_name == "field":
-        for field_dir in get_directories(input_root):
-            if field_dir.name not in parameters:
-                parameters.append(field_dir.name)
-    elif parameter_name == "image_version":
-        for field_dir in get_directories(input_root):
-            for image_dir in get_directories(field_dir):
-                if image_dir.name not in parameters:
-                    parameters.append(image_dir.name)
-    elif parameter_name == "catalog_version":
-        for field_dir in get_directories(input_root):
-            for image_dir in get_directories(field_dir):
-                for catalog_dir in get_directories(image_dir):
-                    if catalog_dir.name not in parameters:
-                        parameters.append(catalog_dir.name)
-    elif parameter_name == "filter":
-        for filter_dir in get_directories(input_root):
-            # TODO add filters, catalogs, as directory before
-            pass
-        for field_dir in get_directories(input_root):
-            for image_dir in get_directories(field_dir):
-                for filter_dir in get_directories(image_dir):
-                    if filter_dir.name not in parameters:
-                        parameters.append(filter_dir.name)
+    Parameters
+    ----------
+    parameter_name : str
+        Name of parameter, one of "field", "image_version", or "filter". Other
+        parameters are not currently supported for discovery.
+    input_root : Path
+        Path to root directory of input products.
 
-    elif "field" in name:
-        for object_dir in get_directories(input_root):
-            for field_dir in get_directories(object_dir):
-                if field_dir.name not in parameters:
-                    parameters.append(field_dir.name)
-    elif "image" in name:
-        for object_dir in get_directories(input_root):
-            for field_dir in get_directories(object_dir):
-                for ic_dir in get_directories(field_dir):
-                    if "." in ic_dir.name:
-                        if ic_dir.name.split(".")[0] not in parameters:
-                            parameters.append(ic_dir.name.split(".")[0])
-                    else:
-                        if ic_dir.name not in parameters:
-                            parameters.append(ic_dir.name)
-    elif "catalog" in name:
-        for object_dir in get_directories(input_root):
-            for field_dir in get_directories(object_dir):
-                for ic_dir in get_directories(field_dir):
-                    if "." in ic_dir.name:
-                        if ic_dir.name.split(".")[1] not in parameters:
-                            parameters.append(int(ic_dir.name.split(".")[1]))
-    elif "filter" in name:
-        for object_dir in get_directories(input_root):
-            for field_dir in get_directories(object_dir):
-                for ic_dir in get_directories(field_dir):
-                    if "." in ic_dir.name:
-                        for file in get_files(ic_dir / "psfs"):
-                            if file.name:
-                                pass
+    Returns
+    -------
+    list[str] | list[int]
+        List of discovered parameter values.
+
+    Raises
+    ------
+    ValueError
+        Unrecognized parameter name.
+    """
+    discovered = []
+
+    match parameter_name:
+        case "field":
+            for field_dir in get_directories(input_root):
+                if field_dir.name == "psfs":
+                    continue
+                elif field_dir.name not in discovered:
+                    discovered.append(field_dir.name)
+        case "image_version":
+            for field_dir in get_directories(input_root):
+                if field_dir.name == "psfs":
+                    continue
+                for image_dir in get_directories(field_dir):
+                    if image_dir.name not in discovered:
+                        discovered.append(image_dir.name)
+        case "filter":
+            for psf_file in get_files(input_root / "psfs"):
+                filter = psf_file.name.split("_")[-1].split(".")[0].lower()
+                if filter not in discovered:
+                    discovered.append(filter)
+            for field_dir in get_directories(input_root):
+                if field_dir.name == "psfs":
+                    continue
+                for image_dir in get_directories(field_dir):
+                    for filter_dir in get_directories(image_dir):
+                        if filter_dir.name not in discovered:
+                            discovered.append(filter_dir.name)
+        case "object":
+            fields, image_versions = [], []
+            for field_dir in get_directories(input_root):
+                if field_dir.name == "psfs":
+                    continue
+                fields.append(field_dir.name)
+                for image_dir in get_directories(field_dir):
+                    image_versions.append(image_dir.name)
+            catalog_paths = get_path(
+                "catalog",
+                input_root=input_root,
+                fields=fields,
+                image_versions=image_versions,
+            )
+            catalog_paths = (
+                [catalog_paths] if isinstance(catalog_paths, Path) else catalog_paths
+            )
+            for catalog_path in catalog_paths:
+                table = Table.read(catalog_path)
+                for object in table["id"]:
+                    discovered.append(int(object))
+        case _:
+            raise ValueError(
+                f"Parameter {parameter_name} unrecognized for input discovery."
+            )
+
+    return discovered
 
 
-## Path Resolution
+## Resolution
 
 
 def get_path_name(name: str) -> str:
@@ -277,12 +292,12 @@ def get_path_name(name: str) -> str:
             return path_name
 
         # 4. Space delimiter and `dir` or `file` suffix
-        if name == path_name_case_3 + " file" if path_item.file else " dir":
+        if name == path_name_case_3 + (" file" if path_item.file else " dir"):
             return path_name
 
         # 5. Space delimiter, `dir` or `file` suffix, and un-pluralized
         if ("s" == path_name[-1]) and (
-            name == path_name_case_3[:-1] + " file" if path_item.file else " dir"
+            name == path_name_case_3[:-1] + (" file" if path_item.file else " dir")
         ):
             return path_name
 
@@ -293,573 +308,129 @@ def get_path_name(name: str) -> str:
 def get_path(
     name: str,
     galwrap_config: GalWrapConfig | None = None,
-    photometry_root: Path | str | None = None,
-    imaging_root: Path | str | None = None,
-    output_root: Path | str | None = None,
-    ofic: OFIC | None = None,
-    object: str | None = None,
+    galwrap_root: Path | None = None,
+    input_root: Path | None = None,
+    product_root: Path | None = None,
+    output_root: Path | None = None,
+    FICLO: FICLO | None = None,
     field: str | None = None,
+    fields: list[str] | None = None,
     image_version: str | None = None,
-    catalog_version: int | None = None,
+    image_versions: list[str] | None = None,
+    catalog_version: str | None = None,
+    catalog_versions: list[str] | None = None,
     filter: str | None = None,
-    galaxy_id: int | None = None,
+    filters: list[str] | None = None,
+    object: int | None = None,
+    objects: list[int] | None = None,
     pixscale: float | None = None,
     pixscales: list[float] | None = None,
-) -> Path | list[Path]:
-    """Get the path to a directory or file via a recognized name.
-
-    Parameters
-    ----------
-    name : str
-        Name of the directory or file.
-    galwrap_config : GalWrapConfig | None, optional
-        Configuration parameters for program execution, by default None.
-    photometry_root : Path | str | None, optional
-        Path to root of input photometry products, by default unspecified,
-        meaning it must be set by a passed GalWrapConfig object.
-    imaging_root : Path | str | None, optional
-        Path to root of input imaging products, by default unspecified, meaning
-        it must be set by a passed GalWrapConfig object.
-    output_root : Path | str | None, optional
-        Path to root directory of output GalWrap products, by default
-        unspecified, meaning it must be set by a passed GalWrapConfig object.
-    ofic : OFIC | None, optional
-        Data object containing the object, field, image version, and catalog
-        version for a program execution, by default None.
-    object : str | None, optional
-        Center of cluster to be fitted, by default unspecified, meaning it must
-        be set by a passed OFIC object.
-    field : str | None, optional
-        Field of cluster to be fitted, by default unspecified, meaning it must
-        be set by a passed OFIC object.
-    image_version : str | None, optional
-        Image version of input data, by default unspecified, meaning it must be
-        set by a passed OFIC object.
-    catalog_version : int | None, optional
-        Catalog version of input data, by default unspecified, meaning it must
-        be set by a passed OFIC object.
-    filter : str | None, optional
-        Filter of input image data, by default None (unspecified).
-    galaxy_id : int | None, optional
-        ID of galaxy, by default None.
-    pixscale : float | None, optional
-        Pixel scale resolution, by default None.
-    pixscales : list[float] | None, optional
-        Pixel scale resolutions, by default None.
-
-    Returns
-    -------
-    Path | list[Path]
-        Path(s) to directory or file corresponding to passed name.
-
-    Raises
-    ------
-    AttributeError
-        Necessary input passed neither directly nor via object, e.g.
-        `object=None` and `ofic=None`.
-
-    See Also
-    --------
-    data.path_names.yaml
-        Standardized path names and their recognized alternative names.
-    """
-    # Get corresponding standardized path name
+) -> Path | list[Path] | None:
+    # Resolve name and parameters
     path_name = get_path_name(name)
 
-    # All paths require an object, field, and image version
-    object = get_parameter("object", object, ofic)
-    field = get_parameter("field", field, ofic)
-    image_version = get_parameter("image_version", image_version, ofic)
+    ## Paths
+    galwrap_root = get_parameter("galwrap_root", galwrap_root, galwrap_config)
+    input_root = get_parameter("input_root", input_root, galwrap_config)
+    product_root = get_parameter("product_root", product_root, galwrap_config)
+    output_root = get_parameter("output_root", output_root, galwrap_config)
 
-    # Return corresponding path
-    match path_name:
-        # Photometry
-        ## Parent
-        case "photometry_ofi":
-            photometry_root = get_parameter(
-                "photometry_root", photometry_root, galwrap_config
-            )
-            return photometry_root / object / field / image_version
-        ## OFI Directories
-        case "photometry_rms":
-            return (
-                get_path(
-                    name="photometry_ofi",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    ofic=ofic,
-                    photometry_root=photometry_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "rms"
-            )
+    ## FICLOs
+    ### Single
+    field = get_parameter("field", field, FICLO)
+    image_version = get_parameter("image_version", image_version, FICLO)
+    catalog_version = get_parameter("catalog_version", catalog_version, FICLO)
+    filter = get_parameter("filter", filter, FICLO)
+    object = get_parameter("object", object, FICLO)
+    pixscale = get_parameter("pixscale", pixscale, FICLO)
 
-        # Imaging
-        ## Parent
-        case "imaging_of":
-            imaging_root = get_parameter("imaging_root", imaging_root, galwrap_config)
-            return imaging_root / object / field
-        case "imaging_ofic":
-            catalog_version = get_parameter("catalog_version", catalog_version, ofic)
-            return (
-                get_path(
-                    name="imaging_of",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    ofic=ofic,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
-                )
-                / f"{image_version}.{catalog_version}"
-            )
-        ## OFI Directories
-        case "imaging_sci":
-            return (
-                get_path(
-                    name="imaging_of",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    ofic=ofic,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
-                )
-                / image_version
-                / "science"
-            )
-        case "file_science_images":
-            # TODO handle filters too
-            # Paths to science images for single pixscale
-            try:
-                pixscale = get_parameter("pixscale", pixscale, ofic)
-                return list(
-                    get_path(
-                        name="imaging_sci",
-                        object=object,
-                        field=field,
-                        image_version=image_version,
-                        ofic=ofic,
-                        imaging_root=imaging_root,
-                        galwrap_config=galwrap_config,
-                    ).glob(f"*{science.scale_to_name(pixscale)}*_sci.fits")
-                )
-            # Paths to science images for multiple pixscales
-            except AttributeError:
-                pixscales = get_parameter("pixscales", pixscales, galwrap_config)
-                science_images = []
-                for pixscale in pixscales:
-                    # Get paths to each science image
-                    science_images_pixscale = list(
-                        get_path(
-                            name="imaging_sci",
-                            object=object,
-                            field=field,
-                            image_version=image_version,
-                            ofic=ofic,
-                            imaging_root=imaging_root,
-                            galwrap_config=galwrap_config,
-                        ).glob(f"*{science.scale_to_name(pixscale)}*_sci.fits")
-                    )
+    ### Multiple
+    fields = (
+        get_parameter("fields", fields, galwrap_config) if field is None else [field]
+    )
+    image_versions = (
+        get_parameter("image_versions", image_versions, galwrap_config)
+        if image_version is None
+        else [image_version]
+    )
+    catalog_versions = (
+        get_parameter("catalog_versions", catalog_versions, galwrap_config)
+        if catalog_version is None
+        else [catalog_version]
+    )
+    filters = (
+        get_parameter("filters", filters, galwrap_config)
+        if filter is None
+        else [filter]
+    )
+    objects = (
+        get_parameter("objects", objects, galwrap_config)
+        if object is None
+        else [object]
+    )
+    pixscales = (
+        get_parameter("pixscales", pixscales, galwrap_config)
+        if pixscale is None
+        else [pixscale]
+    )
 
-                    # Add paths to total list
-                    for science_image in science_images_pixscale:
-                        science_images.append(science_image)
-                return science_images
-        case "imaging_bcgs":
-            return (
-                get_path(
-                    name="imaging_of",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    ofic=ofic,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
-                )
-                / image_version
-                / "bcgs"
-            )
-        ## OFIC Directories
-        case "imaging_psfs":
-            return (
-                get_path(
-                    name="imaging_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "psfs"
-            )
-        case "imaging_catalogs":
-            return (
-                get_path(
-                    name="imaging_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "catalogs"
-            )
-        ## OFIC Files
-        case "file_segmap":
-            return (
-                get_path(
-                    name="imaging_catalogs",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
-                )
-                / f"{object}{field}_photutils_segmap_{image_version}.{catalog_version}.fits"
-            )
-        case "file_photometry_catalog":
-            return (
-                get_path(
-                    name="imaging_catalogs",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    imaging_root=imaging_root,
-                    galwrap_config=galwrap_config,
-                )
-                / f"{object}{field}_photutils_cat_{image_version}.{catalog_version}.fits"
-            )
+    # Resolve paths for all given parameters
+    paths = []
+    for field in [None] if fields is None else fields:
+        for image_version in [None] if image_versions is None else image_versions:
+            for catalog_version in (
+                [None] if catalog_versions is None else catalog_versions
+            ):
+                for filter in [None] if filters is None else filters:
+                    for object in [None] if objects is None else objects:
+                        for pixscale in [0.0] if pixscales is None else pixscales:
+                            paths.append(
+                                GALWRAP_PATHS[path_name].resolve(
+                                    galwrap_root=galwrap_root,
+                                    input_root=input_root,
+                                    product_root=product_root,
+                                    output_root=output_root,
+                                    field=field,
+                                    image_version=image_version,
+                                    catalog_version=catalog_version,
+                                    filter=filter,
+                                    object=object,
+                                    pixname=science.get_pixname(pixscale),
+                                )
+                            )
 
-        # Output
-        ## Parent
-        case "output_ofic":
-            output_root = get_parameter("output_root", output_root, galwrap_config)
-            catalog_version = get_parameter("catalog_version", catalog_version, ofic)
-            return output_root / object / field / f"{image_version}.{catalog_version}"
-        ## OFIC Directories
-        case "output_segmaps":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "segmaps"
-            )
-        case "output_masks":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "masks"
-            )
-        case "output_psfs":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "psfs"
-            )
-        case "output_rms":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "rms"
-            )
-        case "output_stamps":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "stamps"
-            )
-        case "output_feedfiles":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "feedfiles"
-            )
-        case "output_galfit":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                )
-                / "galfit_output"
-            )
-        case "output_visualizations":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / "visualizations"
-            )
-        ## OFIC Files
-        case "file_filter_info":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / f"{object}{field}_{image_version}_filter_info.dat"
-            )
-        case "file_depth":
-            return (
-                get_path(
-                    name="output_ofic",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / f"{object}{field}_{image_version}_depth.txt"
-            )
-        case "file_mask":
-            return (
-                get_path(
-                    name="output_masks",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / f"{galaxy_id}_{object}{field}_mask.fits"
-            )
-        case "file_science":
-            filter = get_parameter("filter", filter, ofic)
-            galaxy_id = get_parameter("galaxy_id", galaxy_id, ofic)
-            return (
-                get_path(
-                    name="output_stamps",
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    ofic=ofic,
-                    output_root=output_root,
-                    galwrap_config=galwrap_config,
-                )
-                / filter
-                / f"{galaxy_id}_{object}{field}-{filter}_sci.fits"
-            )
+    # Return single path if appropriate, all discovered paths otherwise
+    match len(paths):
+        case 0:
+            return None
+        case 1:
+            return paths[0]
+        case _:
+            return paths
 
 
 ## Setup
 
 
-def setup_directories(
-    galwrap_config: GalWrapConfig | None = None,
-    photometry_root: Path | str | None = None,
-    imaging_root: Path | str | None = None,
-    output_root: Path | str | None = None,
-    ofic: OFIC | None = None,
-    object: str | None = None,
-    field: str | None = None,
-    image_version: str | None = None,
-    catalog_version: int | None = None,
-    filter: str | None = None,
-    filters: list[str] | None = None,
-):
-    """Validate input directory existence and create output directories where
-    nonexistent, for a given program configuration.
-
-    Parameters
-    ----------
-    galwrap_config : GalWrapConfig | None, optional
-        Configuration parameters for program execution, by default None.
-    photometry_root : Path | str | None, optional
-        Path to root of input photometry products, by default unspecified,
-        meaning it must be set by a passed GalWrapConfig object.
-    imaging_root : Path | str | None, optional
-        Path to root of input imaging products, by default unspecified, meaning
-        it must be set by a passed GalWrapConfig object.
-    output_root : Path | str | None, optional
-        Path to root directory of output GalWrap products, by default
-        unspecified, meaning it must be set by a passed GalWrapConfig object.
-    ofic : OFIC | None, optional
-        Data object containing the object, field, image version, and catalog
-        version for a program execution, by default None.
-    object : str | None, optional
-        Center of cluster to be fitted, by default unspecified, meaning it must
-        be set by a passed OFIC object.
-    field : str | None, optional
-        Field of cluster to be fitted, by default unspecified, meaning it must
-        be set by a passed OFIC object.
-    image_version : str | None, optional
-        Image version of input data, by default unspecified, meaning it must be
-        set by a passed OFIC object.
-    catalog_version : int | None, optional
-        Catalog version of input data, by default unspecified, meaning it must
-        be set by a passed OFIC object.
-    filter : str | None, optional
-        Filter of input image data, by default None (unspecified).
-    filters : list[str] | None, optional
-        List of filters of input image data, by default None (unspecified).
-
-    Raises
-    ------
-    FileNotFoundError
-        Input directory not found.
-    """
-    # Validate each expected input directory exists
-    for path_name in PATH_NAMES["photometry"] | PATH_NAMES["imaging"]:
-        # Skip files
-        if "file" in path_name:
-            continue
-
-        # Terminate if input directory does not exist
-        directory_path = get_path(
-            path_name,
-            galwrap_config=galwrap_config,
-            photometry_root=photometry_root,
-            imaging_root=imaging_root,
-            ofic=ofic,
-            object=object,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-        )
-        if not (directory_path.exists() and directory_path.is_dir()):
-            raise FileNotFoundError(
-                f"Input directory {path_name} expected, but not found."
-            )
-
-        # TODO check file existence
-
-    # Iterate over each expected output directory
-    for path_name in PATH_NAMES["output"]:
-        # Skip files
-        if "file" in path_name:
-            continue
-
-        # Create output directory if does not exist
-        get_path(
-            path_name,
-            galwrap_config=galwrap_config,
-            output_root=output_root,
-            ofic=ofic,
-            object=object,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-        ).mkdir(parents=True, exist_ok=True)
-
-    # Create filtered output subdirectories
-    filtered_output_dirs = [
-        "output_feedfiles",
-        "output_galfit",
-        "output_rms",
-        "output_stamps",
-    ]
-
-    ## If list of filters is provided
-    if filters is not None:
-        for filtered_output_dir in filtered_output_dirs:
-            for filter in filters:
-                (
-                    get_path(
-                        filtered_output_dir,
-                        galwrap_config=galwrap_config,
-                        output_root=output_root,
-                        ofic=ofic,
-                        object=object,
-                        field=field,
-                        image_version=image_version,
-                        catalog_version=catalog_version,
-                    )
-                    / filter
-                ).mkdir(parents=True, exist_ok=True)
-
-    ## If single filter is provided
-    if filter is not None:
-        for filtered_output_dir in filtered_output_dirs:
-            (
-                get_path(
-                    filtered_output_dir,
-                    galwrap_config=galwrap_config,
-                    output_root=output_root,
-                    ofic=ofic,
-                    object=object,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                )
-                / filter
-            ).mkdir(parents=True, exist_ok=True)
+def setup_galwrap_paths(galwrap_config: GalWrapConfig):
+    for ficlo in galwrap_config.get_ficlos():
+        for path_name, path_item in GALWRAP_PATHS.items():
+            if (("product" in path_name) or ("output" in path_name)) and (
+                not path_item.file
+            ):
+                print(path_item.resolve(
+                    field=ficlo.field,
+                    image_version=ficlo.image_version,
+                    catalog_version=ficlo.catalog_version,
+                    filter=ficlo.filter,
+                    object=ficlo.object,
+                    pixname=science.get_pixname(ficlo.pixscale),
+                ).mkdir(parents=True, exist_ok=True))
+                # path_item.resolve(
+                #     field=ficlo.field,
+                #     image_version=ficlo.image_version,
+                #     catalog_version=ficlo.catalog_version,
+                #     filter=ficlo.filter,
+                #     object=ficlo.object,
+                #     pixname=science.get_pixname(ficlo.pixscale),
+                # ).mkdir(parents=True, exist_ok=True)
