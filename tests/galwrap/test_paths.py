@@ -4,7 +4,7 @@
 # Imports
 
 
-from morphfits.galwrap.objects import FICLO, GalWrapConfig
+from morphfits.galwrap.setup import FICLO, GalWrapConfig
 from morphfits.galwrap import paths
 
 

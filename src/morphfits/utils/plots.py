@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 # See montage.ipac.caltech.edu/MontageNotebooks/mSubimage.html for more info
 import MontagePy
 
-from ..galwrap.objects import config
+from ..galwrap.setup import config
 
 
 ## Typing

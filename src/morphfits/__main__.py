@@ -11,7 +11,7 @@ from typing import Union, Optional
 import typer
 
 from .utils import logs
-from .galwrap import main as galwrap_main
+from .galwrap.main import main as galwrap_main
 
 
 # Main
@@ -31,6 +31,7 @@ app = typer.Typer()
 @app.command()
 def galwrap(
     config_path: Optional[str] = None,
+    galwrap_root: Optional[str] = None,
     input_root: Optional[str] = None,
     product_root: Optional[str] = None,
     output_root: Optional[str] = None,
@@ -51,6 +52,7 @@ def galwrap(
 ):
     galwrap_main(
         config_path=config_path,
+        galwrap_root=galwrap_root,
         input_root=input_root,
         product_root=product_root,
         output_root=output_root,
@@ -77,4 +79,5 @@ def pyfits(to_be_implemented: int):
 
 
 if __name__ == "__main__":
+    logger.info("Starting MorphFITS.")
     app()

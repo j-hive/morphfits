@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 from . import paths
-from .objects import GalWrapConfig
+from .setup import GalWrapConfig
 
 
 # Logger

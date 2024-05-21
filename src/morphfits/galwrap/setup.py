@@ -135,7 +135,7 @@ class GalWrapConfig(BaseModel):
     fields: list[str]
     image_versions: list[str]
     filters: list[str]
-    catalog_versions: list[str] = ["dja-dr3"]
+    catalog_versions: list[str] = ["dja-v7.2"]
     objects: list[int] = []
     galwrap_root: Path = ROOT
     pixscales: list[float] = [0.04]
@@ -149,7 +149,6 @@ class GalWrapConfig(BaseModel):
         filters: list[str] | None = None,
         objects: list[int] | None = None,
         pixscales: list[float] | None = None,
-        morphology_versions: list[str] | None = None,
     ) -> Generator[FICLO, None, None]:
         """Generate all FICLO permutations from passed configurations, or
         program configurations if former not passed.
@@ -172,9 +171,6 @@ class GalWrapConfig(BaseModel):
         pixscales : list[float] | None, optional
             List of pixel scales over which to execute GALFIT, by default None
             (all).
-        morphology_versions : list[str] | None, optional
-            List of morphology fitting methods to execute, by default None
-            (all).
 
         Yields
         ------
@@ -188,7 +184,6 @@ class GalWrapConfig(BaseModel):
             filter,
             object,
             pixscale,
-            morphology_version,
         ) in itertools.product(
             self.fields if fields is None else fields,
             self.image_versions if image_versions is None else image_versions,
@@ -196,12 +191,9 @@ class GalWrapConfig(BaseModel):
             self.filters if filters is None else filters,
             self.objects if objects is None else objects,
             self.pixscales if pixscales is None else pixscales,
-            (
-                self.morphology_versions
-                if morphology_versions is None
-                else morphology_versions
-            ),
         ):
+            # Check for input existence
+
             yield FICLO(
                 field=field,
                 image_version=image_version,
@@ -209,7 +201,6 @@ class GalWrapConfig(BaseModel):
                 filter=filter,
                 object=object,
                 pixscale=pixscale,
-                morphology_version=morphology_version,
             )
 
 
@@ -323,11 +314,18 @@ class GalWrapPath(BaseModel):
         for template in TEMPLATE_MAPPINGS:
             if "{" + template + "}" in resolved_path:
                 if parameters[TEMPLATE_MAPPINGS[template]] is not None:
-                    resolved_path = re.sub(
-                        "({" + template + "})",
-                        str(parameters[TEMPLATE_MAPPINGS[template]]),
-                        resolved_path,
-                    )
+                    if template == "L":
+                        resolved_path = re.sub(
+                            "({" + template + "})",
+                            str(parameters[TEMPLATE_MAPPINGS[template]].split("-")[0]),
+                            resolved_path,
+                        )
+                    else:
+                        resolved_path = re.sub(
+                            "({" + template + "})",
+                            str(parameters[TEMPLATE_MAPPINGS[template]]),
+                            resolved_path,
+                        )
                 else:
                     raise ValueError(
                         f"Missing {TEMPLATE_MAPPINGS[template]} "

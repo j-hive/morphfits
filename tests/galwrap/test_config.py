@@ -4,7 +4,7 @@
 # Imports
 
 
-from morphfits.galwrap.objects import config
+from morphfits.galwrap.setup import config
 
 
 # Tests

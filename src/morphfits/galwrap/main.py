@@ -21,6 +21,7 @@ logger = logging.getLogger("GALWRAP")
 
 def main(
     config_path: str | Path | None = None,
+    galwrap_root: str | Path | None = None,
     input_root: str | Path | None = None,
     product_root: str | Path | None = None,
     output_root: str | Path | None = None,
@@ -39,10 +40,17 @@ def main(
     morphology_version: str | None = None,
     morphology_versions: list[str] | None = None,
 ):
+    logger.info("Starting GalWrap.")
+
     # Setup
     ## Create configuration object
+    if config_path is not None:
+        logger.info(f"Creating configuration object from config file at {config_path}")
+    else:
+        logger.info(f"Creating configuration object with input root at {input_root}")
     galwrap_config = config.create_config(
         config_path=config_path,
+        galwrap_root=galwrap_root,
         input_root=input_root,
         product_root=product_root,
         output_root=output_root,
@@ -63,6 +71,11 @@ def main(
     )
 
     ## Setup product and output directories if nonexistent
+    logger.info(
+        "Setting up product and output directories "
+        + f"where missing at {galwrap_config.galwrap_root}"
+    )
+    paths.setup_galwrap_paths(galwrap_config=galwrap_config)
 
     # Create products if nonexistent
     ## Mask
@@ -77,6 +90,3 @@ def main(
 
     # Make plots
     ## For each FICLO
-
-
-main(input_root="./data/galwrap_root/input")

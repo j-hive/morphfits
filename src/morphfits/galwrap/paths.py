@@ -9,7 +9,7 @@ from pathlib import Path
 
 from astropy.table import Table
 
-from .objects import GalWrapPath, FICLO, GalWrapConfig, GALWRAP_PATHS
+from .setup import GalWrapPath, FICLO, GalWrapConfig, GALWRAP_PATHS
 from ..utils import science
 
 
@@ -413,24 +413,22 @@ def get_path(
 
 
 def setup_galwrap_paths(galwrap_config: GalWrapConfig):
+    # Iterate over each possible FICLO from configurations
     for ficlo in galwrap_config.get_ficlos():
+        # Iterate over each product and output directory
         for path_name, path_item in GALWRAP_PATHS.items():
             if (("product" in path_name) or ("output" in path_name)) and (
                 not path_item.file
             ):
-                print(path_item.resolve(
+                # Create directory if it does not exist
+                path_item.resolve(
+                    galwrap_root=galwrap_config.galwrap_root,
+                    product_root=galwrap_config.product_root,
+                    output_root=galwrap_config.output_root,
                     field=ficlo.field,
                     image_version=ficlo.image_version,
                     catalog_version=ficlo.catalog_version,
                     filter=ficlo.filter,
                     object=ficlo.object,
                     pixname=science.get_pixname(ficlo.pixscale),
-                ).mkdir(parents=True, exist_ok=True))
-                # path_item.resolve(
-                #     field=ficlo.field,
-                #     image_version=ficlo.image_version,
-                #     catalog_version=ficlo.catalog_version,
-                #     filter=ficlo.filter,
-                #     object=ficlo.object,
-                #     pixname=science.get_pixname(ficlo.pixscale),
-                # ).mkdir(parents=True, exist_ok=True)
+                ).mkdir(parents=True, exist_ok=True)
