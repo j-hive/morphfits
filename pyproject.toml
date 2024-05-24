@@ -27,6 +27,7 @@ pydantic = "^2.7.1"
 hickle = "^5.0.3"
 montagepy = "^2.2.0"
 typer = "^0.12.3"
+fitsio = "^1.2.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.0"
