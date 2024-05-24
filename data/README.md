@@ -60,7 +60,9 @@ jhive_galwrap/
             └── {C}/
                 └── {L}/
                     └── {O}/
-                        ├── {F}_{I}_{C}_{L}_{O}_model.fits
+                        ├── galfit/
+                        │   ├── {F}_{I}_{C}_{L}_{O}_galfit.log
+                        │   └── {F}_{I}_{C}_{L}_{O}_model.fits
                         └── plots/
                             └── {F}_{I}_{C}_{L}_{O}_comparison.png
 ```
@@ -113,7 +115,9 @@ jhive_galwrap/
             └── C/
                 └── L/
                     └── O/
-                        ├── F_I_C_L_O_model.fits
+                        ├── galfit/
+                        │   ├── F_I_C_L_O_galfit.log
+                        │   └── F_I_C_L_O_model.fits
                         └── plots/
                             └── F_I_C_L_O_comparison.png
 </pre>
@@ -154,7 +158,9 @@ galwrap_root/
             └── .../
                 └── .../
                     └── output_ficlo/
-                        ├── model
+                        ├── output_galfit/
+                        │   ├── fitlog
+                        │   └── model
                         └── output_plots/
                             └── comparison
 </pre>
@@ -185,12 +191,14 @@ galwrap_root/
 |:file_folder:|Product|`product_ficl`|Directory containing files for a given field, image version, catalog version, and filter (FICL).|
 |:framed_picture:|Product|`fullsigma`|Full sigma map for a given FICL. These are very intensive to generate.|
 |:file_folder:|Product|`product_ficlo`|Directory containing files for a given field, image version, catalog version, filter, and object (FICLO).|
-|:pencil:|Product|`feedfile`|Configurations for a single GALFIT run for a given FICLO.|
+|:page_facing_up:|Product|`feedfile`|Configurations for a single GALFIT run for a given FICLO.|
 |:framed_picture:|Product|`stamp`|Cropped science frame for a given object matched against a catalog.|
 |:framed_picture:|Product|`sigma`|Cropped sigma map for a given object from its exposure and weight maps.|
 |:framed_picture:|Product|`mask`|Cropped mask frame for a given object given its segmentation map.|
 |:file_folder:|Output|`output_root`|Root directory for all output files.|
-|:file_folder:|Output|`output_ficlo`|Directory containing files for a given FICLO.|
+|:file_folder:|Output|`output_ficlo`|Directory containing output files for a given FICLO.|
+|:file_folder:|Output|`output_galfit`|Directory containing output files for a given FICLO GALFIT run.|
+|:page_facing_up:|Output|`fitlog`|GALFIT log file for a given FICLO.|
 |:framed_picture:|Output|`model`|Morphology fit model FITS file for a given FICLO.|
 |:file_folder:|Output|`output_plots`|Directory containing visualization plots for a given FICLO.|
 |:bar_chart:|Output|`comparison`|Model fidelity comparison plot.|

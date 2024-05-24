@@ -1,6 +1,7 @@
 # User-defined
 sandbox/
 *.log
+galfit.*
 galwrap_root/
 galwrap_input/
 galwrap_products/

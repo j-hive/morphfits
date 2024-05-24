@@ -145,15 +145,26 @@ output_ficlo:
   path: "[output_root]/{F}/{I}/{C}/{L}/{O}"
   alts:
     - ficlo output
+output_galfit:
+  file: False
+  path: "[output_ficlo]/galfit"
+  alts:
+    - galfit output
 output_plots:
   file: False
   path: "[output_ficlo]/plots"
   alts:
     - ficlo plots
 ## Files
+fitlog:
+  file: True
+  path: "[output_galfit]/{F}_{I}_{C}_{L}_{O}_galfit.log"
+  alts:
+    - galfit log
+    - fit log
 model:
   file: True
-  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_model.fits"
+  path: "[output_galfit]/{F}_{I}_{C}_{L}_{O}_model.fits"
   alts:
     - galfit fit
 comparison:
