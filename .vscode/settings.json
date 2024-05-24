@@ -162,6 +162,7 @@
         "sciname",
         "segmap",
         "segmaps",
+        "skycoord",
         "statmorph",
         "Subimage",
         "subpackages",

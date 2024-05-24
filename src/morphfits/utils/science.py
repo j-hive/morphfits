@@ -7,11 +7,43 @@
 from pathlib import Path
 
 import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.io.fits import PrimaryHDU
+from astropy.wcs import WCS
+from astropy.wcs import utils as wcs_utils
 
 
 # Functions
+
+
+def get_pixels_from_skycoord(
+    skycoord: SkyCoord, wcs: WCS, factor: int = 1
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Calculate corresponding pixels in an image based on sky coordinates and a
+    WCS.
+
+    Parameters
+    ----------
+    skycoord : SkyCoord
+        Position of object in sky.
+    wcs : WCS
+        Coordinate system from pixel to sky.
+    factor : int
+        Multiplicative factor for converting between smaller scaled images, i.e.
+        exposure maps.
+
+    Returns
+    -------
+    tuple[tuple[int, int], tuple[int, int]]
+        Integer pixel coordinates in order of less x, greater x, less y, greater
+        y.
+    """
+    x_range, y_range = wcs_utils.skycoord_to_pixel(coords=skycoord, wcs=wcs)
+    left, right = int(x_range * factor), int(x_range * factor)
+    down, up = int(y_range * factor), int(y_range * factor)
+
+    return left, right, down, up
 
 
 def get_pixname(pixscale: float) -> str:
