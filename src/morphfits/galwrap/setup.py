@@ -97,6 +97,56 @@ class FICLO(BaseModel):
         )
 
 
+class FICL(BaseModel):
+    """Configuration model for a single observation.
+
+    FICL is an abbreviation for the field, image version, catalog version, and
+    filter of the JWST science observation.
+
+    Parameters
+    ----------
+    BaseModel : class
+        Base pydantic model class for type validation.
+
+    Attributes
+    ----------
+    field : str
+        Field of observation, e.g. "abell2744clu".
+    image_version : str
+        Version string of JWST image processing, e.g. "grizli-v7.2".
+    catalog_version : str
+        Version string of JWST cataloging, e.g. "dja-v7.2".
+    filter : str
+        Observational filter band, e.g. "f140w".
+    objects : list[int]
+        Integer IDs of galaxies or cluster targets in catalog, e.g. `[1003,
+        6371]`.
+    pixscale : str, optional
+        Pixel scale, in arcseconds per pixel, by default `0.04`, corresponding
+        to "40mas".
+
+    Notes
+    -----
+    All strings are converted to lowercase upon validation.
+    """
+
+    field: LowerStr
+    image_version: LowerStr
+    catalog_version: LowerStr
+    filter: LowerStr
+    objects: list[int]
+    pixscale: float = 0.04
+
+    def __str__(self) -> str:
+        return "_".join(
+            self.field,
+            self.image_version,
+            self.catalog_version,
+            self.filter,
+            self.objects,
+        )
+
+
 class GalWrapConfig(BaseModel):
     """Configuration model for a program execution of GalWrap.
 
@@ -134,8 +184,6 @@ class GalWrapConfig(BaseModel):
     pixscales : list[float], optional
         List of pixel scales over which to execute GALFIT, by default only `0.04`,
         corresponding to "40mas".
-    morphology_versions : list[str], optional
-        List of morphology fitting methods to execute, by default only GALFIT.
     """
 
     input_root: Path
@@ -148,7 +196,6 @@ class GalWrapConfig(BaseModel):
     objects: list[int] = []
     galwrap_root: Path = ROOT
     pixscales: list[float] = [0.04]
-    morphology_versions: list[str] = ["galfit"]
 
     def get_ficlos(
         self,
@@ -235,6 +282,57 @@ class GalWrapConfig(BaseModel):
                 object=object,
                 pixscale=pixscale,
             )
+
+    def get_FICLs(self) -> Generator[FICL, None, None]:
+        """Generate all FICL permutations for this configuration object, and
+        return those with the necessary input files.
+
+        Yields
+        ------
+        FICL
+            FICL permutation with existing input files.
+        """
+        # Iterate over each FICL in config object
+        for field, image_version, catalog_version, filter in itertools.product(
+            self.fields, self.image_versions, self.catalog_versions, self.filters
+        ):
+            # Create FICL for iteration, with every object
+            ficl = FICL(
+                field=field,
+                image_version=image_version,
+                catalog_version=catalog_version,
+                filter=filter,
+                objects=self.objects,
+            )
+
+            # Skip FICL if any input missing
+            missing_input = False
+            for required_input in [
+                "rawpsf",
+                "segmap",
+                "catalog",
+                "exposure",
+                "science",
+                "weights",
+            ]:
+                if (
+                    not GALWRAP_PATHS[required_input]
+                    .resolve(
+                        galwrap_root=self.galwrap_root,
+                        input_root=self.input_root,
+                        field=field,
+                        image_version=image_version,
+                        filter=filter,
+                    )
+                    .exists()
+                ):
+                    logger.debug(f"{required_input} file not found, skipping {ficl}.")
+                    missing_input = True
+                    break
+            if missing_input:
+                continue
+
+            yield ficl
 
 
 class GalWrapPath(BaseModel):
