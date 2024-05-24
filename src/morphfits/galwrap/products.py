@@ -9,33 +9,20 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+import scipy.ndimage as nd
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.nddata.utils import Cutout2D
+from astropy.table import Table
+from astropy import wcs
+import fitsio
 from jinja2 import Template
+from tqdm import tqdm
 
 from . import paths, GALWRAP_DATA_ROOT
 from .setup import FICLO, GalWrapConfig
 from ..utils import science
-
-
-from pathlib import Path
-
-
-import typer
-
-from astropy.coordinates import SkyCoord
-from astropy.nddata.utils import Cutout2D
-from astropy.io import fits
-from astropy.table import Table
-from astropy.wcs import WCS
-from tqdm import tqdm
-import scipy.ndimage as nd
-
-import numpy as np
-import matplotlib
-
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
-from matplotlib import colors as c
 
 
 # Constants
@@ -72,8 +59,6 @@ def generate_feedfile(
         Path to feedfile to be written.
     galfit_output_path : str | Path
         Path to directory to which to write GALFIT output.
-    constraints_path : str | Path
-        Path to GALFIT parameter constraints file.
     stamp_path : str | Path
         Path to input image stamp.
     rms_path : str | Path
@@ -92,9 +77,15 @@ def generate_feedfile(
         Integrated magnitude, by default 30.0.
     zeropoint : float, optional
         Photometric magnitude zeropoint, by default 31.50.
+    feedfile_template_path : str | Path, optional
+        Path to GALFIT feedfile template, by default the template in the data
+        directory.
+    constraints_path : str | Path, optional
+        Path to GALFIT parameter constraints file, by default the default
+        constraints in the data directory.
     """
 
-    def get_aligned_variable(variable: Any, align_size: int = 60) -> str:
+    def get_aligned_variable(variable: Any, align_size: int = 240) -> str:
         """Return a left-justified string of a variable, for comment alignment.
 
         Parameters
@@ -103,8 +94,9 @@ def generate_feedfile(
             Jinja variable to be left-justified.
         align_size : int, optional
             Number of space characters to left-justify variable with, i.e.
-            length of str including empty characters, by default 60, i.e.
-            comments begin on column 64.
+            length of str including empty characters, by default 240, i.e.
+            comments begin on column 244. This length is to accommodate long
+            paths.
 
         Returns
         -------
@@ -142,6 +134,37 @@ def generate_feedfile(
         feedfile.write(lines)
 
 
+def generate_stamp(
+    input_root: Path,
+    product_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str,
+    object: int,
+    ra:float,
+    dec:float,
+    kron_radius:float,
+    minimum_size: int = 32,
+):
+    sublogger = logging.getLogger("CUTOUT")
+
+    # Calculate coordinates
+    position = SkyCoord(ra=ra,dec=dec,unit="deg")
+    image_size = 
+
+    # Load in image and header data
+    sci_path = paths.get_path(
+        "science",
+        input_root=input_root,
+        field=field,
+        image_version=image_version,
+        filter=filter,
+    )
+    sublogger.info(f"Loading data from {sci_path.name}.")
+    stamp = fitsio.read(sci_path, rows=[])
+
+
 def generate_cutout(
     input_path: Path,
     product_path: Path,
@@ -150,20 +173,24 @@ def generate_cutout(
     object: int | None = None,
     objects: list[int] | None = None,
     minimum_image_size: int = 32,
+    kron_factor: int = 3,
 ):
     sublogger = logging.getLogger("CUTOUT")
 
-    # Load data
+    # Load in image and header data (memory expensive)
     sublogger.info(f"Loading data from {input_path.name}")
-    file = fits.open(input_path)["PRIMARY"]
-    image, wcs = file.data, WCS(file.header)
+    file = fits.open(input_path)
+    image, wcs = file["PRIMARY"].data, WCS(file["PRIMARY"].header)
+    file.close()
+    del file
+    gc.collect()
 
-    # Load catalog
+    # Load in catalog
     if (catalog is None) and (catalog_path is None):
         sublogger.error("No catalog provided for cutout generation.")
     catalog = Table.read(catalog_path) if catalog is None else catalog
 
-    # Create cutouts and save to file
+    # Check at least one object is specified
     if (object is None) and (objects is None):
         sublogger.error("No object provided for cutout generation.")
     skipped = []
@@ -190,7 +217,7 @@ def generate_cutout(
             image_size = (
                 np.nanmax(
                     [
-                        int(kron_radius / 0.04 * 5),
+                        int(kron_radius / 0.04 * kron_factor),
                         minimum_image_size,
                     ]
                 )
@@ -205,9 +232,18 @@ def generate_cutout(
             if (np.amax(cutout.data) > 0) and (
                 cutout.data.shape == (image_size, image_size)
             ):
+                sublogger.info(
+                    f"Writing object {object} cutout to {product_path.name}."
+                )
                 fits.PrimaryHDU(
                     data=cutout.data, header=cutout.wcs.to_header()
-                ).writeto(product_path)
+                ).writeto(product_path, overwrite=True)
+
+            # Clear memory
+            del position
+            del cutout
+            gc.collect()
+
         # Catch errors in creating cutouts
         except Exception as e:
             sublogger.error(
@@ -219,22 +255,31 @@ def generate_cutout(
     if len(skipped) > 0:
         sublogger.debug(f"Skipped making cutouts for {len(skipped)} objects.")
 
+    # Clear memory
+    del image
+    del wcs
+    gc.collect()
+
 
 def generate_psf(input_path: Path, product_path: Path, pixscale: float = 0.04):
     sublogger = logging.getLogger("PSF")
 
     # Open input PSF
     sublogger.info("Loading original PSF.")
-    file = fits.open(input_path)["PRIMARY"]
-    input_psf, headers = file.data, file.header
+    file = fits.open(input_path)
+    input_psf, headers = file["PRIMARY"].data, file["PRIMARY"].header
 
-    sublogger.info("Calculating new PSF.")
+    # Close file and clear from memory
+    file.close()
+    del file
+    gc.collect()
 
     # Calculate image size from ratio of PSF pixscale to science frame pixscale
-    half_image_size = (headers["NAXIS1"] * headers["PIXELSCL"] / pixscale) / 2
+    half_image_size = (headers["NAXIS1"] * headers["PIXELSCL"] / pixscale / 5) / 2
     center = headers["NAXIS1"] / 2
 
     # Cutout square of length image_size centered at PSF center
+    sublogger.info("Calculating new PSF.")
     psf = input_psf[
         int(center - half_image_size) : int(center + half_image_size),
         int(center - half_image_size) : int(center + half_image_size),
@@ -242,17 +287,64 @@ def generate_psf(input_path: Path, product_path: Path, pixscale: float = 0.04):
 
     # Write to file
     sublogger.info("Writing new PSF to file.")
-    fits.PrimaryHDU(data=psf).writeto(product_path)
+    fits.PrimaryHDU(data=psf).writeto(product_path, overwrite=True)
+
+    # Clear memory
+    del psf
+    gc.collect()
 
 
 def generate_sigma(
-    exposure_path: Path, science_path: Path, weights_path: Path, product_path: Path
+    input_root: Path,
+    product_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str,
 ):
+    # Setup
     sublogger = logging.getLogger("SIGMA")
-    sigma_saves = exposure_path.parent / "sigma_saves"
+    exposure_path = paths.get_path(
+        "exposure",
+        input_root=input_root,
+        field=field,
+        image_version=image_version,
+        filter=filter,
+    )
+    science_path = paths.get_path(
+        "science",
+        input_root=input_root,
+        field=field,
+        image_version=image_version,
+        filter=filter,
+    )
+    weights_path = paths.get_path(
+        "weight",
+        input_root=input_root,
+        field=field,
+        image_version=image_version,
+        filter=filter,
+    )
+    full_sigma_path = paths.get_path(
+        "fullsigma",
+        product_root=product_root,
+        field=field,
+        image_version=image_version,
+        catalog_version=catalog_version,
+    )
+    sigma_saves_path = exposure_path.parent / "sigma_saves"
 
     # Load weights map, calculate and save weights variance, and free memory
-    weight_variance_path = sigma_saves / "sigma_temp_weight_variance.npy"
+    weight_variance_path = (
+        paths.get_path(
+            "input_images",
+            input_root=input_root,
+            field=field,
+            image_version=image_version,
+            filter=filter,
+        )
+        / "sigma_temp_weight_variance.npy"
+    )
     if weight_variance_path.exists():
         pass
     else:
@@ -288,6 +380,7 @@ def generate_sigma(
         science_shape = [int(variables[1]), int(variables[2])]
     else:
         sublogger.info("Calculating variables.")
+
         headers = fits.open(exposure_path)["PRIMARY"].header
         phot_scale = 1.0 / headers["PHOTMJSR"] / headers["PHOTSCAL"]
         if "OPHOTFNU" in headers:
@@ -331,7 +424,7 @@ def generate_sigma(
         effective_gain = np.load(effective_gain_path)
     else:
         sublogger.info("Calculating effective gain. This may take 20+ minutes.")
-        # Separate into quarters
+        # Separate into smaller iterations
         iterations = 200
         exposure_size = int(full_exposure_cleared.shape[0] / iterations)
         for i in tqdm(range(iterations)):
@@ -349,7 +442,7 @@ def generate_sigma(
         del full_exposure_cleared
         gc.collect()
         effective_gain = np.load(sigma_saves / "sigma_temp_effective_gain_0.npy")
-        for i in range(iterations):
+        for i in tqdm(range(iterations)):
             effective_gain = np.append(
                 effective_gain,
                 np.load(sigma_saves / f"sigma_temp_effective_gain_{i}.npy"),
@@ -378,11 +471,11 @@ def generate_sigma(
         del max_variance
         gc.collect()
         sublogger.info(f"Loading total variance from {total_variance_path.name}.")
-        weight_variance = np.load(total_variance_path)
+        total_variance = np.load(total_variance_path)
     else:
         sublogger.info("Calculating total variance.")
-        weight_variance = np.load(weight_variance_path)
-        weight_variance += max_variance
+        total_variance = np.load(weight_variance_path)
+        total_variance += max_variance
         del max_variance
         gc.collect()
         np.save(total_variance_path, weight_variance)
@@ -392,7 +485,7 @@ def generate_sigma(
     sigma = np.sqrt(total_variance)
     del total_variance
     gc.collect()
-    fits.PrimaryHDU(data=sigma).writeto(product_path)
+    fits.PrimaryHDU(data=sigma).writeto(full_sigma_path, overwrite=True)
     del sigma
     gc.collect()
 
@@ -403,150 +496,112 @@ def generate_sigma(
     sigma_saves.rmdir()
 
 
+
+def generate_stamp(ficlo:FICLO,galwrap_config:GalWrapConfig,position:SkyCoord,image_size:int):
+    pass
+
+
 def generate_products(
-    ficlo: FICLO, galwrap_config: GalWrapConfig, product_root: Path | None = None
+    ficlo: FICLO,
+    galwrap_config: GalWrapConfig,
+    regenerate: bool = False,
+    regenerate_stamp: bool = False,
+    regenerate_psf: bool = False,
+    regenerate_mask: bool = False,
+    regenerate_sigma: bool = False,
+    regenerate_feedfile: bool = True,
+    use_mask: bool = True,
+    use_psf: bool = True,
+    use_sigma: bool = True,
+    minimum_image_size:int=32,
 ):
+    # Get paths
+    ## Input
+    catalog_path = paths.get_path("catalog", galwrap_config=galwrap_config,ficlo=ficlo)
+    rawpsf_path = paths.get_path("rawpsf", galwrap_config=galwrap_config,ficlo=ficlo)
+    segmap_path = paths.get_path("segmap", galwrap_config=galwrap_config,ficlo=ficlo)
+    exposure_path = paths.get_path("exposure", galwrap_config=galwrap_config,ficlo=ficlo)
+    science_path = paths.get_path("science", galwrap_config=galwrap_config,ficlo=ficlo)
+    weights_path = paths.get_path("weights", galwrap_config=galwrap_config,ficlo=ficlo)
+
+    ## Product
+    stamp_path = paths.get_path("stamp", galwrap_config=galwrap_config,ficlo=ficlo)
+    psf_path = paths.get_path("psf", galwrap_config=galwrap_config,ficlo=ficlo)
+    mask_path = paths.get_path("mask", galwrap_config=galwrap_config,ficlo=ficlo)
+    sigma_path = paths.get_path("sigma", galwrap_config=galwrap_config,ficlo=ficlo)
+    feedfile_path = paths.get_path("feedfile", galwrap_config=galwrap_config,ficlo=ficlo)
+
+    ## Output
+    output_galfit_path = paths.get_path("output_galfit", galwrap_config=galwrap_config,ficlo=ficlo)
+
+    # Determine which products to generate
+    make_stamp = (not stamp_path.exists()) or regenerate or regenerate_stamp
+    make_psf = (not psf_path.exists()) or regenerate or regenerate_psf
+    make_mask = (not mask_path.exists()) or regenerate or regenerate_mask
+    make_sigma = (not sigma_path.exists()) or regenerate or regenerate_sigma
+    make_feedfile = (not feedfile_path.exists()) or regenerate or regenerate_feedfile
+
     # Load in catalog
-    catalog_path = paths.get_path(
-        "catalog", galwrap_config=galwrap_config, product_root=product_root, ficlo=ficlo
-    )
-    logger.info(f"Loading in catalog from {catalog_path.name}")
-    catalog = Table.read(catalog_path)
+    if make_stamp or make_mask or make_sigma or make_feedfile:
+        logger.info(f"Loading in catalog from {catalog_path.name}")
+        catalog = Table.read(catalog_path)
 
-    # Generate stamp if it does not exist
-    stamp_path = paths.get_path(
-        "stamp", galwrap_config=galwrap_config, product_root=product_root, ficlo=ficlo
-    )
-    if not stamp_path.exists():
-        science_path = paths.get_path(
-            "science",
-            galwrap_config=galwrap_config,
-            product_root=product_root,
-            ficlo=ficlo,
-        )
-        logger.info("Generating stamp cutout. This may take a while.")
-        generate_cutout(
-            input_path=science_path,
-            product_path=stamp_path,
-            catalog=catalog,
-            object=ficlo.object,
-        )
-    image_size = fits.open(stamp_path)["PRIMARY"].data.shape[0]
-
-    # Generate mask if it does not exist
-    mask_path = paths.get_path(
-        "mask", galwrap_config=galwrap_config, product_root=product_root, ficlo=ficlo
-    )
-    if not mask_path.exists():
-        segmap_path = paths.get_path(
-            "segmap",
-            galwrap_config=galwrap_config,
-            product_root=product_root,
-            ficlo=ficlo,
-        )
-        logger.info(f"Generating mask cutout from {segmap_path.name}")
-        generate_cutout(
-            input_path=segmap_path,
-            product_path=mask_path,
-            catalog=catalog,
-            object=ficlo.object,
-        )
-
-    # Generate PSF if it does not exist
-    psf_path = paths.get_path(
-        "psf", galwrap_config=galwrap_config, product_root=product_root, ficlo=ficlo
-    )
-    if not psf_path.exists():
-        input_psf_path = paths.get_path(
-            "rawpsf",
-            galwrap_config=galwrap_config,
-            product_root=product_root,
-            ficlo=ficlo,
-        )
-        logger.info(f"Generating PSF cutout from {input_psf_path.name}")
-        generate_psf(
-            input_path=input_psf_path,
-            product_path=psf_path,
-            # TODO find the pixscale
-            # pixscale=fits.open(stamp_path)["PRIMARY"].header["PIXSCALE"]
-        )
-
-    # Generate full sigma map if it does not exist
-    full_sigma_path = paths.get_path(
-        "fullsigma",
-        galwrap_config=galwrap_config,
-        product_root=product_root,
-        ficlo=ficlo,
-    )
-    if not full_sigma_path.exists():
-        exposure_path = paths.get_path(
-            "exposure",
-            galwrap_config=galwrap_config,
-            product_root=product_root,
-            ficlo=ficlo,
-        )
-        science_path = paths.get_path(
-            "science",
-            galwrap_config=galwrap_config,
-            product_root=product_root,
-            ficlo=ficlo,
-        )
-        weights_path = paths.get_path(
-            "weights",
-            galwrap_config=galwrap_config,
-            product_root=product_root,
-            ficlo=ficlo,
-        )
-        logger.info("Generating sigma map. This may take a while.")
-        generate_sigma(
-            exposure_path=exposure_path,
-            science_path=science_path,
-            weights_path=weights_path,
-            product_path=full_sigma_path,
-        )
-
-    # Generate sigma cutout if it does not exist
-    sigma_path = paths.get_path(
-        "sigma", galwrap_config=galwrap_config, product_root=product_root, ficlo=ficlo
-    )
-    if not sigma_path.exists():
-        logger.info(f"Generating sigma map cutout from {sigma_path.name}")
-        generate_cutout(
-            input_path=sigma_path,
-            product_path=sigma_path,
-            catalog=catalog,
-            object=ficlo.object,
-        )
-
-    # Generate feedfile if it does not exist
-    feedfile_path = paths.get_path(
-        "feedfile",
-        galwrap_config=galwrap_config,
-        product_root=product_root,
-        ficlo=ficlo,
-    )
-    if not feedfile_path.exists():
-        output_ficlo_path = paths.get_path(
-            "output_ficlo",
-            galwrap_config=galwrap_config,
-            product_root=product_root,
-            ficlo=ficlo,
-        )
-
-        # Define parameters from stamp and catalog
+        # Calculate cutout location information
+        position = SkyCoord(ra=catalog[ficlo.object]["ra"],dec=catalog[ficlo.object]["dec"],unit="deg")
+        kron_factor = 3
+        pixscale = 0.04
+        kron_radius = catalog[object][
+                (
+                    "kron_radius_circ"
+                    if "kron_radius_circ" in catalog[object]
+                    else "kron_radius"
+                )
+            ]
+        image_size = (
+                np.nanmax(
+                    [
+                        int(kron_radius / pixscale * kron_factor),
+                        minimum_image_size,
+                    ]
+                )
+                if isinstance(kron_radius, float)
+                else minimum_image_size
+            )
+    
+    # Generate stamp if missing or requested
+    if make_stamp:
+        logger.info(f"Generating stamp for {ficlo}.")
+        generate_stamp(ficlo=ficlo,galwrap_config=galwrap_config,position=position,image_size=image_size)
+    
+    # Generate psf if missing or requested
+    if make_psf:
+        logger.info(f"Generating PSF for {ficlo.filter}.")
+        generate_psf(ficlo=ficlo,galwrap_config=galwrap_config,position=position,image_size=image_size)
+    
+    # Generate mask if missing or requested
+    if make_mask:
+        logger.info(f"Generating mask for {ficlo}.")
+        generate_mask(ficlo=ficlo,galwrap_config=galwrap_config,position=position,image_size=image_size)
+    
+    # Generate sigma if missing or requested
+    if make_sigma:
+        logger.info(f"Generating sigma for {ficlo}.")
+        generate_sigma(ficlo=ficlo,galwrap_config=galwrap_config,position=position,image_size=image_size)
+    
+    # Generate feedfile if missing or requested
+    if make_feedfile:
+        logger.info(f"Generating feedfile for {ficlo}.")
         half_light_radius = catalog[ficlo.object]["a_image"]
         axis_ratio = catalog[ficlo.object]["b_image"] / catalog[ficlo.object]["a_image"]
         magnitude = catalog[ficlo.object]["mag_auto"]
-        zeropoint = science.get_zeropoint(image_path=stamp_path)
-
-        logger.info(f"Generating feedfile to {feedfile_path.name}")
+        zeropoint = science.get_zeropoint(image_path=science_path)
         generate_feedfile(
             feedfile_path=feedfile_path,
-            galfit_output_path=output_ficlo_path,
+            galfit_output_path=output_galfit_path,
             stamp_path=stamp_path,
-            rms_path=sigma_path,
-            psf_path=psf_path,
-            mask_path=mask_path,
+            rms_path=sigma_path if use_sigma else "",
+            psf_path=psf_path if use_psf else "",
+            mask_path=mask_path if use_mask else "",
             image_size=image_size,
             half_light_radius=half_light_radius,
             axis_ratio=axis_ratio,
