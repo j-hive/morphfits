@@ -11,22 +11,6 @@ import numpy as np
 from astropy.io import fits
 from matplotlib import pyplot as plt
 
-# montagepy doesn't have well-typed init
-# See montage.ipac.caltech.edu/MontageNotebooks/mSubimage.html for more info
-import MontagePy
-
-from ..galwrap.setup import config
-
-
-## Typing
-
-
-from numpy import ndarray
-from matplotlib.pyplot import Figure
-from matplotlib.axes import Axes
-
-from ..galwrap.config import GalWrapConfig
-
 
 # Constants
 
@@ -36,52 +20,37 @@ logger = logging.getLogger("PLOT")
 """
 
 
+logging.getLogger("matplotlib").setLevel(100)
+logging.getLogger("PIL").setLevel(100)
+"""Ignore matplotlib and PIL logs."""
+
+
 # Functions
 
 
-def make_cutouts(
-    image_path: str | Path,
-    stamp_path: str | Path,
-    ra: float,
-    dec: float,
-    size: float = 6.0,
-    remove_edge: bool = False,
-):
-    """Generate cutouts from an image.
+def plot_comparison(stamp_path: Path, model_path: Path, output_path: Path):
+    # Load in data
+    stamp = fits.open(stamp_path)["PRIMARY"].data
+    model = fits.open(model_path)["PRIMARY"].data
 
-    Parameters
-    ----------
-    image_path : str | Path
-        Path to FITS image.
-    stamp_path : str | Path
-        Path to which to write generated cutout.
-    ra : float
-        Right ascension of query centre, in decimal degrees.
-    dec : float
-        Declination of query centre, in decimal degrees.
-    size : float, optional
-        Length of square cutout edge, in arcsec, by default 6.0.
-    remove_edge : bool, optional
-        Flag to remove generated cutout if image is largely on edge of mosaic,
-        by default False.
-    """
-    # Cutout subimage from image and record status
-    logger.info(f"Creating cutout for {image_path}.")
-    subimage_status = MontagePy.main.mSubimage(
-        infile=image_path,
-        outfile=stamp_path,
-        ra=ra,
-        dec=dec,
-        xsize=size,
-        ysize=size,
-        mode=0,
-    )
+    # Plot data
+    plt.subplots(1, 3, figsize=(20, 6))
+    plt.title(stamp_path.name[:-4])
 
-    # Remove generated cutouts if source image improper
-    if subimage_status["status"] == "0":
-        if subimage_status["content"] == b"blank":
-            logger.debug("Blank image, cutout not generated.")
-            stamp_path.unlink()
-        elif remove_edge and (np.median(fits.open(stamp_path)[0].data) == 0):
-            logger.debug("Edge image, cutout not generated.")
-            stamp_path.unlink()
+    plt.subplot(1, 3, 1)
+    plt.imshow(stamp, cmap="magma")
+    plt.axis("off")
+    plt.title("Original")
+
+    plt.subplot(1, 3, 2)
+    plt.imshow(model, cmap="magma")
+    plt.axis("off")
+    plt.title("Model")
+
+    plt.subplot(1, 3, 3)
+    plt.imshow(stamp - model, cmap="magma")
+    plt.axis("off")
+    plt.title("Residuals")
+
+    # Save data
+    plt.savefig(output_path, bbox_inches="tight")
