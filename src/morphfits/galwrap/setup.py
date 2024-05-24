@@ -87,6 +87,15 @@ class FICLO(BaseModel):
     pixscale: float = 0.04
     morphology_version: LowerStr = "galfit"
 
+    def __str__(self) -> str:
+        return "_".join(
+            self.field,
+            self.image_version,
+            self.catalog_version,
+            self.filter,
+            self.object,
+        )
+
 
 class GalWrapConfig(BaseModel):
     """Configuration model for a program execution of GalWrap.
