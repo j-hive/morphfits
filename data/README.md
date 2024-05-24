@@ -33,12 +33,12 @@ jhive_galwrap/
 │   │   └── PSF_NIRCam_in_flight_opd_filter_{L}.fits
 │   └── {F}/
 │       └── {I}/
-│           ├── {F}-{I}-ir_seg.fits.gz
+│           ├── {F}-{I}-ir_seg.fits
 │           ├── {F}-{I}-fix_phot_apcorr.fits
 │           └── {L}/
-│               ├── {F}-{I}-{L}_dr[c/z]_exp.fits.gz
-│               ├── {F}-{I}-{L}_dr[c/z]_sci.fits.gz
-│               └── {F}-{I}-{L}_dr[c/z]_wht.fits.gz
+│               ├── {F}-{I}-{L}_dr[c/z]_exp.fits
+│               ├── {F}-{I}-{L}_dr[c/z]_sci.fits
+│               └── {F}-{I}-{L}_dr[c/z]_wht.fits
 ├── products/
 │   ├── default.constraints
 │   ├── template.feedfile
@@ -88,12 +88,12 @@ jhive_galwrap/
 │   │   └── PSF_NIRCam_in_flight_opd_filter_L.fits
 │   └── F/
 │       └── I/
-│           ├── F-I-ir_seg.fits.gz
+│           ├── F-I-ir_seg.fits
 │           ├── F-I-fix_phot_apcorr.fits
 │           └── L/
-│               ├── F-I-L_dr[c/z]_exp.fits.gz
-│               ├── F-I-L_dr[c/z]_sci.fits.gz
-│               └── F-I-L_dr[c/z]_wht.fits.gz
+│               ├── F-I-L_dr[c/z]_exp.fits
+│               ├── F-I-L_dr[c/z]_sci.fits
+│               └── F-I-L_dr[c/z]_wht.fits
 ├── products/
 │   ├── default.constraints
 │   ├── template.feedfile

@@ -37,7 +37,7 @@ rawpsf:
     - input psf file
 segmap:
   file: True
-  path: "[input_imver]/{F}-{I}-ir_seg.fits.gz"
+  path: "[input_imver]/{F}-{I}-ir_seg.fits"
   alts:
     - segmentation map
     - segmentation map file
@@ -49,19 +49,19 @@ catalog:
     - input catalog file
 exposure:
   file: True
-  path: "[input_images]/{F}-{I}-{L}*_dr*_exp.fits.gz"
+  path: "[input_images]/{F}-{I}-{L}*_dr*_exp.fits"
   alts:
     - exp
     - exposure map
 science:
   file: True
-  path: "[input_images]/{F}-{I}-{L}*_dr*_sci.fits.gz"
+  path: "[input_images]/{F}-{I}-{L}*_dr*_sci.fits"
   alts:
     - sci
     - input image
 weights:
   file: True
-  path: "[input_images]/{F}-{I}-{L}*_dr*_wht.fits.gz"
+  path: "[input_images]/{F}-{I}-{L}*_dr*_wht.fits"
   alts:
     - wht
     - weight map
