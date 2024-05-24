@@ -144,6 +144,11 @@ def create_config(
     ### Terminate if input root not found
     if "input_root" not in config_dict:
         raise FileNotFoundError(f"Input root not passed, terminating.")
+    else:
+        if not Path(config_dict["input_root"]).resolve().exists():
+            raise FileNotFoundError(
+                f"Input root {config_dict['input_root']} not found."
+            )
     if "galwrap_root" not in config_dict:
         config_dict["galwrap_root"] = config_dict["input_root"].parent
     if "product_root" not in config_dict:

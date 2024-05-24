@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import config, paths, products, GALWRAP_DATA_ROOT
 from .setup import FICLO, GalWrapConfig
+from ..utils import plots
 
 
 # Constants
@@ -31,23 +32,34 @@ def run_galfit(ficlo: FICLO, galwrap_config: GalWrapConfig):
     # Run subprocess and pipe output
     logger.info(f"Running GALFIT.")
     process = Popen(
-        f"cd {str(GALWRAP_DATA_ROOT)} && galfit {str(feedfile_path)}",
+        f"cd {str(GALWRAP_DATA_ROOT)} && ./galfit {str(feedfile_path)}",
         stdout=PIPE,
         shell=True,
         stderr=STDOUT,
         bufsize=1,
         close_fds=True,
     )
+
+    # Capture output and log and close subprocess
+    sublogger = logging.getLogger("GALFIT")
     process_log = []
     for line in iter(process.stdout.readline, b""):
         process_log.append(line.rstrip().decode("utf-8"))
     process.stdout.close()
     process.wait()
+    for line in process_log:
+        sublogger.info(line)
 
-    # Remove GALFIT output
-    if (process.returncode == 1) and (model_path.exists()):
+    # Clean up GALFIT output
+    if (process.returncode == 0) and (model_path.exists()):
         for path in GALWRAP_DATA_ROOT.iterdir():
-            if ("log" in path.name) or ("galfit." in path.name):
+            # Move logs to output directory
+            if "log" in path.name:
+                path.rename(
+                    paths.get_path("fitlog", galwrap_config=galwrap_config, ficlo=ficlo)
+                )
+            # Remove records
+            elif "galfit." in path.name:
                 path.unlink()
 
 
@@ -71,6 +83,15 @@ def main(
     pixscales: list[float] | None = None,
     morphology_version: str | None = None,
     morphology_versions: list[str] | None = None,
+    regenerate: bool = False,
+    regenerate_stamp: bool = False,
+    regenerate_psf: bool = False,
+    regenerate_mask: bool = False,
+    regenerate_sigma: bool = False,
+    regenerate_feedfile: bool = True,
+    use_mask: bool = True,
+    use_psf: bool = True,
+    use_sigma: bool = True,
 ):
     logger.info("Starting GalWrap.")
 
@@ -108,9 +129,20 @@ def main(
 
     # Create products if nonexistent, for each FICLO
     logger.info("Generating products from input data, where nonexistent.")
-    # products.generate_all_products(galwrap_config=galwrap_config)
     for ficlo in galwrap_config.get_ficlos():
-        products.generate_products(ficlo=ficlo, galwrap_config=galwrap_config)
+        products.generate_products(
+            ficlo=ficlo,
+            galwrap_config=galwrap_config,
+            regenerate=regenerate,
+            regenerate_stamp=regenerate_stamp,
+            regenerate_psf=regenerate_psf,
+            regenerate_mask=regenerate_mask,
+            regenerate_sigma=regenerate_sigma,
+            regenerate_feedfile=regenerate_feedfile,
+            use_mask=use_mask,
+            use_psf=use_psf,
+            use_sigma=use_sigma,
+        )
 
     # Run GALFIT, for each FICLO
     logger.info("Running GALFIT for each configuration.")
@@ -118,4 +150,15 @@ def main(
         run_galfit(ficlo=ficlo, galwrap_config=galwrap_config)
 
     # Make plots
-    ## For each FICLO
+    logger.info("Plotting models.")
+    for ficlo in galwrap_config.get_ficlos():
+        stamp_path = paths.get_path("stamp", galwrap_config=galwrap_config, ficlo=ficlo)
+        model_path = paths.get_path("model", galwrap_config=galwrap_config, ficlo=ficlo)
+        output_path = paths.get_path(
+            "comparison", galwrap_config=galwrap_config, ficlo=ficlo
+        )
+        plots.plot_comparison(
+            stamp_path=stamp_path, model_path=model_path, output_path=output_path
+        )
+
+    logger.info("Exiting GalWrap.")
