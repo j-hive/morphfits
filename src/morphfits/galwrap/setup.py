@@ -20,7 +20,7 @@ from . import GALWRAP_PATH_NAMES
 # Constants
 
 
-logger = logging.getLogger("GALWRAP")
+logger = logging.getLogger("SETUP")
 """Logging object for this module.
 """
 
@@ -139,11 +139,7 @@ class FICL(BaseModel):
 
     def __str__(self) -> str:
         return "_".join(
-            self.field,
-            self.image_version,
-            self.catalog_version,
-            self.filter,
-            self.objects,
+            [self.field, self.image_version, self.catalog_version, self.filter]
         )
 
 
@@ -326,7 +322,9 @@ class GalWrapConfig(BaseModel):
                     )
                     .exists()
                 ):
-                    logger.debug(f"{required_input} file not found, skipping {ficl}.")
+                    logger.debug(
+                        f"Skipping FICL {ficl}, missing {required_input} file."
+                    )
                     missing_input = True
                     break
             if missing_input:
@@ -475,16 +473,14 @@ class GalWrapPath(BaseModel):
                         )
                 else:
                     raise ValueError(
-                        f"Missing {TEMPLATE_MAPPINGS[template]} "
+                        f"Missing {TEMPLATE_MAPPINGS[template]} {template} "
                         + f"to resolve path {self.path}."
                     )
 
         resolved_path_obj = Path(resolved_path).resolve()
 
         # Resolve drc/drz
-        if (resolved_path_obj.name[-8:] == ".fits.gz") and (
-            "*" in resolved_path_obj.name
-        ):
+        if (resolved_path_obj.name[-5:] == ".fits") and ("*" in resolved_path_obj.name):
             resolved_path_obj = list(
                 resolved_path_obj.parent.glob(resolved_path_obj.name)
             )[0]
