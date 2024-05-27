@@ -18,9 +18,11 @@ from astropy.wcs import utils as wcs_utils
 
 
 def get_pixels_from_skycoord(
-    skycoord: SkyCoord, wcs: WCS, factor: int = 1
+    skycoord: SkyCoord, wcs: WCS, image_size: int
 ) -> tuple[tuple[int, int], tuple[int, int]]:
-    """Calculate corresponding pixels in an image based on sky coordinates and a
+    """TODO May be deleted. Check if unused.
+
+    Calculate corresponding pixels in an image based on sky coordinates and a
     WCS.
 
     Parameters
@@ -29,9 +31,8 @@ def get_pixels_from_skycoord(
         Position of object in sky.
     wcs : WCS
         Coordinate system from pixel to sky.
-    factor : int
-        Multiplicative factor for converting between smaller scaled images, i.e.
-        exposure maps.
+    image_size : int
+        Number of pixels along one square image side.
 
     Returns
     -------
@@ -40,10 +41,10 @@ def get_pixels_from_skycoord(
         y.
     """
     x_range, y_range = wcs_utils.skycoord_to_pixel(coords=skycoord, wcs=wcs)
-    left, right = int(x_range * factor), int(x_range * factor)
-    down, up = int(y_range * factor), int(y_range * factor)
+    left, right = int(x_range - image_size), int(x_range + image_size)
+    down, up = int(y_range - image_size), int(y_range + image_size)
 
-    return left, right, down, up
+    return (left, right), (down, up)
 
 
 def get_pixname(pixscale: float) -> str:
@@ -107,7 +108,7 @@ def get_zeropoint(image_path: str | Path, magnitude_system: str = "AB") -> float
     1. https://www.stsci.edu/hst/instrumentation/acs/data-analysis/zeropoints#:~:text=The%20PHOTFLAM%20and%20PHOTPLAM%20header,TPLAM)%E2%88%92
     """
     # Open FITS image
-    image: PrimaryHDU = fits.open(image_path)[0]
+    image: PrimaryHDU = fits.open(image_path)["PRIMARY"]
 
     # Find zeropoint by magnitude system
     match magnitude_system:

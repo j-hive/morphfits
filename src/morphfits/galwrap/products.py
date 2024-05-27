@@ -7,28 +7,25 @@
 import gc
 import logging
 from pathlib import Path
-from typing import Any
 
 import numpy as np
-import scipy.ndimage as nd
+from scipy import ndimage
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.nddata.utils import Cutout2D
 from astropy.table import Table
-from astropy import wcs
-import fitsio
+from astropy.wcs import WCS
 from jinja2 import Template
-from tqdm import tqdm
 
 from . import paths, GALWRAP_DATA_ROOT
-from .setup import FICLO, GalWrapConfig
+from .setup import FICLO, FICL, GalWrapConfig
 from ..utils import science
 
 
 # Constants
 
 
-logger = logging.getLogger("PRODUCT")
+logger = logging.getLogger("PRODUCTS")
 """Logger object for this module.
 """
 
@@ -36,281 +33,65 @@ logger = logging.getLogger("PRODUCT")
 # Functions
 
 
-def generate_feedfile(
-    feedfile_path: str | Path,
-    galfit_output_path: str | Path,
-    stamp_path: str | Path,
-    rms_path: str | Path,
-    psf_path: str | Path,
-    mask_path: str | Path,
-    image_size: int,
-    half_light_radius: float,
-    axis_ratio: float,
-    magnitude: float = 30.0,
-    zeropoint: float = 31.50,
-    feedfile_template_path: str | Path = GALWRAP_DATA_ROOT / "feedfile.jinja",
-    constraints_path: str | Path = GALWRAP_DATA_ROOT / "default.constraints",
-):
-    """Generate and write a feedfile whose parameters configure a GALFIT run.
+## Products
+
+
+def generate_stamps(
+    input_root: Path,
+    product_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str,
+    objects: list[str],
+    minimum_image_size: int = 32,
+    kron_factor: int = 3,
+    regenerate: bool = False,
+) -> tuple[list[int], list[SkyCoord], list[int]]:
+    """Generate stamps (science frame cutouts) for all objects in a FICL.
 
     Parameters
     ----------
-    feedfile_path : str | Path
-        Path to feedfile to be written.
-    galfit_output_path : str | Path
-        Path to directory to which to write GALFIT output.
-    stamp_path : str | Path
-        Path to input image stamp.
-    rms_path : str | Path
-        Path to input RMS map.
-    psf_path : str | Path
-        Path to input PSF.
-    mask_path : str | Path
-        Path to input mask.
-    image_size : int
-        Number of pixels in one axis of square image.
-    half_light_radius : float
-        Radius at which half of a source's light is contained, in pixels.
-    axis_ratio : float
-        Ratio between an object's ellipsoid axes.
-    magnitude : float, optional
-        Integrated magnitude, by default 30.0.
-    zeropoint : float, optional
-        Photometric magnitude zeropoint, by default 31.50.
-    feedfile_template_path : str | Path, optional
-        Path to GALFIT feedfile template, by default the template in the data
-        directory.
-    constraints_path : str | Path, optional
-        Path to GALFIT parameter constraints file, by default the default
-        constraints in the data directory.
+    input_root : Path
+        Path to root GalWrap input directory.
+    product_root : Path
+        Path to root GalWrap products directory.
+    field : str
+        Field of observation.
+    image_version : str
+        Version of image processing used on observation.
+    catalog_version : str
+        Version of cataloguing used for field.
+    filter : str
+        Filter used for observation.
+    objects : list[str]
+        List of object IDs in catalog to stamp from observation.
+    minimum_image_size : int, optional
+        Minimum square stamp pixel dimensions, by default 32.
+    kron_factor : int, optional
+        Multiplicative factor to apply to Kron radius for each object to
+        determine image size, by default 3.
+    regenerate : bool, optional
+        Regenerate existing stamps, by default False.
+
+    Returns
+    -------
+    tuple[list[int], list[SkyCoord], list[int]]
+        List of object IDs, positions, and image sizes for successful stamps.
     """
-
-    def get_aligned_variable(variable: Any, align_size: int = 240) -> str:
-        """Return a left-justified string of a variable, for comment alignment.
-
-        Parameters
-        ----------
-        variable : Any
-            Jinja variable to be left-justified.
-        align_size : int, optional
-            Number of space characters to left-justify variable with, i.e.
-            length of str including empty characters, by default 240, i.e.
-            comments begin on column 244. This length is to accommodate long
-            paths.
-
-        Returns
-        -------
-        str
-            Left-justified string representation of variable.
-        """
-        aligned_variable = str(variable).ljust(align_size)
-        return (
-            aligned_variable[:align_size]
-            if len(aligned_variable) > align_size
-            else aligned_variable
-        )
-
-    # Set configuration parameters from input
-    feedfile_dict = {
-        "galfit_output_path": get_aligned_variable(galfit_output_path),
-        "constraints_path": get_aligned_variable(constraints_path),
-        "stamp_path": get_aligned_variable(stamp_path),
-        "rms_path": get_aligned_variable(rms_path),
-        "psf_path": get_aligned_variable(psf_path),
-        "mask_path": get_aligned_variable(mask_path),
-        "image_size": get_aligned_variable(image_size, align_size=6),
-        "position": get_aligned_variable(image_size / 2.0, align_size=6),
-        "half_light_radius": get_aligned_variable(half_light_radius, align_size=8),
-        "axis_ratio": get_aligned_variable(round(axis_ratio, 2), align_size=8),
-        "magnitude": get_aligned_variable(round(magnitude, 2), align_size=8),
-        "zeropoint": get_aligned_variable(zeropoint, align_size=8),
-    }
-
-    # Write new feedfile from template and save to output directory
-    with open(feedfile_template_path, "r") as feedfile_template:
-        template = Template(feedfile_template.read())
-    lines = template.render(feedfile_dict)
-    with open(feedfile_path, "w") as feedfile:
-        feedfile.write(lines)
-
-
-def generate_stamp(
-    input_root: Path,
-    product_root: Path,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    object: int,
-    ra:float,
-    dec:float,
-    kron_radius:float,
-    minimum_size: int = 32,
-):
-    sublogger = logging.getLogger("CUTOUT")
-
-    # Calculate coordinates
-    position = SkyCoord(ra=ra,dec=dec,unit="deg")
-    image_size = 
-
-    # Load in image and header data
-    sci_path = paths.get_path(
-        "science",
-        input_root=input_root,
-        field=field,
-        image_version=image_version,
-        filter=filter,
+    logger.info(
+        "Generating stamps for FICL "
+        + "_".join(field, image_version, catalog_version, filter)
+        + "."
     )
-    sublogger.info(f"Loading data from {sci_path.name}.")
-    stamp = fitsio.read(sci_path, rows=[])
-
-
-def generate_cutout(
-    input_path: Path,
-    product_path: Path,
-    catalog: Table | None = None,
-    catalog_path: Path | None = None,
-    object: int | None = None,
-    objects: list[int] | None = None,
-    minimum_image_size: int = 32,
-    kron_factor: int = 3,
-):
-    sublogger = logging.getLogger("CUTOUT")
-
-    # Load in image and header data (memory expensive)
-    sublogger.info(f"Loading data from {input_path.name}")
-    file = fits.open(input_path)
-    image, wcs = file["PRIMARY"].data, WCS(file["PRIMARY"].header)
-    file.close()
-    del file
-    gc.collect()
 
     # Load in catalog
-    if (catalog is None) and (catalog_path is None):
-        sublogger.error("No catalog provided for cutout generation.")
-    catalog = Table.read(catalog_path) if catalog is None else catalog
-
-    # Check at least one object is specified
-    if (object is None) and (objects is None):
-        sublogger.error("No object provided for cutout generation.")
-    skipped = []
-    objects = [object] if objects is None else objects
-
-    ## Create cutout for each passed object
-    for object in objects:
-        sublogger.info(f"Generating cutout for object {object}.")
-        try:
-            # Create object position from catalog
-            position = SkyCoord(
-                ra=catalog[object]["ra"], dec=catalog[object]["dec"], unit="deg"
-            )
-
-            # Determine image size from maximum between Kron radius multiple or
-            # minimum image size
-            kron_radius = catalog[object][
-                (
-                    "kron_radius_circ"
-                    if "kron_radius_circ" in catalog[object]
-                    else "kron_radius"
-                )
-            ]
-            image_size = (
-                np.nanmax(
-                    [
-                        int(kron_radius / 0.04 * kron_factor),
-                        minimum_image_size,
-                    ]
-                )
-                if isinstance(kron_radius, float)
-                else minimum_image_size
-            )
-
-            # Make cutout
-            cutout = Cutout2D(data=image, position=position, size=image_size, wcs=wcs)
-
-            # Save cutout if image of correct size and data > 0
-            if (np.amax(cutout.data) > 0) and (
-                cutout.data.shape == (image_size, image_size)
-            ):
-                sublogger.info(
-                    f"Writing object {object} cutout to {product_path.name}."
-                )
-                fits.PrimaryHDU(
-                    data=cutout.data, header=cutout.wcs.to_header()
-                ).writeto(product_path, overwrite=True)
-
-            # Clear memory
-            del position
-            del cutout
-            gc.collect()
-
-        # Catch errors in creating cutouts
-        except Exception as e:
-            sublogger.error(
-                f"Error generating cutout for object {object}"
-                + f" in image {input_path.name}"
-            )
-            skipped.append(object)
-            continue
-    if len(skipped) > 0:
-        sublogger.debug(f"Skipped making cutouts for {len(skipped)} objects.")
-
-    # Clear memory
-    del image
-    del wcs
-    gc.collect()
-
-
-def generate_psf(input_path: Path, product_path: Path, pixscale: float = 0.04):
-    sublogger = logging.getLogger("PSF")
-
-    # Open input PSF
-    sublogger.info("Loading original PSF.")
-    file = fits.open(input_path)
-    input_psf, headers = file["PRIMARY"].data, file["PRIMARY"].header
-
-    # Close file and clear from memory
-    file.close()
-    del file
-    gc.collect()
-
-    # Calculate image size from ratio of PSF pixscale to science frame pixscale
-    half_image_size = (headers["NAXIS1"] * headers["PIXELSCL"] / pixscale / 5) / 2
-    center = headers["NAXIS1"] / 2
-
-    # Cutout square of length image_size centered at PSF center
-    sublogger.info("Calculating new PSF.")
-    psf = input_psf[
-        int(center - half_image_size) : int(center + half_image_size),
-        int(center - half_image_size) : int(center + half_image_size),
-    ]
-
-    # Write to file
-    sublogger.info("Writing new PSF to file.")
-    fits.PrimaryHDU(data=psf).writeto(product_path, overwrite=True)
-
-    # Clear memory
-    del psf
-    gc.collect()
-
-
-def generate_sigma(
-    input_root: Path,
-    product_root: Path,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-):
-    # Setup
-    sublogger = logging.getLogger("SIGMA")
-    exposure_path = paths.get_path(
-        "exposure",
-        input_root=input_root,
-        field=field,
-        image_version=image_version,
-        filter=filter,
+    catalog_path = paths.get_path(
+        "catalog", input_root=input_root, field=field, image_version=image_version
     )
+    catalog = Table.read(catalog_path)
+
+    # Load in image and header data
     science_path = paths.get_path(
         "science",
         input_root=input_root,
@@ -318,293 +99,818 @@ def generate_sigma(
         image_version=image_version,
         filter=filter,
     )
-    weights_path = paths.get_path(
-        "weight",
+    science_file = fits.open(science_path)
+    image, wcs = science_file["PRIMARY"].data, WCS(science_file["PRIMARY"].header)
+
+    # Clear file from memory
+    science_file.close()
+    del science_file
+    gc.collect()
+
+    # Iterate over each object
+    generated, skipped = ([], [], []), []
+    for object in objects:
+        # Skip objects that have already been stamped
+        stamp_path = paths.get_path(
+            "stamp",
+            product_root=product_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+        if stamp_path.exists() and not regenerate:
+            skipped.append(object)
+            continue
+
+        # Try generating stamp for object
+        try:
+            logger.info(f"Generating stamp for object {object}.")
+
+            # Record object position from catalog
+            position = SkyCoord(
+                ra=catalog[object]["ra"], dec=catalog[object]["dec"], unit="deg"
+            )
+
+            # Determine image size
+            kron_radius = catalog[object]["kron_radius_circ"]
+            image_size = np.nanmax(
+                [
+                    int(kron_radius / 0.04 * kron_factor),
+                    minimum_image_size,
+                ]
+            )
+
+            # Generate stamp
+            stamp = Cutout2D(data=image, position=position, size=image_size, wcs=wcs)
+
+            # Write stamp to disk if image nonzero and of correct shape
+            if (np.amax(stamp.data) > 0) and (
+                stamp.data.shape == (image_size, image_size)
+            ):
+                fits.PrimaryHDU(data=stamp.data, header=stamp.wcs.to_header()).writeto(
+                    stamp_path, overwrite=True
+                )
+
+                # Store object ID, position, and image size for other products
+                generated[0].append(object)
+                generated[1].append(position)
+                generated[2].append(image_size)
+            else:
+                skipped.append(object)
+
+            # Clear memory
+            del stamp_path
+            del position
+            del kron_radius
+            del image_size
+            del stamp
+            gc.collect()
+
+        # Catch skipped objects
+        except Exception as e:
+            logger.error(e)
+            skipped.append(object)
+
+    # Display skipped objects
+    if len(skipped) > 0:
+        logger.debug(
+            f"Skipped generating stamps for {len(skipped)} objects: {skipped}."
+        )
+
+    # Return stored information from each object
+    return generated
+
+
+def generate_sigmas(
+    input_root: Path,
+    product_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str,
+    objects: list[int],
+    positions: list[SkyCoord],
+    image_sizes: list[int],
+    regenerate: bool = False,
+):
+    """Generate sigma maps for all objects in a FICL.
+
+    Parameters
+    ----------
+    input_root : Path
+        Path to root GalWrap input directory.
+    product_root : Path
+        Path to root GalWrap products directory.
+    field : str
+        Field of observation.
+    image_version : str
+        Version of image processing used on observation.
+    catalog_version : str
+        Version of cataloguing used for field.
+    filter : str
+        Filter used for observation.
+    objects : list[str]
+        List of object IDs in catalog for which to generate sigma maps.
+    positions : list[SkyCoord]
+        List of positions of objects in the sky, from catalog.
+    image_sizes : list[int]
+        List of image sizes corresponding to each object's stamp.
+    regenerate : bool, optional
+        Regenerate existing sigma maps, by default False.
+
+    See Also
+    --------
+    This algorithm was taken from `the DJA blog <https://dawn-cph.github.io/dja/blog/2023/07/18/image-data-products/>`_.
+    """
+    logger.info(
+        "Generating sigma maps for FICL "
+        + "_".join(field, image_version, catalog_version, filter)
+        + "."
+    )
+
+    # Load in exposure and weights maps
+    exposure_path = paths.get_path(
+        "exposure",
         input_root=input_root,
         field=field,
         image_version=image_version,
         filter=filter,
     )
-    full_sigma_path = paths.get_path(
-        "fullsigma",
-        product_root=product_root,
+    exposure_file = fits.open(exposure_path)
+    exposure_data = exposure_file["PRIMARY"].data
+    exposure_headers = exposure_file["PRIMARY"].header
+    exposure_wcs = WCS(exposure_headers)
+
+    weights_path = paths.get_path(
+        "weights",
+        input_root=input_root,
         field=field,
         image_version=image_version,
-        catalog_version=catalog_version,
+        filter=filter,
     )
-    sigma_saves_path = exposure_path.parent / "sigma_saves"
+    weights_file = fits.open(weights_path)
+    weights_data = weights_file["PRIMARY"].data
+    weights_wcs = WCS(weights_file["PRIMARY"].header)
 
-    # Load weights map, calculate and save weights variance, and free memory
-    weight_variance_path = (
-        paths.get_path(
-            "input_images",
-            input_root=input_root,
+    # Close and clear files from memory
+    exposure_file.close()
+    weights_file.close()
+    del exposure_path
+    del weights_path
+    del exposure_file
+    del weights_file
+    gc.collect()
+
+    # Iterate over each object, position, and image_size tuple
+    skipped = []
+    for i in range(len(objects)):
+        object, position, image_size = objects[i], positions[i], image_sizes[i]
+
+        # Skip objects which already have sigma maps
+        sigma_path = paths.get_path(
+            "sigma",
+            product_root=product_root,
             field=field,
             image_version=image_version,
+            catalog_version=catalog_version,
             filter=filter,
+            object=object,
         )
-        / "sigma_temp_weight_variance.npy"
-    )
-    if weight_variance_path.exists():
-        pass
-    else:
-        sublogger.info(f"Loading weights map from {weights_path.name}.")
-        weights = fits.open(weights_path)["PRIMARY"].data
-        sublogger.info("Calculating weights variance.")
-        weight_variance = 1 / weights
-        np.save(weight_variance_path, weight_variance)
-        del weights
-        del weight_variance
-        gc.collect()
+        if sigma_path.exists() and not regenerate:
+            skipped.append(object)
+            continue
 
-    # Load science frame, calculate and save max variance, and free memory
-    max_variance_path = sigma_saves / "sigma_temp_max_variance.npy"
-    if max_variance_path.exists():
-        pass
-    else:
-        sublogger.info(f"Loading science frame from {science_path.name}.")
-        science = fits.open(science_path)["PRIMARY"].data
-        sublogger.info("Calculating max variance.")
-        max_variance = np.maximum(science.data, 0)
-        np.save(max_variance_path, max_variance)
-        del max_variance
-        del science
-        gc.collect()
+        # Try generating sigma map for object
+        try:
+            logger.info(f"Generating sigma map for object {object}.")
 
-    # Calculate multiplicative factors and purge headers memory
-    variables_path = sigma_saves / "sigma_temp_variables.npy"
-    if variables_path.exists():
-        sublogger.info(f"Loading variables from {variables_path.name}.")
-        variables = np.load(variables_path)
-        phot_scale = variables[0]
-        science_shape = [int(variables[1]), int(variables[2])]
-    else:
-        sublogger.info("Calculating variables.")
-
-        headers = fits.open(exposure_path)["PRIMARY"].header
-        phot_scale = 1.0 / headers["PHOTMJSR"] / headers["PHOTSCAL"]
-        if "OPHOTFNU" in headers:
-            phot_scale *= headers["PHOTFNU"] / headers["OPHOTFNU"]
-        del headers
-        gc.collect()
-        headers = fits.open(science_path)["PRIMARY"].header
-        science_shape = [headers["NAXIS2"], headers["NAXIS1"]]
-        del headers
-        gc.collect()
-        np.save(
-            variables_path, np.array([phot_scale, science_shape[0], science_shape[1]])
-        )
-
-    # Load exposure frame and grow exposure map to original frame
-    full_exposure_path = sigma_saves / "sigma_temp_full_exposure.npy"
-    if full_exposure_path.exists():
-        sublogger.info(f"Loading full exposure map from {full_exposure_path.name}.")
-        full_exposure_cleared = np.load(full_exposure_path)
-    else:
-        sublogger.info(f"Loading exposure map from {exposure_path.name}.")
-        exposure = fits.open(exposure_path)["PRIMARY"].data
-        sublogger.info("Growing exposure map to original frame size.")
-        full_exposure = np.zeros(science_shape, dtype=int)
-        full_exposure[2::4, 2::4] += exposure * 1
-        del science_shape
-        del exposure
-        gc.collect()
-        sublogger.info("Filtering exposure map with ndimage.")
-        full_exposure_cleared = nd.maximum_filter(full_exposure, 4)
-        del full_exposure
-        gc.collect()
-        np.save(full_exposure_path, full_exposure_cleared)
-
-    # Calculate effective gain and free memory
-    effective_gain_path = sigma_saves / "sigma_temp_effective_gain.npy"
-    if effective_gain_path.exists():
-        del full_exposure_cleared
-        gc.collect()
-        sublogger.info(f"Loading effective gain from {effective_gain_path.name}.")
-        effective_gain = np.load(effective_gain_path)
-    else:
-        sublogger.info("Calculating effective gain. This may take 20+ minutes.")
-        # Separate into smaller iterations
-        iterations = 200
-        exposure_size = int(full_exposure_cleared.shape[0] / iterations)
-        for i in tqdm(range(iterations)):
-            division_path = sigma_saves / f"sigma_temp_effective_gain_{i}.npy"
-            if division_path.exists():
-                continue
-            effective_gain_division = full_exposure_cleared[
-                i * exposure_size : (i + 1) * exposure_size
-            ].astype(np.float64)
-            effective_gain_division *= phot_scale
-            np.save(division_path, effective_gain_division)
-            del effective_gain_division
-            gc.collect()
-        del phot_scale
-        del full_exposure_cleared
-        gc.collect()
-        effective_gain = np.load(sigma_saves / "sigma_temp_effective_gain_0.npy")
-        for i in tqdm(range(iterations)):
-            effective_gain = np.append(
-                effective_gain,
-                np.load(sigma_saves / f"sigma_temp_effective_gain_{i}.npy"),
-                0,
+            # Load stamp for this object and filter over minimum of 0
+            stamp_path = paths.get_path(
+                "stamp",
+                product_root=product_root,
+                field=field,
+                image_version=image_version,
+                catalog_version=catalog_version,
+                filter=filter,
+                object=object,
             )
-        np.save(effective_gain_path, effective_gain)
+            stamp_file = fits.open(stamp_path)
+            stamp_data = stamp_file["PRIMARY"].data
+            maximized_stamp = np.maximum(stamp_data, 0)
 
-    # Calculate poisson variance
-    poisson_variance_path = sigma_saves / "sigma_temp_poisson_variance.npy"
-    if poisson_variance_path.exists():
-        del effective_gain
-        gc.collect()
-        sublogger.info(f"Loading Poisson variance from {poisson_variance_path.name}.")
-        max_variance = np.load(poisson_variance_path)
-    else:
-        sublogger.info("Calculating Poisson variance.")
-        max_variance = np.load(max_variance_path)
-        max_variance /= effective_gain
-        del effective_gain
-        gc.collect()
-        np.save(poisson_variance_path, max_variance)
+            # Clear memory
+            stamp_file.close()
+            del stamp_path
+            del stamp_file
+            del stamp_data
+            gc.collect()
 
-    # Calculate total variance
-    total_variance_path = sigma_saves / "sigma_temp_total_variance.npy"
-    if total_variance_path.exists():
-        del max_variance
-        gc.collect()
-        sublogger.info(f"Loading total variance from {total_variance_path.name}.")
-        total_variance = np.load(total_variance_path)
-    else:
-        sublogger.info("Calculating total variance.")
-        total_variance = np.load(weight_variance_path)
-        total_variance += max_variance
-        del max_variance
-        gc.collect()
-        np.save(total_variance_path, weight_variance)
+            # Generate cutout for exposure, which is 4x smaller than science
+            exposure_cutout = Cutout2D(
+                data=exposure_data,
+                position=position,
+                size=int(image_size / 4),
+                wcs=exposure_wcs,
+            )
 
-    # Calculate sigma and write to file
-    sublogger.info("Calculating sigma map and writing to file.")
-    sigma = np.sqrt(total_variance)
-    del total_variance
+            # Grow exposure cutout to same size as science
+            zeroes = np.zeros(shape=(image_size, image_size), dtype=int)
+            zeroes[2::4, 2::4] += exposure_cutout.data
+            full_exposure = ndimage.maximum_filter(input=zeroes, size=4)
+            del zeroes
+            del exposure_cutout
+            gc.collect()
+
+            # Find multiplicative factors applied to original count rate data
+            scale_factor = 1.0
+            for header in ["PHOTMJSR", "PHOTSCAL", "OPHOTFNU"]:
+                if header in exposure_headers:
+                    scale_factor /= exposure_headers[header]
+                if header == "OPHOTFNU":
+                    scale_factor *= exposure_headers["PHOTFNU"]
+
+            # Calculate effective gain - electrons per DN of the mosaic
+            effective_gain = scale_factor * full_exposure
+            del scale_factor
+            del full_exposure
+            gc.collect()
+
+            # Calculate Poisson variance in mosaic DN
+            poisson_variance = maximized_stamp / effective_gain
+            del maximized_stamp
+            del effective_gain
+            gc.collect()
+
+            # Generate cutout for weights
+            weights_cutout = Cutout2D(
+                data=weights_data,
+                position=position,
+                size=image_size,
+                wcs=weights_wcs,
+            )
+
+            # Calculate original variance from weights map
+            weights_variance = 1 / weights_cutout.data
+            del weights_cutout
+            gc.collect()
+
+            # Calculate total variance
+            variance = weights_variance + poisson_variance
+            del poisson_variance
+            del weights_variance
+            gc.collect()
+
+            # Calculate sigma
+            sigma = np.sqrt(variance)
+            fits.PrimaryHDU(data=sigma, header=weights_wcs.to_header()).writeto(
+                sigma_path, overwrite=True
+            )
+
+            # Clear memory
+            del sigma_path
+            del object
+            del position
+            del image_size
+            del sigma
+            gc.collect()
+
+        # Catch skipped objects
+        except Exception as e:
+            logger.error(e)
+            skipped.append(object)
+
+    # Display skipped objects
+    if len(skipped) > 0:
+        logger.debug(
+            f"Skipped generating sigma maps for {len(skipped)} objects: {skipped}."
+        )
+
+
+def generate_psf(
+    input_root: Path,
+    product_root: Path,
+    filter: str,
+    pixscale: float,
+    regenerate: bool = False,
+    size_factor: int = 6,
+):
+    """Generate PSF crops for all frames in a filter.
+
+    Parameters
+    ----------
+    input_root : Path
+        Path to root GalWrap input directory.
+    product_root : Path
+        Path to root GalWrap products directory.
+    filter : str
+        Filter used for observation.
+    pixscale : float
+        Pixel scale of science frame.
+    regenerate : bool, optional
+        Regenerate existing crops, by default False.
+    size_factor : int, optional
+        PSF size divisor for image size, by default 6.
+    """
+    pixname = science.get_pixname(pixscale)
+    logger.info("Generating a PSF cutout for LP " + "_".join(filter, pixname) + ".")
+
+    # Skip filters which already have PSF cutouts
+    psf_path = paths.get_path(
+        "psf",
+        product_root=product_root,
+        filter=filter,
+        pixscale=pixscale,
+    )
+    if psf_path.exists() and not regenerate:
+        logger.info(f"PSF already exists, skipping.")
+        return
+
+    # Load in PSF and clear memory
+    rawpsf_path = paths.get_path(
+        "rawpsf",
+        input_root=input_root,
+        filter=filter,
+    )
+    rawpsf_file = fits.open(rawpsf_path)
+    rawpsf_data = rawpsf_file["PRIMARY"].data
+    rawpsf_headers = rawpsf_file["PRIMARY"].header
+    rawpsf_file.close
+    del rawpsf_file
     gc.collect()
-    fits.PrimaryHDU(data=sigma).writeto(full_sigma_path, overwrite=True)
-    del sigma
+
+    # Calculate PSF size from ratio of PSF pixscale to science pixscale
+    image_size = int(
+        rawpsf_headers["NAXIS1"] * rawpsf_headers["PIXELSCL"] / pixscale / size_factor
+    )
+    center = int(rawpsf_headers["NAXIS1"] / 2)
+    del rawpsf_headers
     gc.collect()
 
-    # Delete saves
-    sublogger.info("Deleting temporary save files.")
-    for save_file in paths.get_files(sigma_saves):
-        save_file.unlink()
-    sigma_saves.rmdir()
+    # Cutout square of calculated size, centered at PSF center
+    psf = Cutout2D(data=rawpsf_data, position=(center, center), size=image_size)
+
+    # Write to file
+    fits.PrimaryHDU(data=psf.data).writeto(psf_path, overwrite=True)
 
 
+def generate_masks(
+    input_root: Path,
+    product_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str,
+    objects: list[int],
+    positions: list[SkyCoord],
+    image_sizes: list[int],
+    regenerate: bool = False,
+):
+    """Generate masks for all objects in a FIC.
 
-def generate_stamp(ficlo:FICLO,galwrap_config:GalWrapConfig,position:SkyCoord,image_size:int):
-    pass
+    Parameters
+    ----------
+    input_root : Path
+        Path to root GalWrap input directory.
+    product_root : Path
+        Path to root GalWrap products directory.
+    field : str
+        Field of observation.
+    image_version : str
+        Version of image processing used on observation.
+    catalog_version : str
+        Version of cataloguing used for field.
+    filter : str
+        Filter used for observation.
+    objects : list[str]
+        List of object IDs in catalog for which to generate masks.
+    positions : list[SkyCoord]
+        List of positions of objects in the sky, from catalog.
+    image_sizes : list[int]
+        List of image sizes corresponding to each object's stamp.
+    regenerate : bool, optional
+        Regenerate existing masks, by default False.
+    """
+    logger.info(
+        "Generating masks for FIC "
+        + "_".join(field, image_version, catalog_version)
+        + "."
+    )
+
+    # Load in segmentation map
+    segmap_path = paths.get_path(
+        "segmap",
+        input_root=input_root,
+        field=field,
+        image_version=image_version,
+        filter=filter,
+    )
+    segmap_file = fits.open(segmap_path)
+    segmap_data = segmap_file["PRIMARY"].data
+    segmap_wcs = WCS(segmap_file["PRIMARY"].header)
+
+    # Close and clear files from memory
+    segmap_file.close()
+    del segmap_path
+    del segmap_file
+    gc.collect()
+
+    # Iterate over each object, position, and image_size tuple
+    skipped = []
+    for i in range(len(objects)):
+        object, position, image_size = objects[i], positions[i], image_sizes[i]
+
+        # Skip objects which already have masks
+        mask_path = paths.get_path(
+            "mask",
+            product_root=product_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+        if mask_path.exists() and not regenerate:
+            skipped.append(object)
+            continue
+
+        # Try generating mask for object
+        try:
+            logger.info(f"Generating mask for object {object}.")
+
+            # Generate mask from segmap
+            mask = Cutout2D(
+                data=segmap_data,
+                position=position,
+                size=image_size,
+                wcs=segmap_wcs,
+            )
+
+            # Write to disk
+            fits.PrimaryHDU(data=mask.data, header=mask.wcs.to_header()).writeto(
+                mask_path, overwrite=True
+            )
+
+            # Clear memory
+            del mask_path
+            del object
+            del position
+            del image_size
+            del mask
+            gc.collect()
+
+        # Catch skipped objects
+        except Exception as e:
+            logger.error(e)
+            skipped.append(object)
+
+    # Display skipped objects
+    if len(skipped) > 0:
+        logger.debug(f"Skipped generating masks for {len(skipped)} objects: {skipped}.")
+
+
+def generate_feedfiles(
+    input_root: Path,
+    product_root: Path,
+    output_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str,
+    objects: list[int],
+    image_sizes: list[int],
+    pixscale: float,
+    regenerate: bool = False,
+    apply_sigma: bool = True,
+    apply_psf: bool = True,
+    apply_mask: bool = True,
+    feedfile_template_path: Path = GALWRAP_DATA_ROOT / "feedfile.jinja",
+    constraints_path: Path = GALWRAP_DATA_ROOT / "default.constraints",
+    path_length: int = 181,
+    float_length: int = 12,
+):
+    """Generate feedfiles for all objects in a FICL.
+
+    Parameters
+    ----------
+    input_root : Path
+        Path to root GalWrap input directory.
+    product_root : Path
+        Path to root GalWrap products directory.
+    output_root : Path
+        Path to root Galwrap output directory.
+    field : str
+        Field of observation.
+    image_version : str
+        Version of image processing used on observation.
+    catalog_version : str
+        Version of cataloguing used for field.
+    filter : str
+        Filter used for observation.
+    objects : list[str]
+        List of object IDs in catalog for which to generate feedfiles.
+    image_sizes : list[int]
+        List of image sizes corresponding to each object's stamp.
+    pixscale : float
+        Pixel scale of science frame.
+    regenerate : bool, optional
+        Regenerate existing feedfiles, by default False.
+    apply_sigma : bool, optional
+        Use corresponding sigma map in GALFIT, by default True.
+    apply_psf : bool, optional
+        Use corresponding PSF in GALFIT, by default True.
+    apply_mask : bool, optional
+        Use corresponding mask in GALFIT, by default True.
+    feedfile_template_path : Path, optional
+        Path to jinja2 feedfile template, by default from the repository data
+        directory.
+    constraints_path : Path, optional
+        Path to the GALFIT constraints file, by default from the repository data
+        directory.
+    path_length : int, optional
+        Length of path strings in the template for comment alignment, by default
+        181, so that comments start on column 185.
+    float_length : int, optional
+        Length of float strings in the template for comment alignment, by
+        default 12.
+    """
+    logger.info(
+        "Generating feedfiles for FICL "
+        + "_".join(field, image_version, catalog_version, filter)
+        + "."
+    )
+
+    # Define functions for comment alignment
+    path_str = lambda x: str(x).ljust(path_length)[:path_length]
+    float_str = lambda x: str(x).ljust(float_length)[:path_length]
+
+    # Load in catalog
+    catalog_path = paths.get_path(
+        "catalog",
+        input_root=input_root,
+        field=field,
+        image_version=image_version,
+    )
+    catalog = Table.read(catalog_path)
+
+    # Get zeropoint
+    science_path = paths.get_path(
+        "science",
+        input_root=input_root,
+        field=field,
+        image_version=image_version,
+        filter=filter,
+    )
+    zeropoint = science.get_zeropoint(image_path=science_path)
+
+    # Clear memory
+    del catalog_path
+    del science_path
+    gc.collect()
+
+    # Iterate over each object, and image_size tuple
+    skipped = []
+    for i in range(len(objects)):
+        object, image_size = objects[i], image_sizes[i]
+
+        # Skip objects which already have feedfiles
+        feedfile_path = paths.get_path(
+            "feedfile",
+            product_root=product_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+        if feedfile_path.exists() and not regenerate:
+            skipped.append(object)
+            continue
+
+        # Generate feedfile for object
+        logger.info(f"Generating feedfile for object {object}.")
+
+        # Get paths
+        output_galfit_path = paths.get_path(
+            "output_galfit",
+            output_root=output_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+        stamp_path = paths.get_path(
+            "stamp",
+            product_root=product_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+        sigma_path = paths.get_path(
+            "stamp",
+            product_root=product_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+        psf_path = paths.get_path(
+            "stamp",
+            product_root=product_root,
+            filter=filter,
+            pixscale=pixscale,
+        )
+        mask_path = paths.get_path(
+            "stamp",
+            product_root=product_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+
+        magnitude = catalog[object]["mag_auto"]
+        half_light_radius = catalog[object]["a_image"]
+        axis_ratio = catalog[object]["b_image"] / catalog[object]["a_image"]
+
+        # Set configuration parameters from input
+        feedfile_dict = {
+            "stamp_path": path_str(stamp_path),
+            "output_galfit_path": path_str(output_galfit_path),
+            "sigma_path": path_str(sigma_path if apply_sigma else ""),
+            "psf_path": path_str(psf_path if apply_psf else ""),
+            "mask_path": path_str(mask_path if apply_mask else ""),
+            "constraints_path": path_str(constraints_path),
+            "image_size": float_str(image_size),
+            "zeropoint": float_str(zeropoint),
+            "position": float_str(image_size / 2),
+            "magnitude": float_str(magnitude),
+            "half_light_radius": float_str(half_light_radius),
+            "axis_ratio": float_str(axis_ratio),
+        }
+
+        # Write new feedfile from template and save to output directory
+        with open(feedfile_template_path, "r") as feedfile_template:
+            template = Template(feedfile_template.read())
+        lines = template.render(feedfile_dict)
+        with open(feedfile_path, "w") as feedfile:
+            feedfile.write(lines)
+
+        # Clear memory
+        del object
+        del image_size
+        del feedfile_path
+        del output_galfit_path
+        del stamp_path
+        del sigma_path
+        del psf_path
+        del mask_path
+        del magnitude
+        del half_light_radius
+        del axis_ratio
+        del feedfile_dict
+        del template
+        del lines
+        gc.collect()
+
+
+## Main
+
+
+def generate_product_ficlo(
+    galwrap_config: GalWrapConfig,
+    ficlo: FICLO,
+    regenerate_products: bool = False,
+    regenerate_stamp: bool = False,
+    regenerate_sigma: bool = False,
+    regenerate_psf: bool = False,
+    regenerate_mask: bool = False,
+    regenerate_feedfile: bool = True,
+    apply_sigma: bool = True,
+    apply_psf: bool = True,
+    apply_mask: bool = True,
+    minimum_image_size: int = 32,
+):
+    raise NotImplementedError()
 
 
 def generate_products(
-    ficlo: FICLO,
     galwrap_config: GalWrapConfig,
-    regenerate: bool = False,
+    regenerate_products: bool = False,
     regenerate_stamp: bool = False,
+    regenerate_sigma: bool = False,
     regenerate_psf: bool = False,
     regenerate_mask: bool = False,
-    regenerate_sigma: bool = False,
     regenerate_feedfile: bool = True,
-    use_mask: bool = True,
-    use_psf: bool = True,
-    use_sigma: bool = True,
-    minimum_image_size:int=32,
+    apply_sigma: bool = True,
+    apply_psf: bool = True,
+    apply_mask: bool = True,
+    minimum_image_size: int = 32,
+    kron_factor: int = 3,
 ):
-    # Get paths
-    ## Input
-    catalog_path = paths.get_path("catalog", galwrap_config=galwrap_config,ficlo=ficlo)
-    rawpsf_path = paths.get_path("rawpsf", galwrap_config=galwrap_config,ficlo=ficlo)
-    segmap_path = paths.get_path("segmap", galwrap_config=galwrap_config,ficlo=ficlo)
-    exposure_path = paths.get_path("exposure", galwrap_config=galwrap_config,ficlo=ficlo)
-    science_path = paths.get_path("science", galwrap_config=galwrap_config,ficlo=ficlo)
-    weights_path = paths.get_path("weights", galwrap_config=galwrap_config,ficlo=ficlo)
+    """Generate all products for a given configuration.
 
-    ## Product
-    stamp_path = paths.get_path("stamp", galwrap_config=galwrap_config,ficlo=ficlo)
-    psf_path = paths.get_path("psf", galwrap_config=galwrap_config,ficlo=ficlo)
-    mask_path = paths.get_path("mask", galwrap_config=galwrap_config,ficlo=ficlo)
-    sigma_path = paths.get_path("sigma", galwrap_config=galwrap_config,ficlo=ficlo)
-    feedfile_path = paths.get_path("feedfile", galwrap_config=galwrap_config,ficlo=ficlo)
+    Parameters
+    ----------
+    galwrap_config : GalWrapConfig
+        Configuration object for this GalWrap run.
+    regenerate_products : bool, optional
+        Regenerate all products, by default False.
+    regenerate_stamp : bool, optional
+        Regenerate stamps, by default False.
+    regenerate_sigma : bool, optional
+        Regenerate sigma maps, by default False.
+    regenerate_psf : bool, optional
+        Regenerate PSF crops, by default False.
+    regenerate_mask : bool, optional
+        Regenerate masks, by default False.
+    regenerate_feedfile : bool, optional
+        Regenerate feedfiles, by default True.
+    apply_sigma : bool, optional
+        Use sigma maps in the GALFIT run, by default True.
+    apply_psf : bool, optional
+        Use PSFs in the GALFIT run, by default True.
+    apply_mask : bool, optional
+        Use masks in the GALFIT run, by default True.
+    minimum_image_size : int, optional
+        Minimum pixel length of square stamp, by default 32.
+    kron_factor : int, optional
+        Multiplicative factor to apply to Kron radius for each object to
+        determine image size of stamp, by default 3.
+    """
+    # Iterate over each FICL in configuration
+    for ficl in galwrap_config.get_FICLs():
+        # Generate science cutouts if missing or requested
+        objects, positions, image_sizes = generate_stamps(
+            input_root=galwrap_config.input_root,
+            product_root=galwrap_config.product_root,
+            field=ficl.field,
+            image_version=ficl.image_version,
+            catalog_version=ficl.catalog_version,
+            filter=ficl.filter,
+            objects=ficl.objects,
+            minimum_image_size=minimum_image_size,
+            kron_factor=kron_factor,
+            regenerate=regenerate_products or regenerate_stamp,
+        )
 
-    ## Output
-    output_galfit_path = paths.get_path("output_galfit", galwrap_config=galwrap_config,ficlo=ficlo)
+        # Generate sigma maps if missing or requested
+        generate_sigmas(
+            input_root=galwrap_config.input_root,
+            product_root=galwrap_config.product_root,
+            field=ficl.field,
+            image_version=ficl.image_version,
+            catalog_version=ficl.catalog_version,
+            filter=ficl.filter,
+            objects=objects,
+            positions=positions,
+            image_sizes=image_sizes,
+            regenerate=regenerate_products or regenerate_sigma,
+        )
 
-    # Determine which products to generate
-    make_stamp = (not stamp_path.exists()) or regenerate or regenerate_stamp
-    make_psf = (not psf_path.exists()) or regenerate or regenerate_psf
-    make_mask = (not mask_path.exists()) or regenerate or regenerate_mask
-    make_sigma = (not sigma_path.exists()) or regenerate or regenerate_sigma
-    make_feedfile = (not feedfile_path.exists()) or regenerate or regenerate_feedfile
+        # Generate PSF if missing or requested
+        generate_psf(
+            input_root=galwrap_config.input_root,
+            product_root=galwrap_config.product_root,
+            filter=ficl.filter,
+            pixscale=ficl.pixscale,
+            regenerate=regenerate_products or regenerate_psf,
+        )
 
-    # Load in catalog
-    if make_stamp or make_mask or make_sigma or make_feedfile:
-        logger.info(f"Loading in catalog from {catalog_path.name}")
-        catalog = Table.read(catalog_path)
+        # Generate masks if missing or requested
+        generate_masks(
+            input_root=galwrap_config.input_root,
+            product_root=galwrap_config.product_root,
+            field=ficl.field,
+            image_version=ficl.image_version,
+            catalog_version=ficl.catalog_version,
+            filter=ficl.filter,
+            objects=objects,
+            positions=positions,
+            image_sizes=image_sizes,
+            regenerate=regenerate_products or regenerate_mask,
+        )
 
-        # Calculate cutout location information
-        position = SkyCoord(ra=catalog[ficlo.object]["ra"],dec=catalog[ficlo.object]["dec"],unit="deg")
-        kron_factor = 3
-        pixscale = 0.04
-        kron_radius = catalog[object][
-                (
-                    "kron_radius_circ"
-                    if "kron_radius_circ" in catalog[object]
-                    else "kron_radius"
-                )
-            ]
-        image_size = (
-                np.nanmax(
-                    [
-                        int(kron_radius / pixscale * kron_factor),
-                        minimum_image_size,
-                    ]
-                )
-                if isinstance(kron_radius, float)
-                else minimum_image_size
-            )
-    
-    # Generate stamp if missing or requested
-    if make_stamp:
-        logger.info(f"Generating stamp for {ficlo}.")
-        generate_stamp(ficlo=ficlo,galwrap_config=galwrap_config,position=position,image_size=image_size)
-    
-    # Generate psf if missing or requested
-    if make_psf:
-        logger.info(f"Generating PSF for {ficlo.filter}.")
-        generate_psf(ficlo=ficlo,galwrap_config=galwrap_config,position=position,image_size=image_size)
-    
-    # Generate mask if missing or requested
-    if make_mask:
-        logger.info(f"Generating mask for {ficlo}.")
-        generate_mask(ficlo=ficlo,galwrap_config=galwrap_config,position=position,image_size=image_size)
-    
-    # Generate sigma if missing or requested
-    if make_sigma:
-        logger.info(f"Generating sigma for {ficlo}.")
-        generate_sigma(ficlo=ficlo,galwrap_config=galwrap_config,position=position,image_size=image_size)
-    
-    # Generate feedfile if missing or requested
-    if make_feedfile:
-        logger.info(f"Generating feedfile for {ficlo}.")
-        half_light_radius = catalog[ficlo.object]["a_image"]
-        axis_ratio = catalog[ficlo.object]["b_image"] / catalog[ficlo.object]["a_image"]
-        magnitude = catalog[ficlo.object]["mag_auto"]
-        zeropoint = science.get_zeropoint(image_path=science_path)
-        generate_feedfile(
-            feedfile_path=feedfile_path,
-            galfit_output_path=output_galfit_path,
-            stamp_path=stamp_path,
-            rms_path=sigma_path if use_sigma else "",
-            psf_path=psf_path if use_psf else "",
-            mask_path=mask_path if use_mask else "",
-            image_size=image_size,
-            half_light_radius=half_light_radius,
-            axis_ratio=axis_ratio,
-            magnitude=magnitude,
-            zeropoint=zeropoint,
+        # Generate feedfiles if missing or requested
+        generate_feedfiles(
+            input_root=galwrap_config.input_root,
+            product_root=galwrap_config.product_root,
+            output_root=galwrap_config.output_root,
+            field=ficl.field,
+            image_version=ficl.image_version,
+            catalog_version=ficl.catalog_version,
+            filter=ficl.filter,
+            objects=objects,
+            image_sizes=image_sizes,
+            pixscale=ficl.pixscale,
+            regenerate=regenerate_products or regenerate_feedfile,
+            apply_sigma=apply_sigma,
+            apply_psf=apply_psf,
+            apply_mask=apply_mask,
         )
