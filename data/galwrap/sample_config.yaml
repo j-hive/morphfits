@@ -1,0 +1,11 @@
+input_root: /path/to/data
+fields:
+  - "abell2744clu"
+image_versions:
+  - "grizli-v7.2"
+catalog_versions:
+  - "dja-v7.2"
+filters:
+  - "f200w-clear"
+objects:
+  - 4215
