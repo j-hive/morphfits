@@ -5,12 +5,21 @@ GalWrap.
 # Imports
 
 
+import logging
 from pathlib import Path
 
 from astropy.table import Table
 
 from .setup import GalWrapPath, FICLO, GalWrapConfig, GALWRAP_PATHS
 from ..utils import science
+
+
+# Constants
+
+
+logger = logging.getLogger("PATHS")
+"""Logging object for this module.
+"""
 
 
 # Functions
@@ -314,18 +323,12 @@ def get_path(
     output_root: Path | None = None,
     ficlo: FICLO | None = None,
     field: str | None = None,
-    fields: list[str] | None = None,
     image_version: str | None = None,
-    image_versions: list[str] | None = None,
     catalog_version: str | None = None,
-    catalog_versions: list[str] | None = None,
     filter: str | None = None,
-    filters: list[str] | None = None,
     object: int | None = None,
-    objects: list[int] | None = None,
     pixscale: float | None = None,
-    pixscales: list[float] | None = None,
-) -> Path | list[Path] | None:
+) -> Path | None:
     # Resolve name and parameters
     path_name = get_path_name(name)
 
@@ -336,7 +339,6 @@ def get_path(
     output_root = get_parameter("output_root", output_root, galwrap_config)
 
     ## FICLOs
-    ### Single
     field = get_parameter("field", field, ficlo)
     image_version = get_parameter("image_version", image_version, ficlo)
     catalog_version = get_parameter("catalog_version", catalog_version, ficlo)
@@ -344,91 +346,45 @@ def get_path(
     object = get_parameter("object", object, ficlo)
     pixscale = get_parameter("pixscale", pixscale, ficlo)
 
-    ### Multiple
-    fields = (
-        get_parameter("fields", fields, galwrap_config) if field is None else [field]
+    # Resolve path for given parameters
+    return GALWRAP_PATHS[path_name].resolve(
+        galwrap_root=galwrap_root,
+        input_root=input_root,
+        product_root=product_root,
+        output_root=output_root,
+        field=field,
+        image_version=image_version,
+        catalog_version=catalog_version,
+        filter=filter,
+        object=object,
+        pixname=None if pixscale is None else science.get_pixname(pixscale),
     )
-    image_versions = (
-        get_parameter("image_versions", image_versions, galwrap_config)
-        if image_version is None
-        else [image_version]
-    )
-    catalog_versions = (
-        get_parameter("catalog_versions", catalog_versions, galwrap_config)
-        if catalog_version is None
-        else [catalog_version]
-    )
-    filters = (
-        get_parameter("filters", filters, galwrap_config)
-        if filter is None
-        else [filter]
-    )
-    objects = (
-        get_parameter("objects", objects, galwrap_config)
-        if object is None
-        else [object]
-    )
-    pixscales = (
-        get_parameter("pixscales", pixscales, galwrap_config)
-        if pixscale is None
-        else [pixscale]
-    )
-
-    # Resolve paths for all given parameters
-    paths = []
-    for field in [None] if fields is None else fields:
-        for image_version in [None] if image_versions is None else image_versions:
-            for catalog_version in (
-                [None] if catalog_versions is None else catalog_versions
-            ):
-                for filter in [None] if filters is None else filters:
-                    for object in [None] if objects is None else objects:
-                        for pixscale in [0.0] if pixscales is None else pixscales:
-                            paths.append(
-                                GALWRAP_PATHS[path_name].resolve(
-                                    galwrap_root=galwrap_root,
-                                    input_root=input_root,
-                                    product_root=product_root,
-                                    output_root=output_root,
-                                    field=field,
-                                    image_version=image_version,
-                                    catalog_version=catalog_version,
-                                    filter=filter,
-                                    object=object,
-                                    pixname=science.get_pixname(pixscale),
-                                )
-                            )
-
-    # Return single path if appropriate, all discovered paths otherwise
-    match len(paths):
-        case 0:
-            return None
-        case 1:
-            return paths[0]
-        case _:
-            return paths
 
 
 ## Setup
 
 
 def setup_galwrap_paths(galwrap_config: GalWrapConfig):
+    logger.info("Setting up product and output directories where missing.")
+
     # Iterate over each possible FICLO from configurations
-    for ficlo in galwrap_config.get_ficlos():
-        # Iterate over each product and output directory
-        for path_name, path_item in GALWRAP_PATHS.items():
-            if (("product" in path_name) or ("output" in path_name)) and (
-                not path_item.file
-            ):
-                # Create directory if it does not exist
-                path_item.resolve(
-                    galwrap_root=galwrap_config.galwrap_root,
-                    product_root=galwrap_config.product_root,
-                    output_root=galwrap_config.output_root,
-                    field=ficlo.field,
-                    image_version=ficlo.image_version,
-                    catalog_version=ficlo.catalog_version,
-                    filter=ficlo.filter,
-                    object=ficlo.object,
-                    pixname=science.get_pixname(ficlo.pixscale),
-                ).mkdir(parents=True, exist_ok=True)
+    for ficl in galwrap_config.get_FICLs():
+        # Iterate over each object in FICL
+        for object in ficl.objects:
+            # Iterate over each product and output directory
+            for path_name, path_item in GALWRAP_PATHS.items():
+                if (("product" in path_name) or ("output" in path_name)) and (
+                    not path_item.file
+                ):
+                    # Create directory if it does not exist
+                    path_item.resolve(
+                        galwrap_root=galwrap_config.galwrap_root,
+                        product_root=galwrap_config.product_root,
+                        output_root=galwrap_config.output_root,
+                        field=ficl.field,
+                        image_version=ficl.image_version,
+                        catalog_version=ficl.catalog_version,
+                        filter=ficl.filter,
+                        object=object,
+                        pixname=science.get_pixname(ficl.pixscale),
+                    ).mkdir(parents=True, exist_ok=True)
