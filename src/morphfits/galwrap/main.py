@@ -83,8 +83,8 @@ def run_galfit(galwrap_config: GalWrapConfig):
 
             # Capture output and log and close subprocess
             sublogger = logging.getLogger("GALFIT")
-            for line in iter(process.stdout.readline, b""):
-                sublogger.info(line.rstrip().decode("utf-8"))
+            # for line in iter(process.stdout.readline, b""):
+            #     sublogger.info(line.rstrip().decode("utf-8"))
             process.stdout.close()
             process.wait()
 

@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from astropy.io import fits
 from matplotlib import pyplot as plt
+from matplotlib import colors as mplc
 
 from ..galwrap import paths
 
@@ -26,6 +27,30 @@ logger = logging.getLogger("PLOTS")
 logging.getLogger("matplotlib").setLevel(100)
 logging.getLogger("PIL").setLevel(100)
 """Ignore matplotlib and PIL logs."""
+
+
+pos = [0.0, 0.05, 0.4, 0.6, 0.7, 1.0]
+colours = [
+    [0, 0, 0],
+    [0, 0, 0],
+    np.array([103, 111, 122]) / 255,
+    np.array([132, 156, 186]) / 255,
+    np.array([250, 203, 115]) / 255,
+    [1, 1, 1],
+]
+colour_names = ["red", "green", "blue"]
+JHIVE_CMAP = mplc.LinearSegmentedColormap(
+    "jhive_cmap",
+    {
+        colour_names[i]: [
+            (pos[j], colours[j][i], colours[j][i]) for j in range(len(pos))
+        ]
+        for i in range(3)
+    },
+    1024,
+)
+"""Colormap using J-HIVE colors.
+"""
 
 
 # Functions
@@ -115,32 +140,32 @@ def plot_products(
             )
 
             plt.subplot(2, 3, 1)
-            plt.imshow(stamp, cmap="magma")
+            plt.imshow(stamp, cmap=JHIVE_CMAP)
             plt.title("stamp", y=0, fontsize=20, color="white")
             plt.axis("off")
 
             plt.subplot(2, 3, 2)
-            plt.imshow(sigma, cmap="magma")
+            plt.imshow(sigma, cmap=JHIVE_CMAP)
             plt.title("sigma", y=0, fontsize=20, color="white")
             plt.axis("off")
 
             plt.subplot(2, 3, 3)
-            plt.imshow(psf, cmap="magma")
+            plt.imshow(psf, cmap=JHIVE_CMAP)
             plt.title("psf", y=0, fontsize=20, color="white")
             plt.axis("off")
 
             plt.subplot(2, 3, 4)
-            plt.imshow(norm_model, cmap="magma")
+            plt.imshow(norm_model, cmap=JHIVE_CMAP)
             plt.title("model", y=0, fontsize=20, color="white")
             plt.axis("off")
 
             plt.subplot(2, 3, 5)
-            plt.imshow(residual, cmap="magma")
+            plt.imshow(residual, cmap=JHIVE_CMAP)
             plt.title("residual", y=0, fontsize=20, color="white")
             plt.axis("off")
 
             plt.subplot(2, 3, 6)
-            plt.imshow(mask, cmap="magma")
+            plt.imshow(mask, cmap=JHIVE_CMAP)
             plt.title("mask", y=0, fontsize=20, color="white")
             plt.axis("off")
 
@@ -176,17 +201,17 @@ def plot_comparison(stamp_path: Path, model_path: Path, output_path: Path):
     plt.title(stamp_path.name[:-4])
 
     plt.subplot(1, 3, 1)
-    plt.imshow(stamp, cmap="magma")
+    plt.imshow(stamp, cmap=JHIVE_CMAP)
     plt.axis("off")
     plt.title("Original")
 
     plt.subplot(1, 3, 2)
-    plt.imshow(norm_model, cmap="magma")
+    plt.imshow(norm_model, cmap=JHIVE_CMAP)
     plt.axis("off")
     plt.title("Model")
 
     plt.subplot(1, 3, 3)
-    plt.imshow(norm_model - stamp, cmap="magma")
+    plt.imshow(norm_model - stamp, cmap=JHIVE_CMAP)
     plt.axis("off")
     plt.title("Residuals")
 
