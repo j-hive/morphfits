@@ -79,11 +79,7 @@ def generate_stamps(
     tuple[list[int], list[SkyCoord], list[int]]
         List of object IDs, positions, and image sizes for successful stamps.
     """
-    logger.info(
-        "Generating stamps for FICL "
-        + "_".join(field, image_version, catalog_version, filter)
-        + "."
-    )
+    logger.info("Generating stamps.")
 
     # Load in catalog
     catalog_path = paths.get_path(
@@ -110,6 +106,26 @@ def generate_stamps(
     # Iterate over each object
     generated, skipped = ([], [], []), []
     for object in objects:
+        # Record object position from catalog
+        position = SkyCoord(
+            ra=catalog[object]["ra"], dec=catalog[object]["dec"], unit="deg"
+        )
+
+        # Determine image size
+        kron_radius = catalog[object][
+            (
+                "kron_radius_circ"
+                if "kron_radius_circ" in catalog.keys()
+                else "kron_radius"
+            )
+        ]
+        image_size = np.nanmax(
+            [
+                int(kron_radius / 0.04 * kron_factor),
+                minimum_image_size,
+            ]
+        )
+
         # Skip objects that have already been stamped
         stamp_path = paths.get_path(
             "stamp",
@@ -121,26 +137,16 @@ def generate_stamps(
             object=object,
         )
         if stamp_path.exists() and not regenerate:
+            logger.debug(f"Skipping object {object}, stamp exists.")
+            generated[0].append(object)
+            generated[1].append(position)
+            generated[2].append(image_size)
             skipped.append(object)
             continue
 
         # Try generating stamp for object
         try:
             logger.info(f"Generating stamp for object {object}.")
-
-            # Record object position from catalog
-            position = SkyCoord(
-                ra=catalog[object]["ra"], dec=catalog[object]["dec"], unit="deg"
-            )
-
-            # Determine image size
-            kron_radius = catalog[object]["kron_radius_circ"]
-            image_size = np.nanmax(
-                [
-                    int(kron_radius / 0.04 * kron_factor),
-                    minimum_image_size,
-                ]
-            )
 
             # Generate stamp
             stamp = Cutout2D(data=image, position=position, size=image_size, wcs=wcs)
@@ -224,11 +230,7 @@ def generate_sigmas(
     --------
     This algorithm was taken from `the DJA blog <https://dawn-cph.github.io/dja/blog/2023/07/18/image-data-products/>`_.
     """
-    logger.info(
-        "Generating sigma maps for FICL "
-        + "_".join(field, image_version, catalog_version, filter)
-        + "."
-    )
+    logger.info("Generating sigma maps.")
 
     # Load in exposure and weights maps
     exposure_path = paths.get_path(
@@ -279,6 +281,7 @@ def generate_sigmas(
             object=object,
         )
         if sigma_path.exists() and not regenerate:
+            logger.debug(f"Skipping object {object}, sigma map exists.")
             skipped.append(object)
             continue
 
@@ -413,8 +416,7 @@ def generate_psf(
     size_factor : int, optional
         PSF size divisor for image size, by default 6.
     """
-    pixname = science.get_pixname(pixscale)
-    logger.info("Generating a PSF cutout for LP " + "_".join(filter, pixname) + ".")
+    logger.info("Generating PSF crop.")
 
     # Skip filters which already have PSF cutouts
     psf_path = paths.get_path(
@@ -424,7 +426,7 @@ def generate_psf(
         pixscale=pixscale,
     )
     if psf_path.exists() and not regenerate:
-        logger.info(f"PSF already exists, skipping.")
+        logger.debug(f"Skipping, PSF crop exists.")
         return
 
     # Load in PSF and clear memory
@@ -492,11 +494,7 @@ def generate_masks(
     regenerate : bool, optional
         Regenerate existing masks, by default False.
     """
-    logger.info(
-        "Generating masks for FIC "
-        + "_".join(field, image_version, catalog_version)
-        + "."
-    )
+    logger.info("Generating masks.")
 
     # Load in segmentation map
     segmap_path = paths.get_path(
@@ -532,6 +530,7 @@ def generate_masks(
             object=object,
         )
         if mask_path.exists() and not regenerate:
+            logger.debug(f"Skipping object {object}, mask exists.")
             skipped.append(object)
             continue
 
@@ -635,11 +634,7 @@ def generate_feedfiles(
         Length of float strings in the template for comment alignment, by
         default 12.
     """
-    logger.info(
-        "Generating feedfiles for FICL "
-        + "_".join(field, image_version, catalog_version, filter)
-        + "."
-    )
+    logger.info("Generating feedfiles.")
 
     # Define functions for comment alignment
     path_str = lambda x: str(x).ljust(path_length)[:path_length]
@@ -685,6 +680,7 @@ def generate_feedfiles(
             object=object,
         )
         if feedfile_path.exists() and not regenerate:
+            logger.debug(f"Skipping object {object}, feedfile exists.")
             skipped.append(object)
             continue
 
@@ -711,7 +707,7 @@ def generate_feedfiles(
             object=object,
         )
         sigma_path = paths.get_path(
-            "stamp",
+            "sigma",
             product_root=product_root,
             field=field,
             image_version=image_version,
@@ -720,13 +716,13 @@ def generate_feedfiles(
             object=object,
         )
         psf_path = paths.get_path(
-            "stamp",
+            "psf",
             product_root=product_root,
             filter=filter,
             pixscale=pixscale,
         )
         mask_path = paths.get_path(
-            "stamp",
+            "mask",
             product_root=product_root,
             field=field,
             image_version=image_version,
@@ -846,6 +842,8 @@ def generate_products(
     """
     # Iterate over each FICL in configuration
     for ficl in galwrap_config.get_FICLs():
+        logger.info(f"Generating products for FICL {ficl}.")
+
         # Generate science cutouts if missing or requested
         objects, positions, image_sizes = generate_stamps(
             input_root=galwrap_config.input_root,
