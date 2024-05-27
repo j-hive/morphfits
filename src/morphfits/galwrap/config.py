@@ -118,7 +118,7 @@ def create_config(
     if "output_root" not in config_dict:
         config_dict["output_root"] = config_dict["galwrap_root"] / "output"
 
-    ## FICLOs
+    ## FICLOs - overwrites configuration file
     if fields is not None:
         config_dict["fields"] = fields
     if image_versions is not None:
@@ -144,6 +144,12 @@ def create_config(
             config_dict[parameter + "s"] = paths.find_parameter_from_input(
                 parameter, config_dict["input_root"]
             )
+
+    # Remove any suffices from filters, such as 'clear'
+    cleaned_filters = []
+    for field in config_dict["filters"]:
+        cleaned_filters.append(field.split("-")[0])
+    config_dict["filters"] = cleaned_filters
 
     # Create and return GalWrapConfig object from dict
     galwrap_config = GalWrapConfig(**config_dict)

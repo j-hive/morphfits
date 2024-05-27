@@ -442,27 +442,21 @@ class GalWrapPath(BaseModel):
         # Fill templates
         for template in TEMPLATE_MAPPINGS:
             if "{" + template + "}" in resolved_path:
+                # Only fill known templates
                 if parameters[TEMPLATE_MAPPINGS[template]] is not None:
+                    # Handle special filter cases
                     if template == "L":
                         # Simulated PSFs have capitalized filters in name
                         if "PSF_NIRCam" in resolved_path:
                             resolved_path = re.sub(
                                 "({" + template + "})",
-                                str(
-                                    parameters[TEMPLATE_MAPPINGS[template]].split("-")[
-                                        0
-                                    ]
-                                ).upper(),
+                                str(parameters[TEMPLATE_MAPPINGS[template]]).upper(),
                                 resolved_path,
                             )
                         else:
                             resolved_path = re.sub(
                                 "({" + template + "})",
-                                str(
-                                    parameters[TEMPLATE_MAPPINGS[template]].split("-")[
-                                        0
-                                    ]
-                                ),
+                                str(parameters[TEMPLATE_MAPPINGS[template]]),
                                 resolved_path,
                             )
                     else:
@@ -479,8 +473,8 @@ class GalWrapPath(BaseModel):
 
         resolved_path_obj = Path(resolved_path).resolve()
 
-        # Resolve drc/drz
-        if (resolved_path_obj.name[-5:] == ".fits") and ("*" in resolved_path_obj.name):
+        # Resolve glob paths (e.g. drc/drz)
+        if "*" in resolved_path_obj.name:
             resolved_path_obj = list(
                 resolved_path_obj.parent.glob(resolved_path_obj.name)
             )[0]
