@@ -104,6 +104,7 @@
         "rawpsf",
         "resid",
         "sersic",
+        "seterr",
         "subcomps",
         "sublogger",
         "suptitle",

@@ -78,11 +78,6 @@ product_psfs:
   path: "[product_root]/psfs"
   alts:
     - psfs
-product_ficl:
-  file: False
-  path: "[product_root]/{F}/{I}/{C}/{L}"
-  alts:
-    - ficl products
 product_ficlo:
   file: False
   path: "[product_root]/{F}/{I}/{C}/{L}/{O}"
@@ -106,11 +101,6 @@ psf:
   alts:
     - psf product
     - cropped psf
-fullsigma:
-  file: True
-  path: "[product_ficl]/{F}_{I}_{C}_{L}_full_sigma.fits"
-  alts:
-    - full sigma
 feedfile:
   file: True
   path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}.feedfile"

@@ -48,7 +48,6 @@ jhive_galwrap/
 │       └── {I}/
 │           └── {C}/
 │               └── {L}/
-│                   ├── {F}_{I}_{C}_{L}_full_sigma.fits
 │                   └── {O}/
 │                       ├── {F}_{I}_{C}_{L}_{O}.feedfile
 │                       ├── {F}_{I}_{C}_{L}_{O}_stamp.fits
@@ -103,7 +102,6 @@ jhive_galwrap/
 │       └── I/
 │           └── C/
 │               └── L/
-│                   ├── F_I_C_L_full_sigma.fits
 │                   └── O/
 │                       ├── F_I_C_L_O.feedfile
 │                       ├── F_I_C_L_O_stamp.fits
@@ -145,8 +143,7 @@ galwrap_root/
 │   └── .../
 │       └── .../
 │           └── .../
-│               └── product_ficl/
-│                   ├── fullsigma
+│               └── .../
 │                   └── product_ficlo/
 │                       ├── feedfile
 │                       ├── stamp
