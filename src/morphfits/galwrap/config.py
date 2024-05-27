@@ -30,20 +30,11 @@ def create_config(
     input_root: str | Path | None = None,
     product_root: str | Path | None = None,
     output_root: str | Path | None = None,
-    field: str | None = None,
     fields: list[str] | None = None,
-    image_version: str | None = None,
     image_versions: list[str] | None = None,
-    catalog_version: str | None = None,
     catalog_versions: list[str] | None = None,
-    filter: str | None = None,
     filters: list[str] | None = None,
-    object: int | None = None,
     objects: list[int] | None = None,
-    pixscale: float | None = None,
-    pixscales: list[float] | None = None,
-    morphology_version: str | None = None,
-    morphology_versions: list[str] | None = None,
 ) -> GalWrapConfig:
     """Create a GalWrap configuration object from hierarchically preferred
     variables, in order of values from
@@ -69,60 +60,29 @@ def create_config(
     output_root : str | Path | None, optional
         Path to root directory of GALFIT output products, e.g. morphology model
         and plots, by default None (not passed through CLI).
-    field : str | None, optional
-        Single field over which to execute GALFIT, by default None (not passed
-        through CLI).
     fields : list[str] | None, optional
         List of fields over which to execute GALFIT, by default None (not passed
         through CLI).
-    image_version : str | None, optional
-        Single image version over which to execute GALFIT, by default None (not
-        passed through CLI).
     image_versions : list[str] | None, optional
         List of image versions over which to execute GALFIT, by default None
-        (not passed through CLI).
-    catalog_version : str | None, optional
-        Single catalog version over which to execute GALFIT, by default None
         (not passed through CLI).
     catalog_versions : list[str] | None, optional
         List of catalog versions over which to execute GALFIT, by default None
         (not passed through CLI).
-    filter : str | None, optional
-        Single filter band over which to execute GALFIT, by default None (not
-        passed through CLI).
     filters : list[str] | None, optional
         List of filter bands over which to execute GALFIT, by default None (not
         passed through CLI).
-    object : int | None, optional
-        Single target IDs over which to execute GALFIT, for each catalog, by
-        default None (not passed through CLI).
     objects : list[int] | None, optional
         List of target IDs over which to execute GALFIT, for each catalog, by
         default None (not passed through CLI).
-    pixscale : float | None, optional
-        Single pixel scale over which to execute GALFIT, by default None (not
-        passed through CLI).
-    pixscales : list[float] | None, optional
-        List of pixel scales over which to execute GALFIT, by default None (not
-        passed through CLI).
-    morphology_version : str | None, optional
-        Single morphology fitting method to execute, by default None (not passed
-        through CLI).
-    morphology_versions : list[str] | None, optional
-        List of morphology fitting methods to execute, by default None (not
-        passed through CLI).
 
     Returns
     -------
     GalWrapConfig
         A configuration object for this program execution.
-
-    Notes
-    -----
-    If both the single and multiple version for a variable are given (e.g.
-    `field` and `fields` both have values from CLI), only the single version
-    will be used.
     """
+    logger.info(f"Loading configuration.")
+
     # Load config file values
     config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
     ## Cast and resolve paths
@@ -143,9 +103,11 @@ def create_config(
 
     ### Terminate if input root not found
     if "input_root" not in config_dict:
-        raise FileNotFoundError(f"Input root not passed, terminating.")
+        logger.error("Input root not passed, terminating.")
+        raise FileNotFoundError("Input root not passed, terminating.")
     else:
         if not Path(config_dict["input_root"]).resolve().exists():
+            logger.error(f"Input root {config_dict['input_root']} not found.")
             raise FileNotFoundError(
                 f"Input root {config_dict['input_root']} not found."
             )
@@ -156,7 +118,7 @@ def create_config(
     if "output_root" not in config_dict:
         config_dict["output_root"] = config_dict["galwrap_root"] / "output"
 
-    ## Multiple FICLOs
+    ## FICLOs
     if fields is not None:
         config_dict["fields"] = fields
     if image_versions is not None:
@@ -167,26 +129,6 @@ def create_config(
         config_dict["filters"] = filters
     if objects is not None:
         config_dict["objects"] = objects
-    if pixscales is not None:
-        config_dict["pixscales"] = pixscales
-    if morphology_versions is not None:
-        config_dict["morphology_versions"] = morphology_versions
-
-    ## Single FICLOs - note this will override multiple FICLOs if set
-    if field is not None:
-        config_dict["fields"] = [field]
-    if image_version is not None:
-        config_dict["image_versions"] = [image_version]
-    if catalog_version is not None:
-        config_dict["catalog_versions"] = [catalog_version]
-    if filter is not None:
-        config_dict["filters"] = [filter]
-    if object is not None:
-        config_dict["objects"] = [object]
-    if pixscale is not None:
-        config_dict["pixscales"] = [pixscale]
-    if morphology_version is not None:
-        config_dict["morphology_versions"] = [morphology_version]
 
     # If parameters are still unset, assume program execution over all
     # discovered values in input directory

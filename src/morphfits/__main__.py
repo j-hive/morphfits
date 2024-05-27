@@ -35,29 +35,20 @@ def galwrap(
     input_root: Optional[str] = None,
     product_root: Optional[str] = None,
     output_root: Optional[str] = None,
-    field: Optional[str] = None,
     fields: Optional[list[str]] = None,
-    image_version: Optional[str] = None,
     image_versions: Optional[list[str]] = None,
-    catalog_version: Optional[str] = None,
     catalog_versions: Optional[list[str]] = None,
-    filter: Optional[str] = None,
     filters: Optional[list[str]] = None,
-    object: Optional[int] = None,
     objects: Optional[list[int]] = None,
-    pixscale: Optional[float] = None,
-    pixscales: Optional[list[float]] = None,
-    morphology_version: Optional[str] = None,
-    morphology_versions: Optional[list[str]] = None,
-    regenerate: bool = False,
+    regenerate_products: bool = False,
     regenerate_stamp: bool = False,
     regenerate_psf: bool = False,
     regenerate_mask: bool = False,
     regenerate_sigma: bool = False,
     regenerate_feedfile: bool = True,
-    use_mask: bool = True,
-    use_psf: bool = True,
-    use_sigma: bool = True,
+    apply_mask: bool = True,
+    apply_psf: bool = True,
+    apply_sigma: bool = True,
 ):
     """Command to invoke GalWrap program for MorphFITS.
 
@@ -77,49 +68,22 @@ def galwrap(
     output_root : str | Path | None, optional
         Path to root directory of GALFIT output products, e.g. morphology model
         and plots, by default None (not passed through CLI).
-    field : str | None, optional
-        Single field over which to execute GALFIT, by default None (not passed
-        through CLI).
     fields : list[str] | None, optional
         List of fields over which to execute GALFIT, by default None (not passed
         through CLI).
-    image_version : str | None, optional
-        Single image version over which to execute GALFIT, by default None (not
-        passed through CLI).
     image_versions : list[str] | None, optional
         List of image versions over which to execute GALFIT, by default None
-        (not passed through CLI).
-    catalog_version : str | None, optional
-        Single catalog version over which to execute GALFIT, by default None
         (not passed through CLI).
     catalog_versions : list[str] | None, optional
         List of catalog versions over which to execute GALFIT, by default None
         (not passed through CLI).
-    filter : str | None, optional
-        Single filter band over which to execute GALFIT, by default None (not
-        passed through CLI).
     filters : list[str] | None, optional
         List of filter bands over which to execute GALFIT, by default None (not
         passed through CLI).
-    object : int | None, optional
-        Single target IDs over which to execute GALFIT, for each catalog, by
-        default None (not passed through CLI).
     objects : list[int] | None, optional
         List of target IDs over which to execute GALFIT, for each catalog, by
         default None (not passed through CLI).
-    pixscale : float | None, optional
-        Single pixel scale over which to execute GALFIT, by default None (not
-        passed through CLI).
-    pixscales : list[float] | None, optional
-        List of pixel scales over which to execute GALFIT, by default None (not
-        passed through CLI).
-    morphology_version : str | None, optional
-        Single morphology fitting method to execute, by default None (not passed
-        through CLI).
-    morphology_versions : list[str] | None, optional
-        List of morphology fitting methods to execute, by default None (not
-        passed through CLI).
-    regenerate : bool, optional
+    regenerate_products : bool, optional
         Regenerate all products, by default False.
     regenerate_stamp : bool, optional
         Regenerate stamps, by default False.
@@ -131,12 +95,12 @@ def galwrap(
         Regenerate sigmas, by default False.
     regenerate_feedfile : bool, optional
         Regenerate feedfile, by default False.
-    use_mask : bool, optional
-        Use generated mask product in GALFIT run, by default False.
-    use_psf : bool, optional
-        Use generated psf product in GALFIT run, by default False.
-    use_sigma : bool, optional
-        Use generated sigma product in GALFIT run, by default False.
+    apply_mask : bool, optional
+        Apply generated mask product in GALFIT run, by default False.
+    apply_psf : bool, optional
+        Apply generated psf product in GALFIT run, by default False.
+    apply_sigma : bool, optional
+        Apply generated sigma product in GALFIT run, by default False.
     """
     galwrap_main(
         config_path=config_path,
@@ -144,29 +108,20 @@ def galwrap(
         input_root=input_root,
         product_root=product_root,
         output_root=output_root,
-        field=field,
         fields=fields,
-        image_version=image_version,
         image_versions=image_versions,
-        catalog_version=catalog_version,
         catalog_versions=catalog_versions,
-        filter=filter,
         filters=filters,
-        object=object,
         objects=objects,
-        pixscale=pixscale,
-        pixscales=pixscales,
-        morphology_version=morphology_version,
-        morphology_versions=morphology_versions,
-        regenerate=regenerate,
+        regenerate_products=regenerate_products,
         regenerate_stamp=regenerate_stamp,
         regenerate_psf=regenerate_psf,
         regenerate_mask=regenerate_mask,
         regenerate_sigma=regenerate_sigma,
         regenerate_feedfile=regenerate_feedfile,
-        use_mask=use_mask,
-        use_psf=use_psf,
-        use_sigma=use_sigma,
+        apply_mask=apply_mask,
+        apply_psf=apply_psf,
+        apply_sigma=apply_sigma,
     )
 
 
