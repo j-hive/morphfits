@@ -49,6 +49,8 @@ def galwrap(
     apply_mask: bool = True,
     apply_psf: bool = True,
     apply_sigma: bool = True,
+    kron_factor: int = 3,
+    psf_factor: int = 4,
 ):
     """Command to invoke GalWrap program for MorphFITS.
 
@@ -101,6 +103,10 @@ def galwrap(
         Apply generated psf product in GALFIT run, by default False.
     apply_sigma : bool, optional
         Apply generated sigma product in GALFIT run, by default False.
+    kron_factor : int, optional
+        Multiplicative factor for image size, by default 3.
+    psf_factor : int, optional
+        Division factor for PSF crop size, by default 4.
     """
     galwrap_main(
         config_path=config_path,
@@ -122,6 +128,8 @@ def galwrap(
         apply_mask=apply_mask,
         apply_psf=apply_psf,
         apply_sigma=apply_sigma,
+        kron_factor=kron_factor,
+        psf_factor=psf_factor,
     )
     logger.info("Exiting MorphFITS.")
 

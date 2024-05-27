@@ -185,6 +185,7 @@ def plot_products(
 
 
 def plot_comparison(stamp_path: Path, model_path: Path, output_path: Path):
+    # TODO docs
     logger.info(f"Plotting model comparisons for {model_path.name}.")
 
     # Load in data

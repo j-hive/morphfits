@@ -6,6 +6,7 @@
 
 import gc
 import logging
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -31,6 +32,7 @@ logger = logging.getLogger("PRODUCTS")
 
 
 np.seterr(divide="ignore", invalid="ignore")
+warnings.filterwarnings("ignore")
 """Ignore zero division warnings encountered in generate_sigmas.
 """
 
@@ -315,15 +317,21 @@ def generate_sigmas(
             del stamp_data
             gc.collect()
 
-            # Generate cutout for exposure, which is 4x smaller than science
+            # Generate cutout for exposure map, which is 4x smaller than science
+            quarter_image_size = int(image_size / 4)
+            exposure_image_size = (
+                quarter_image_size + 1
+                if int((image_size + 1) / 4) > quarter_image_size
+                else quarter_image_size
+            )
             exposure_cutout = Cutout2D(
                 data=exposure_data,
                 position=position,
-                size=int(image_size / 4),
+                size=exposure_image_size,
                 wcs=exposure_wcs,
             )
 
-            # Grow exposure cutout to same size as science
+            # Grow exposure cutout to same size as science -> s
             zeroes = np.zeros(shape=(image_size, image_size), dtype=int)
             zeroes[2::4, 2::4] += exposure_cutout.data
             full_exposure = ndimage.maximum_filter(input=zeroes, size=4)
@@ -345,7 +353,7 @@ def generate_sigmas(
             del full_exposure
             gc.collect()
 
-            # Calculate Poisson variance in mosaic DN
+            # Calculate Poisson variance in mosaic DN -> 10nJy / s
             poisson_variance = maximized_stamp / effective_gain
             del maximized_stamp
             del effective_gain
@@ -359,22 +367,22 @@ def generate_sigmas(
                 wcs=weights_wcs,
             )
 
-            # Calculate original variance from weights map
+            # Calculate original variance from weights map -> 1 / 10nJy
             weights_variance = 1 / weights_cutout.data
             del weights_cutout
             gc.collect()
 
-            # Calculate total variance
-            variance = weights_variance + poisson_variance
+            # Calculate total variance -> electrons / s
+            variance = weights_variance  # + poisson_variance
             del poisson_variance
             del weights_variance
             gc.collect()
 
-            # Calculate sigma
+            # Calculate sigma and clip to range
             sigma = np.sqrt(variance)
             fits.PrimaryHDU(
-                data=np.nan_to_num(sigma, posinf=0, neginf=0),
-                header=weights_wcs.to_header(),
+                data=sigma,
+                header=exposure_wcs.to_header(),
             ).writeto(sigma_path, overwrite=True)
 
             # Clear memory
@@ -383,6 +391,7 @@ def generate_sigmas(
             del position
             del image_size
             del sigma
+            del variance
             gc.collect()
 
         # Catch skipped objects
@@ -817,6 +826,7 @@ def generate_products(
     apply_mask: bool = True,
     minimum_image_size: int = 32,
     kron_factor: int = 3,
+    psf_factor: int = 4,
 ):
     """Generate all products for a given configuration.
 
@@ -847,6 +857,8 @@ def generate_products(
     kron_factor : int, optional
         Multiplicative factor to apply to Kron radius for each object to
         determine image size of stamp, by default 3.
+    psf_factor : int, optional
+        Division factor to apply to PSF crop, by default 4.
     """
     # Iterate over each FICL in configuration
     for ficl in galwrap_config.get_FICLs():
@@ -887,6 +899,7 @@ def generate_products(
             filter=ficl.filter,
             pixscale=ficl.pixscale,
             regenerate=regenerate_products or regenerate_psf,
+            size_factor=psf_factor,
         )
 
         # Generate masks if missing or requested

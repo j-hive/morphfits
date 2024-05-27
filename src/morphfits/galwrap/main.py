@@ -142,6 +142,8 @@ def main(
     apply_mask: bool = True,
     apply_psf: bool = True,
     apply_sigma: bool = True,
+    kron_factor: int = 3,
+    psf_factor: int = 4,
 ):
     logger.info("Starting GalWrap.")
 
@@ -175,6 +177,8 @@ def main(
         apply_mask=apply_mask,
         apply_psf=apply_psf,
         apply_sigma=apply_sigma,
+        kron_factor=kron_factor,
+        psf_factor=psf_factor,
     )
 
     # Run GALFIT, for each FICLO
