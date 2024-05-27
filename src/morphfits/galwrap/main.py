@@ -5,6 +5,7 @@
 
 
 import logging
+import shutil
 from subprocess import Popen, PIPE, STDOUT
 from pathlib import Path
 
@@ -29,6 +30,21 @@ def run_galfit(galwrap_config: GalWrapConfig):
 
         # Iterate over each object in FICL
         for object in ficl.objects:
+            # Copy GALFIT and constraints to FICLO product directory
+            galfit_path = GALWRAP_DATA_ROOT / "galfit"
+            constraints_path = GALWRAP_DATA_ROOT / "default.constraints"
+            product_ficlo_path = paths.get_path(
+                "product_ficlo",
+                product_root=galwrap_config.product_root,
+                field=ficl.field,
+                image_version=ficl.image_version,
+                catalog_version=ficl.catalog_version,
+                filter=ficl.filter,
+                object=object,
+            )
+            shutil.copy(galfit_path, product_ficlo_path / "galfit")
+            shutil.copy(constraints_path, product_ficlo_path / ".constraints")
+
             # Get product paths
             feedfile_path = paths.get_path(
                 "feedfile",
@@ -57,11 +73,11 @@ def run_galfit(galwrap_config: GalWrapConfig):
             # Run subprocess and pipe output
             logger.info(f"Running GALFIT for object {object}.")
             process = Popen(
-                f"cd {str(GALWRAP_DATA_ROOT)} && ./galfit {str(feedfile_path)}",
+                f"cd {str(product_ficlo_path)} && ./galfit {feedfile_path.name}",
                 stdout=PIPE,
                 shell=True,
                 stderr=STDOUT,
-                bufsize=1,
+                # bufsize=1,
                 close_fds=True,
             )
 
@@ -73,10 +89,23 @@ def run_galfit(galwrap_config: GalWrapConfig):
             process.wait()
 
             # Clean up GALFIT output
-            if (process.returncode == 0) and (model_path.exists()):
-                for path in GALWRAP_DATA_ROOT.iterdir():
+            if process.returncode == 0:
+                for path in product_ficlo_path.iterdir():
+                    # Move model to output directory
+                    if "model" in path.name:
+                        path.rename(
+                            paths.get_path(
+                                "model",
+                                output_root=galwrap_config.output_root,
+                                field=ficl.field,
+                                image_version=ficl.image_version,
+                                catalog_version=ficl.catalog_version,
+                                filter=ficl.filter,
+                                object=object,
+                            )
+                        )
                     # Move logs to output directory
-                    if "log" in path.name:
+                    elif "log" in path.name:
                         path.rename(
                             paths.get_path(
                                 "fitlog",
@@ -88,8 +117,8 @@ def run_galfit(galwrap_config: GalWrapConfig):
                                 object=object,
                             )
                         )
-                    # Remove records
-                    elif "galfit." in path.name:
+                    # Remove script, constraints, and feedfile records
+                    elif ("galfit" in path.name) or ("constraints" in path.name):
                         path.unlink()
 
 
@@ -151,19 +180,46 @@ def main(
     # Run GALFIT, for each FICLO
     run_galfit(galwrap_config=galwrap_config)
 
-    import sys
+    # Plot models, for each FICLO
+    for ficl in galwrap_config.get_FICLs():
+        for object in ficl.objects:
+            stamp_path = paths.get_path(
+                "stamp",
+                product_root=galwrap_config.product_root,
+                field=ficl.field,
+                image_version=ficl.image_version,
+                catalog_version=ficl.catalog_version,
+                filter=ficl.filter,
+                object=object,
+            )
+            model_path = paths.get_path(
+                "model",
+                output_root=galwrap_config.output_root,
+                field=ficl.field,
+                image_version=ficl.image_version,
+                catalog_version=ficl.catalog_version,
+                filter=ficl.filter,
+                object=object,
+            )
+            output_path = paths.get_path(
+                "comparison",
+                output_root=galwrap_config.output_root,
+                field=ficl.field,
+                image_version=ficl.image_version,
+                catalog_version=ficl.catalog_version,
+                filter=ficl.filter,
+                object=object,
+            )
 
-    sys.exit()
-    # Make plots
-    logger.info("Plotting models.")
-    for ficlo in galwrap_config.get_ficlos():
-        stamp_path = paths.get_path("stamp", galwrap_config=galwrap_config, ficlo=ficlo)
-        model_path = paths.get_path("model", galwrap_config=galwrap_config, ficlo=ficlo)
-        output_path = paths.get_path(
-            "comparison", galwrap_config=galwrap_config, ficlo=ficlo
-        )
-        plots.plot_comparison(
-            stamp_path=stamp_path, model_path=model_path, output_path=output_path
-        )
+            if not stamp_path.exists():
+                logger.debug(f"Missing stamp {stamp_path.name}, skipping.")
+                continue
+            if not model_path.exists():
+                logger.debug(f"Missing model {model_path.name}, skipping.")
+                continue
+
+            plots.plot_comparison(
+                stamp_path=stamp_path, model_path=model_path, output_path=output_path
+            )
 
     logger.info("Exiting GalWrap.")

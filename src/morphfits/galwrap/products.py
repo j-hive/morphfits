@@ -30,6 +30,11 @@ logger = logging.getLogger("PRODUCTS")
 """
 
 
+np.seterr(divide="ignore", invalid="ignore")
+"""Ignore zero division warnings encountered in generate_sigmas.
+"""
+
+
 # Functions
 
 
@@ -367,9 +372,10 @@ def generate_sigmas(
 
             # Calculate sigma
             sigma = np.sqrt(variance)
-            fits.PrimaryHDU(data=sigma, header=weights_wcs.to_header()).writeto(
-                sigma_path, overwrite=True
-            )
+            fits.PrimaryHDU(
+                data=np.nan_to_num(sigma, posinf=0, neginf=0),
+                header=weights_wcs.to_header(),
+            ).writeto(sigma_path, overwrite=True)
 
             # Clear memory
             del sigma_path
@@ -586,7 +592,7 @@ def generate_feedfiles(
     apply_mask: bool = True,
     feedfile_template_path: Path = GALWRAP_DATA_ROOT / "feedfile.jinja",
     constraints_path: Path = GALWRAP_DATA_ROOT / "default.constraints",
-    path_length: int = 181,
+    path_length: int = 64,
     float_length: int = 12,
 ):
     """Generate feedfiles for all objects in a FICL.
@@ -629,7 +635,7 @@ def generate_feedfiles(
         directory.
     path_length : int, optional
         Length of path strings in the template for comment alignment, by default
-        181, so that comments start on column 185.
+        64, so that comments start at column 69.
     float_length : int, optional
         Length of float strings in the template for comment alignment, by
         default 12.
@@ -637,8 +643,8 @@ def generate_feedfiles(
     logger.info("Generating feedfiles.")
 
     # Define functions for comment alignment
-    path_str = lambda x: str(x).ljust(path_length)[:path_length]
-    float_str = lambda x: str(x).ljust(float_length)[:path_length]
+    path_str = lambda x: str(x).ljust(path_length)
+    float_str = lambda x: str(x).ljust(float_length)[:float_length]
 
     # Load in catalog
     catalog_path = paths.get_path(
@@ -688,8 +694,8 @@ def generate_feedfiles(
         logger.info(f"Generating feedfile for object {object}.")
 
         # Get paths
-        output_galfit_path = paths.get_path(
-            "output_galfit",
+        model_path = paths.get_path(
+            "model",
             output_root=output_root,
             field=field,
             image_version=image_version,
@@ -737,15 +743,17 @@ def generate_feedfiles(
 
         # Set configuration parameters from input
         feedfile_dict = {
-            "stamp_path": path_str(stamp_path),
-            "output_galfit_path": path_str(output_galfit_path),
-            "sigma_path": path_str(sigma_path if apply_sigma else ""),
-            "psf_path": path_str(psf_path if apply_psf else ""),
-            "mask_path": path_str(mask_path if apply_mask else ""),
-            "constraints_path": path_str(constraints_path),
-            "image_size": float_str(image_size),
+            "stamp_path": path_str(stamp_path.name),
+            "output_galfit_path": path_str(model_path.name),
+            "sigma_path": path_str(sigma_path.name if apply_sigma else ""),
+            "psf_path": path_str(
+                "../../../../../" + psf_path.name if apply_psf else ""
+            ),
+            "mask_path": path_str(mask_path.name if apply_mask else ""),
+            "constraints_path": path_str(".constraints"),
+            "image_size": str(image_size),
             "zeropoint": float_str(zeropoint),
-            "position": float_str(image_size / 2),
+            "position": str(image_size / 2),
             "magnitude": float_str(magnitude),
             "half_light_radius": float_str(half_light_radius),
             "axis_ratio": float_str(axis_ratio),
@@ -762,7 +770,7 @@ def generate_feedfiles(
         del object
         del image_size
         del feedfile_path
-        del output_galfit_path
+        del model_path
         del stamp_path
         del sigma_path
         del psf_path

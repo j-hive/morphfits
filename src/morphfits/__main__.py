@@ -123,6 +123,7 @@ def galwrap(
         apply_psf=apply_psf,
         apply_sigma=apply_sigma,
     )
+    logger.info("Exiting MorphFITS.")
 
 
 @app.command()
@@ -136,4 +137,3 @@ def pyfits(to_be_implemented: int):
 if __name__ == "__main__":
     logger.info("Starting MorphFITS.")
     app()
-    logger.info("Exiting MorphFITS.")
