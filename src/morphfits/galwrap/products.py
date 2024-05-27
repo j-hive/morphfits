@@ -403,7 +403,7 @@ def generate_psf(
     filter: str,
     pixscale: float,
     regenerate: bool = False,
-    size_factor: int = 6,
+    size_factor: int = 4,
 ):
     """Generate PSF crops for all frames in a filter.
 
@@ -420,7 +420,7 @@ def generate_psf(
     regenerate : bool, optional
         Regenerate existing crops, by default False.
     size_factor : int, optional
-        PSF size divisor for image size, by default 6.
+        PSF size divisor for image size, by default 4.
     """
     logger.info("Generating PSF crop.")
 
@@ -747,7 +747,7 @@ def generate_feedfiles(
             "output_galfit_path": path_str(model_path.name),
             "sigma_path": path_str(sigma_path.name if apply_sigma else ""),
             "psf_path": path_str(
-                "../../../../../" + psf_path.name if apply_psf else ""
+                "../../../../../psfs/" + psf_path.name if apply_psf else ""
             ),
             "mask_path": path_str(mask_path.name if apply_mask else ""),
             "constraints_path": path_str(".constraints"),

@@ -29,7 +29,7 @@ logging.getLogger("PIL").setLevel(100)
 """Ignore matplotlib and PIL logs."""
 
 
-pos = [0.0, 0.05, 0.4, 0.6, 0.7, 1.0]
+pos = [0.0, 0.008, 0.3, 0.5, 0.7, 1.0]
 colours = [
     [0, 0, 0],
     [0, 0, 0],
