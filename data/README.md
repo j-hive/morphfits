@@ -63,7 +63,8 @@ jhive_galwrap/
                         │   ├── {F}_{I}_{C}_{L}_{O}_galfit.log
                         │   └── {F}_{I}_{C}_{L}_{O}_model.fits
                         └── plots/
-                            └── {F}_{I}_{C}_{L}_{O}_comparison.png
+                            ├── {F}_{I}_{C}_{L}_{O}_comparison.png
+                            └── {F}_{I}_{C}_{L}_{O}_products.png
 ```
 
 
@@ -117,7 +118,8 @@ jhive_galwrap/
                         │   ├── F_I_C_L_O_galfit.log
                         │   └── F_I_C_L_O_model.fits
                         └── plots/
-                            └── F_I_C_L_O_comparison.png
+                            ├── F_I_C_L_O_comparison.png
+                            └── F_I_C_L_O_products.png
 </pre>
 </td>
 
@@ -159,7 +161,8 @@ galwrap_root/
                         │   ├── fitlog
                         │   └── model
                         └── output_plots/
-                            └── comparison
+                            ├── comparison
+                            └── prodplot
 </pre>
 </td>
 </tr>

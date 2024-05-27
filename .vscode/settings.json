@@ -99,6 +99,7 @@
         "pixscale",
         "pixscales",
         "powsersic",
+        "prodplot",
         "psfname",
         "pyfits",
         "rawpsf",

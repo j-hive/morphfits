@@ -162,3 +162,9 @@ comparison:
   path: "[output_plots]/{F}_{I}_{C}_{L}_{O}_comparison.png"
   alts:
     - comparison plot
+prodplot:
+  file: True
+  path: "[output_plots]/{F}_{I}_{C}_{L}_{O}_products.png"
+  alts:
+    - products plot
+    - product plot

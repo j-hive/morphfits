@@ -182,6 +182,15 @@ def main(
 
     # Plot models, for each FICLO
     for ficl in galwrap_config.get_FICLs():
+        plots.plot_products(
+            field=ficl.field,
+            image_version=ficl.image_version,
+            catalog_version=ficl.catalog_version,
+            filter=ficl.filter,
+            objects=ficl.objects,
+            product_root=galwrap_config.product_root,
+            output_root=galwrap_config.output_root,
+        )
         for object in ficl.objects:
             stamp_path = paths.get_path(
                 "stamp",
