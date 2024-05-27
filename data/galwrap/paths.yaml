@@ -84,17 +84,6 @@ product_ficlo:
   alts:
     - ficlo products
 ## Files
-constraints:
-  file: True
-  path: "[product_root]/default.constraints"
-  alts:
-    - default constraints
-template:
-  file: True
-  path: "[product_root]/template.feedfile"
-  alts:
-    - template feedfile
-    - feedfile template
 psf:
   file: True
   path: "[product_psfs]/{L}_{P}_psf.fits"
@@ -130,6 +119,17 @@ output_root:
   path: "[galwrap_root]/output"
   alts:
     - outputs
+output_genplots:
+  file: False
+  path: "[output_root]/plots"
+  alts:
+    - general plots
+output_objects:
+  file: False
+  path: "[output_genplots]/objects"
+  alts:
+    - object comparisons
+    - object compilations
 output_ficlo:
   file: False
   path: "[output_root]/{F}/{I}/{C}/{L}/{O}"
@@ -146,6 +146,11 @@ output_plots:
   alts:
     - ficlo plots
 ## Files
+objects:
+  file: True
+  path: "[output_objects]/{F}_{I}_{C}_{L}_{O}_objects.png"
+  alts:
+    - object comparison
 fitlog:
   file: True
   path: "[output_galfit]/{F}_{I}_{C}_{L}_{O}_galfit.log"

@@ -40,8 +40,6 @@ jhive_galwrap/
 │               ├── {F}-{I}-{L}_dr[c/z]_sci.fits
 │               └── {F}-{I}-{L}_dr[c/z]_wht.fits
 ├── products/
-│   ├── default.constraints
-│   ├── template.feedfile
 │   ├── psfs/
 │   │   └── {L}_{P}_psf.fits
 │   └── {F}/
@@ -54,6 +52,9 @@ jhive_galwrap/
 │                       ├── {F}_{I}_{C}_{L}_{O}_sigma.fits
 │                       └── {F}_{I}_{C}_{O}_mask.fits
 └── output/
+    ├── plots/
+    │   └── objects/
+    │       └── {F}_{I}_{C}_{L}_{O}_objects.png
     └── {F}/
         └── {I}/
             └── {C}/
@@ -95,8 +96,6 @@ jhive_galwrap/
 │               ├── F-I-L_dr[c/z]_sci.fits
 │               └── F-I-L_dr[c/z]_wht.fits
 ├── products/
-│   ├── default.constraints
-│   ├── template.feedfile
 │   ├── psfs/
 │   │   └── L_P_psf.fits
 │   └── F/
@@ -108,7 +107,10 @@ jhive_galwrap/
 │                       ├── F_I_C_L_O_stamp.fits
 │                       ├── F_I_C_L_O_sigma.fits
 │                       └── F_I_C_O_mask.fits
-└── output/
+└── output/    
+    ├── plots/
+    │   └── objects/
+    │       └── F_I_C_L_O_objects.png
     └── F/
         └── I/
             └── C/
@@ -138,8 +140,6 @@ galwrap_root/
 │               ├── science
 │               └── weights
 ├── product_root/
-│   ├── constraints
-│   ├── template
 │   ├── product_psfs/
 │   │   └── psf
 │   └── .../
@@ -152,6 +152,9 @@ galwrap_root/
 │                       ├── sigma
 │                       └── mask
 └── output_root/
+    ├── output_genplots/
+    │   └── output_objects/
+    │       └── objects
     └── .../
         └── .../
             └── .../
@@ -184,21 +187,21 @@ galwrap_root/
 |:framed_picture:|Input|`science`|Science frame FITS file.|
 |:framed_picture:|Input|`weights`|Weights map FITS file.|
 |:file_folder:|Product|`product_root`|Root directory for all middle stage generated products.|
-|:pencil:|Product|`constraints`|Default constraints file.|
-|:pencil:|Product|`template`|Template GALFIT feedfile to be overwritten with data for each object.|
 |:file_folder:|Product|`product_psfs`|Directory containing cropped PSFs.|
 |:framed_picture:|Product|`psf`|Cropped PSF file given a filter and pixel scale.|
-|:file_folder:|Product|`product_ficl`|Directory containing files for a given field, image version, catalog version, and filter (FICL).|
-|:framed_picture:|Product|`fullsigma`|Full sigma map for a given FICL. These are very intensive to generate.|
 |:file_folder:|Product|`product_ficlo`|Directory containing files for a given field, image version, catalog version, filter, and object (FICLO).|
 |:page_facing_up:|Product|`feedfile`|Configurations for a single GALFIT run for a given FICLO.|
 |:framed_picture:|Product|`stamp`|Cropped science frame for a given object matched against a catalog.|
 |:framed_picture:|Product|`sigma`|Cropped sigma map for a given object from its exposure and weight maps.|
 |:framed_picture:|Product|`mask`|Cropped mask frame for a given object given its segmentation map.|
 |:file_folder:|Output|`output_root`|Root directory for all output files.|
+|:file_folder:|Output|`output_genplots`|Directory containing general output plots.|
+|:file_folder:|Output|`output_objects`|Directory containing object stamp compilations.|
+|:bar_chart:|Output|`objects`|Object stamp compilation.|
 |:file_folder:|Output|`output_ficlo`|Directory containing output files for a given FICLO.|
 |:file_folder:|Output|`output_galfit`|Directory containing output files for a given FICLO GALFIT run.|
 |:page_facing_up:|Output|`fitlog`|GALFIT log file for a given FICLO.|
 |:framed_picture:|Output|`model`|Morphology fit model FITS file for a given FICLO.|
 |:file_folder:|Output|`output_plots`|Directory containing visualization plots for a given FICLO.|
 |:bar_chart:|Output|`comparison`|Model fidelity comparison plot.|
+|:bar_chart:|Output|`prodplot`|Product comparison plot.|
