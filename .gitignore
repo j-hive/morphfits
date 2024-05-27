@@ -1,6 +1,6 @@
 # User-defined
 sandbox/
-*.log
+*.log.*
 galfit.*
 galwrap_root/
 galwrap_input/
