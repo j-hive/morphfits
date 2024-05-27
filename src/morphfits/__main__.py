@@ -142,6 +142,10 @@ def pyfits(to_be_implemented: int):
 # Main Program
 
 
-if __name__ == "__main__":
+def main():
     logger.info("Starting MorphFITS.")
     app()
+
+
+if __name__ == "__main__":
+    main()
