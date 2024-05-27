@@ -1,4 +1,4 @@
-input_root: /path/to/data
+input_root: ./examples/single_ficlo/galwrap_root/input/
 fields:
   - "abell2744clu"
 image_versions:

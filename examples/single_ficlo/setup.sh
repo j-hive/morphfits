@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Setup directories
+echo Setting up directories.
+cd examples/single_ficlo
+mkdir -p galwrap_root/input
+cd galwrap_root/input
+mkdir -p psfs abell2744clu/grizli-v7.2/f200w
+
+# Download files
+echo Downloading files.
+cd psfs
+wget -O PSF_NIRCam_in_flight_opd_filter_F200W.fits 'https://public.boxcloud.com/d/1/b1!9tKylvnUzwlYbOv3k3YJXoGho-_mXryQFnOxahFHuP5yUYFYPifnN-GTmzGumWIZ_3yUp-b53udiRUNNeTa1ilGHH5Njm2_rmCOB0dTu9lb4YKhNCD-BpB2PjQqZzjrhrDQ2HPaQcYZ2b7NjiVQqV9_cuKN7YlwHieAgwk9ygfjBPazMw3ccXI_9sHncoA9AbRh9or0g4bVSxDzxhzBJkN8CvdgvkNDheTN5X79vMnSTMfvtXcO1BzXv47NhQxa_akZXhs7AzWRmOgh1T05dp7cFjvOkaFp09GWCHc3yZJfrNeZEhXBRYqDztH1VWgkyQkhWPbR4w2gKEcz7onTzyc22V1L3qpeFCdg2VB4SX5sTBD-uJyuQ1_AShCmQ9JNU1eUcUB3Zya-N0c6vjAzAkmPMzHnQb-27sEi4Rn8l8V64OqDPaPy3ZykZ_-Mo1lOIK0_2Q-C0nhatMwHmQ3zTG3uoyUsgiQ1ma6I2Z5_fRMiPK9eqAVBuOD7eEYuH_KSKuoC91IY8ycUOtxmYMUJDh_koV-O41tYsS6p4YbNy5lpg91A-Zrf2soAoH56UohkOEH4Y2Xqv49nq9OFrkoOMA_hBIa3MwnE2lL9-nZ_X-toaFpPvl7SiOi45oQlSqcJEjC1B5m0d0O3In9RNYiGT2GbuOowUonL3zxthADGEUgLpGUZ1XsFC-G_LOMQwDlzcLAB1SwSlweaI9ILTI0GWkdDMUdfi85PxMXS_TqJeUHPvIuFAnOmo-gQF3htJHq0FMti4dbWpEnCRvnenCrCvjiMIQLbPa0rNLpoRG66Fur8rKRbaCoivIrrpsp0e-fr2GA5eE469wH1KdyL_UPeVoGlbbYfb8Sm-eGSAxAbT3kMIvjhwQM0TIVUWGDhk14ttcdpdkQfbqBEOpiqnUxS4OR93wuXVrhXuGBER4TZf2YoCIKMeGGhjZq1TXhFPPtPh8p5EqqzQPNJo8zZoCFaTZnzFl8yvsY-BH_KWFvsPVyjeCqdocmhe4Pn7HvV51rimVxqsyaEZykk9ukH_q2eUKHczcOsgCjqZlkXQsYKhTOUmZ0UQA0y2P0e3ejxeejrjuHVzq3Yu7ujf0QhIgUcXdBtZXntW0VNyD-_yskzv2dme37xOs1UIyZO0K8fb2tx0XVJnLTFTSxKlFIoD10Jmxcr9bVGOcr-vfXuGMfirAZVyIDi4a0glWudruMfkFi3FKBq2AUtGMc3JZVrkCal302aNPQLNmjwGnS2CM3Xv_QMaIJf2VzV8pCMiocGc57JwqG4irmNdHpdAGCUY9waJh0gQJtNrbm5G_B1smnuxf43GEdP3HKb7PL8HNFu1wJ5OUzQxnkCLqA../download'
+cd ../abell2744clu/grizli-v7.2
+wget https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/abell2744clu-grizli-v7.2-ir_seg.fits.gz
+wget https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/abell2744clu-grizli-v7.2-fix_phot_apcorr.fits
+cd f200w
+wget https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/abell2744clu-grizli-v7.2-f200w-clear_drc_exp.fits.gz
+wget https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/abell2744clu-grizli-v7.2-f200w-clear_drc_sci.fits.gz
+wget https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/abell2744clu-grizli-v7.2-f200w-clear_drc_wht.fits.gz
+
+# Uncompress files
+echo Unzipping files.
+gzip -vd *
+cd ..
+gzip -vd *
+
+echo Done.
