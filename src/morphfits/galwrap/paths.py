@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 
 from astropy.table import Table
+from tqdm import tqdm
 
 from .setup import GalWrapPath, FICLO, GalWrapConfig, GALWRAP_PATHS
 from ..utils import science
@@ -207,22 +208,21 @@ def find_parameter_from_input(
                         if filter_dir.name not in discovered:
                             discovered.append(filter_dir.name)
         case "object":
-            fields, image_versions = [], []
+            catalog_paths = []
             for field_dir in get_directories(input_root):
                 if field_dir.name == "psfs":
                     continue
-                fields.append(field_dir.name)
                 for image_dir in get_directories(field_dir):
-                    image_versions.append(image_dir.name)
-            catalog_paths = get_path(
-                "catalog",
-                input_root=input_root,
-                fields=fields,
-                image_versions=image_versions,
-            )
-            catalog_paths = (
-                [catalog_paths] if isinstance(catalog_paths, Path) else catalog_paths
-            )
+                    catalog_paths.append(
+                        get_path(
+                            "catalog",
+                            input_root=input_root,
+                            field=field_dir.name,
+                            image_version=image_dir.name,
+                        )
+                    )
+
+            # Read all catalogs for all objects
             for catalog_path in catalog_paths:
                 table = Table.read(catalog_path)
                 for object in table["id"]:
@@ -364,27 +364,44 @@ def get_path(
 ## Setup
 
 
-def setup_galwrap_paths(galwrap_config: GalWrapConfig):
-    logger.info("Setting up product and output directories where missing.")
+def setup_galwrap_paths(galwrap_config: GalWrapConfig, display_progress: bool = False):
+    """Create GalWrap product and output directories for the FICLOs of a program
+    run.
+
+    Parameters
+    ----------
+    galwrap_config : GalWrapConfig
+        Configuration object whose roots to create directories for.
+    """
+    logger.info("Creating product and output directories where missing.")
 
     # Iterate over each possible FICLO from configurations
     for ficl in galwrap_config.get_FICLs():
+        # Make leaf FICL directories (will also make parents if nonexistent)
+        for path_name in ["product_psfs", "output_objects"]:
+            # Create directory if it does not exist
+            GALWRAP_PATHS[path_name].resolve(
+                galwrap_root=galwrap_config.galwrap_root,
+                product_root=galwrap_config.product_root,
+                output_root=galwrap_config.output_root,
+                field=ficl.field,
+                image_version=ficl.image_version,
+                catalog_version=ficl.catalog_version,
+                filter=ficl.filter,
+            ).mkdir(parents=True, exist_ok=True)
+
         # Iterate over each object in FICL
-        for object in ficl.objects:
-            # Iterate over each product and output directory
-            for path_name, path_item in GALWRAP_PATHS.items():
-                if (("product" in path_name) or ("output" in path_name)) and (
-                    not path_item.file
-                ):
-                    # Create directory if it does not exist
-                    path_item.resolve(
-                        galwrap_root=galwrap_config.galwrap_root,
-                        product_root=galwrap_config.product_root,
-                        output_root=galwrap_config.output_root,
-                        field=ficl.field,
-                        image_version=ficl.image_version,
-                        catalog_version=ficl.catalog_version,
-                        filter=ficl.filter,
-                        object=object,
-                        pixname=science.get_pixname(ficl.pixscale),
-                    ).mkdir(parents=True, exist_ok=True)
+        for object in tqdm(ficl.objects) if display_progress else ficl.objects:
+            # Make leaf FICLO directories
+            for path_name in ["product_ficlo", "output_galfit", "output_plots"]:
+                # Create directory if it does not exist
+                GALWRAP_PATHS[path_name].resolve(
+                    galwrap_root=galwrap_config.galwrap_root,
+                    product_root=galwrap_config.product_root,
+                    output_root=galwrap_config.output_root,
+                    field=ficl.field,
+                    image_version=ficl.image_version,
+                    catalog_version=ficl.catalog_version,
+                    filter=ficl.filter,
+                    object=object,
+                ).mkdir(parents=True, exist_ok=True)

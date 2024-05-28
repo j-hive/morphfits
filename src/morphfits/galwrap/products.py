@@ -17,6 +17,7 @@ from astropy.nddata.utils import Cutout2D
 from astropy.table import Table
 from astropy.wcs import WCS
 from jinja2 import Template
+from tqdm import tqdm
 
 from . import paths, GALWRAP_DATA_ROOT
 from .setup import FICLO, FICL, GalWrapConfig
@@ -54,6 +55,7 @@ def generate_stamps(
     minimum_image_size: int = 32,
     kron_factor: int = 3,
     regenerate: bool = False,
+    display_progress: bool = False,
 ) -> tuple[list[int], list[SkyCoord], list[int]]:
     """Generate stamps (science frame cutouts) for all objects in a FICL.
 
@@ -80,6 +82,8 @@ def generate_stamps(
         determine image size, by default 3.
     regenerate : bool, optional
         Regenerate existing stamps, by default False.
+    display_progress : bool, optional
+        Display progress on terminal screen via tqdm, by default False.
 
     Returns
     -------
@@ -112,7 +116,7 @@ def generate_stamps(
 
     # Iterate over each object
     generated, skipped = ([], [], []), []
-    for object in objects:
+    for object in tqdm(objects) if display_progress else objects:
         # Record object position from catalog
         position = SkyCoord(
             ra=catalog[object]["ra"], dec=catalog[object]["dec"], unit="deg"
@@ -144,7 +148,8 @@ def generate_stamps(
             object=object,
         )
         if stamp_path.exists() and not regenerate:
-            logger.debug(f"Skipping object {object}, stamp exists.")
+            if not display_progress:
+                logger.debug(f"Skipping object {object}, stamp exists.")
             generated[0].append(object)
             generated[1].append(position)
             generated[2].append(image_size)
@@ -153,7 +158,8 @@ def generate_stamps(
 
         # Try generating stamp for object
         try:
-            logger.info(f"Generating stamp for object {object}.")
+            if not display_progress:
+                logger.info(f"Generating stamp for object {object}.")
 
             # Generate stamp
             stamp = Cutout2D(data=image, position=position, size=image_size, wcs=wcs)

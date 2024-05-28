@@ -56,6 +56,121 @@ JHIVE_CMAP = mplc.LinearSegmentedColormap(
 # Functions
 
 
+def plot_objects(
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str,
+    objects: list[int],
+    rows: int = 10,
+    columns: int = 5,
+    product_root: Path | None = None,
+    output_root: Path | None = None,
+    morphology_version: str = "galwrap",
+):
+    if morphology_version == "galwrap":
+        logger.info(
+            f"Plotting all objects in FICL {'_'.join([field,image_version,catalog_version,filter])}."
+        )
+
+        # Iterate over all objects
+        i = 0
+        all_objects_plotted = False
+        while i < len(objects):
+            plt.subplots(rows, columns, figsize=(2 * columns, 2 * rows))
+            plt.subplots_adjust(hspace=0, wspace=0)
+
+            # Iterate over (rows * columns) objects
+            for j in range(rows * columns):
+                # Get object with existing stamp
+                object = objects[i]
+                stamp_path = paths.get_path(
+                    "stamp",
+                    product_root=product_root,
+                    field=field,
+                    image_version=image_version,
+                    catalog_version=catalog_version,
+                    filter=filter,
+                    object=object,
+                )
+
+                # Iterate over objects until all have been plotted
+                while not stamp_path.exists():
+                    del object
+                    del stamp_path
+                    gc.collect()
+
+                    i += 1
+                    if i >= len(objects):
+                        all_objects_plotted = True
+                        break
+                    object = objects[i]
+                    stamp_path = paths.get_path(
+                        "stamp",
+                        product_root=product_root,
+                        field=field,
+                        image_version=image_version,
+                        catalog_version=catalog_version,
+                        filter=filter,
+                        object=object,
+                    )
+
+                # Terminate if all objects plotted
+                if all_objects_plotted:
+                    break
+
+                # Store first and last object of plot
+                if j == 0:
+                    first_object = object
+                else:
+                    last_object = object
+
+                # Load stamp and clear memory
+                stamp_file = fits.open(stamp_path)
+                stamp_data = stamp_file["PRIMARY"].data
+                stamp_file.close()
+                del stamp_path
+                del stamp_file
+                gc.collect()
+
+                # Plot object stamp and clear memory
+                plt.subplot(rows, columns, j + 1)
+                plt.imshow(stamp_data, cmap=JHIVE_CMAP)
+                plt.title(i, y=1, color="white", fontsize=20)
+                plt.axis("off")
+                del stamp_data
+                gc.collect()
+
+                # Pick next object
+                i += 1
+
+            # Get path, title and save plot
+            objects_path = paths.get_path(
+                "objects",
+                field=field,
+                image_version=image_version,
+                catalog_version=catalog_version,
+                filter=filter,
+                object=first_object,
+            )
+            plt.suptitle(
+                "_".join(
+                    [field, image_version, catalog_version, filter]
+                    + f" Objects {first_object} to {last_object}"
+                )
+            )
+            plt.savefig(objects_path, bbox_inches="tight", pad_inches=0.0, dpi=60)
+            plt.close()
+
+            # Clear memory
+            del all_objects_plotted
+            del object
+            del first_object
+            del last_object
+            del objects_path
+            gc.collect()
+
+
 def plot_products(
     field: str,
     image_version: str,

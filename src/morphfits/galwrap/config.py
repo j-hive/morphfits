@@ -88,7 +88,7 @@ def create_config(
     ## Cast and resolve paths
     for config_key in ["galwrap_root", "input_root", "product_root", "output_root"]:
         if config_key in config_dict:
-            config_dict[config_key] = Path(config_dict[config_key]).resolve()
+            config_dict[config_key] = paths.get_path_obj(config_dict[config_key])
 
     # Set any parameters passed through CLI call
     ## Paths
