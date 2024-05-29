@@ -5,6 +5,7 @@ GalWrap.
 # Imports
 
 
+import gc
 import logging
 from pathlib import Path
 
@@ -224,9 +225,11 @@ def find_parameter_from_input(
 
             # Read all catalogs for all objects
             for catalog_path in catalog_paths:
-                table = Table.read(catalog_path)
-                for object in table["id"]:
-                    discovered.append(int(object))
+                catalog = Table.read(catalog_path)
+                for object in catalog["id"]:
+                    discovered.append(int(object) - 1)
+                del catalog
+                gc.collect()
         case _:
             raise ValueError(
                 f"Parameter {parameter_name} unrecognized for input discovery."

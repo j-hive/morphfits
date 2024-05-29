@@ -12,6 +12,7 @@ import numpy as np
 from astropy.io import fits
 from matplotlib import pyplot as plt
 from matplotlib import colors as mplc
+from tqdm import tqdm
 
 from ..galwrap import paths
 
@@ -67,6 +68,7 @@ def plot_objects(
     product_root: Path | None = None,
     output_root: Path | None = None,
     morphology_version: str = "galwrap",
+    display_progress: bool = False,
 ):
     if morphology_version == "galwrap":
         logger.info(
@@ -74,79 +76,84 @@ def plot_objects(
         )
 
         # Iterate over all objects
-        i = 0
-        all_objects_plotted = False
-        while i < len(objects):
-            plt.subplots(rows, columns, figsize=(2 * columns, 2 * rows))
-            plt.subplots_adjust(hspace=0, wspace=0)
+        plot_spot = 1
+        plot_saved = False
+        for object in tqdm(objects) if display_progress else objects:
+            # Skip object if it does not have a stamp
+            stamp_path = paths.get_path(
+                "stamp",
+                product_root=product_root,
+                field=field,
+                image_version=image_version,
+                catalog_version=catalog_version,
+                filter=filter,
+                object=object,
+            )
+            if not stamp_path.exists():
+                del stamp_path
+                gc.collect()
+                continue
 
-            # Iterate over (rows * columns) objects
-            for j in range(rows * columns):
-                # Get object with existing stamp
-                object = objects[i]
-                stamp_path = paths.get_path(
-                    "stamp",
-                    product_root=product_root,
+            # Create new plot if there is no current plot
+            if plot_spot == 1:
+                first_object = object
+                plt.subplots(rows, columns, figsize=(2 * columns, 2 * rows))
+                plt.subplots_adjust(hspace=0, wspace=0)
+                plot_saved = False
+
+            # Plot object stamp in current spot
+            last_object = object
+            stamp_file = fits.open(stamp_path)
+            plt.subplot(rows, columns, plot_spot)
+            plt.imshow(stamp_file["PRIMARY"].data, cmap=JHIVE_CMAP)
+            plt.title(object, y=1, color="white", fontsize=16)
+            plt.axis("off")
+
+            # Clear memory
+            stamp_file.close()
+            del stamp_file
+            gc.collect()
+
+            # Save plot if all spots filled
+            if plot_spot == rows * columns:
+                objects_path = paths.get_path(
+                    "objects",
+                    output_root=output_root,
                     field=field,
                     image_version=image_version,
                     catalog_version=catalog_version,
                     filter=filter,
-                    object=object,
+                    object=first_object,
                 )
+                plt.suptitle(
+                    "_".join(
+                        [field, image_version, catalog_version, filter]
+                        + f" Objects {first_object} to {last_object}"
+                    ),
+                    color="black",
+                    fontsize=20,
+                )
+                plt.savefig(objects_path, bbox_inches="tight", pad_inches=0.0, dpi=60)
+                plt.close()
+                plot_saved = True
+                plot_spot = 1
 
-                # Iterate over objects until all have been plotted
-                while not stamp_path.exists():
-                    del object
-                    del stamp_path
-                    gc.collect()
-
-                    i += 1
-                    if i >= len(objects):
-                        all_objects_plotted = True
-                        break
-                    object = objects[i]
-                    stamp_path = paths.get_path(
-                        "stamp",
-                        product_root=product_root,
-                        field=field,
-                        image_version=image_version,
-                        catalog_version=catalog_version,
-                        filter=filter,
-                        object=object,
-                    )
-
-                # Terminate if all objects plotted
-                if all_objects_plotted:
-                    break
-
-                # Store first and last object of plot
-                if j == 0:
-                    first_object = object
-                else:
-                    last_object = object
-
-                # Load stamp and clear memory
-                stamp_file = fits.open(stamp_path)
-                stamp_data = stamp_file["PRIMARY"].data
-                stamp_file.close()
-                del stamp_path
-                del stamp_file
+                # Clear memory
+                del objects_path
                 gc.collect()
+            # Continue otherwise
+            else:
+                plot_spot += 1
 
-                # Plot object stamp and clear memory
-                plt.subplot(rows, columns, j + 1)
-                plt.imshow(stamp_data, cmap=JHIVE_CMAP)
-                plt.title(i, y=1, color="white", fontsize=20)
-                plt.axis("off")
-                del stamp_data
-                gc.collect()
+            # Clear memory
+            del stamp_path
+            gc.collect()
 
-                # Pick next object
-                i += 1
-
-            # Get path, title and save plot
+        # Plot last plot if unfinished
+        if not plot_saved:
             objects_path = paths.get_path(
                 "objects",
+                output_root=output_root,
                 field=field,
                 image_version=image_version,
                 catalog_version=catalog_version,
@@ -157,18 +164,12 @@ def plot_objects(
                 "_".join(
                     [field, image_version, catalog_version, filter]
                     + f" Objects {first_object} to {last_object}"
-                )
+                ),
+                color="black",
+                fontsize=20,
             )
             plt.savefig(objects_path, bbox_inches="tight", pad_inches=0.0, dpi=60)
             plt.close()
-
-            # Clear memory
-            del all_objects_plotted
-            del object
-            del first_object
-            del last_object
-            del objects_path
-            gc.collect()
 
 
 def plot_products(

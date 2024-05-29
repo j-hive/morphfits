@@ -112,6 +112,8 @@ def generate_stamps(
     # Clear file from memory
     science_file.close()
     del science_file
+    del science_path
+    del catalog_path
     gc.collect()
 
     # Iterate over each object
@@ -168,22 +170,24 @@ def generate_stamps(
             if (np.amax(stamp.data) > 0) and (
                 stamp.data.shape == (image_size, image_size)
             ):
-                fits.PrimaryHDU(data=stamp.data, header=stamp.wcs.to_header()).writeto(
-                    stamp_path, overwrite=True
+                stamp_hdul = fits.PrimaryHDU(
+                    data=stamp.data, header=stamp.wcs.to_header()
                 )
+                stamp_hdul.writeto(stamp_path, overwrite=True)
 
                 # Store object ID, position, and image size for other products
                 generated[0].append(object)
                 generated[1].append(position)
                 generated[2].append(image_size)
+                del stamp_hdul
             else:
                 skipped.append(object)
 
             # Clear memory
-            del stamp_path
             del position
             del kron_radius
             del image_size
+            del stamp_path
             del stamp
             gc.collect()
 

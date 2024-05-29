@@ -164,7 +164,9 @@ def stamp(
         Multiplicative factor for image size, by default 3. The higher this is,
         the larger the image, and the smaller the object appears in the image.
     """
-    logger.info(f"Starting GalWrap stamps.")
+    logger.info(
+        f"Starting GalWrap stamps for FICL {'_'.join([field, image_version, catalog_version, filter])}."
+    )
 
     # Create configuration object
     galwrap_config = config.create_config(
@@ -203,6 +205,7 @@ def stamp(
             objects=ficl.objects,
             product_root=galwrap_config.product_root,
             output_root=galwrap_config.output_root,
+            display_progress=True,
         )
 
     logger.info("Exiting GalWrap.")
