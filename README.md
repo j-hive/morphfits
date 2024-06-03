@@ -31,7 +31,7 @@ mv /mnt/c/Users/[Windows Username]/Downloads/PSF_NIRCam_in_flight_opd_filter_F20
 Then, run 
 ```
 poetry install
-poetry run morphfits --config-path=./examples/single_ficlo/config.yaml
+poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml
 ```
 and MorphFITS will run GalWrap, a wrapper for GALFIT, over the FICLOs found in `config.yaml`. The outputs can be
 found at `examples/single_ficlo/morphfits_root/output`.

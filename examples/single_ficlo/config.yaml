@@ -1,4 +1,4 @@
-input_root: ./examples/single_ficlo/data/input/
+input_root: ./examples/single_ficlo/morphfits_root/input/
 fields:
   - "abell2744clu"
 image_versions:
