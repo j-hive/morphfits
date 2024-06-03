@@ -21,7 +21,14 @@ version `dja-v7.2`, filter `f200w`, and object `4215`, using GALFIT, run
 ```
 sh ./examples/single_ficlo/setup.sh
 ```
-which will take several minutes. Then, run 
+to download JWST data, which will take several minutes. Then, download [the
+simulated PSF for the filter
+here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
+and move it to the appropriate location..
+```
+mv /mnt/c/Users/[Windows Username]/Downloads/PSF_NIRCam_in_flight_opd_filter_F200W.fits morphfits/examples/single_ficlo/morphfits_root/input/psfs
+```
+Then, run 
 ```
 poetry install
 poetry run morphfits --config-path=./examples/single_ficlo/config.yaml
