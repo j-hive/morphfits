@@ -21,8 +21,8 @@ version `dja-v7.2`, filter `f200w`, and object `4215`, using GALFIT, run
 ```
 sh ./examples/single_ficlo/setup.sh
 ```
-to download JWST data, which will take several minutes. Then, download [the
-simulated PSF for the filter
+in a bash environment to download JWST data, which will take several minutes.
+Then, download [the simulated PSF for the filter
 here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
 and move it to the appropriate location..
 ```
