@@ -65,7 +65,7 @@ def plot_objects(
     catalog_version: str,
     filter: str,
     objects: list[int],
-    columns: int = 25,
+    columns: int = 8,
     display_progress: bool = False,
 ):
     """Plot all objects for a given FICL.
@@ -87,7 +87,7 @@ def plot_objects(
     objects : list[int]
         Objects to be plotted.
     columns : int, optional
-        Number of columns in visualization, by default 12.
+        Number of columns in visualization, by default 8.
     display_progress : bool, optional
         Display progress via tqdm, by default False.
     """
@@ -97,7 +97,11 @@ def plot_objects(
 
     # Get stamp paths for each object
     stamp_paths = {}
-    for object in objects:
+    logger.info(
+        "Checking stamps for FICL "
+        + f"{'_'.join([field, image_version, catalog_version, filter])}."
+    )
+    for object in tqdm(objects) if display_progress else objects:
         stamp_path = paths.get_path(
             "stamp",
             product_root=product_root,
@@ -117,22 +121,33 @@ def plot_objects(
     # Create new plot
     num_stamps = len(list(stamp_paths.keys()))
     rows = int(num_stamps / columns) + 1
-    fig, axes = plt.subplots(rows, columns, figsize=(columns, rows), facecolor="black")
+    figure, axes = plt.subplots(
+        rows, columns, figsize=(2 * columns, 2 * (rows + 0.2)), facecolor="black"
+    )
     plt.subplots_adjust(hspace=0, wspace=0)
+    plt.suptitle(
+        "_".join([field, image_version, catalog_version, filter]) + " objects",
+        color="white",
+        fontsize=20,
+    )
 
     # Remove extra spots
-    for i in range(columns - 1, columns - num_stamps % columns - 2, -1):
-        fig.delaxes(axes[rows - 1, i])
+    for i in range(columns - num_stamps % columns):
+        plt.delaxes(axes[-1, -1 - i])
 
     # Plot all objects
-    for i in tqdm(range(len(objects))) if display_progress else range(len(objects)):
-        object = objects[i]
+    for i in (
+        tqdm(range(len(list(stamp_paths.keys()))))
+        if display_progress
+        else range(len(list(stamp_paths.keys())))
+    ):
+        object = list(stamp_paths.keys())[i]
 
         # Plot object stamp in current spot
         stamp_file = fits.open(stamp_paths[object])
-        plt.subplot(rows, columns, i)
+        plt.subplot(rows, columns, i + 1)
         plt.imshow(stamp_file["PRIMARY"].data, cmap=JHIVE_CMAP)
-        plt.title(object, y=1, color="white", fontsize=16)
+        plt.title(object, y=0, color="white", fontsize=16)
         plt.axis("off")
 
         # Clear memory
@@ -149,11 +164,7 @@ def plot_objects(
         catalog_version=catalog_version,
         filter=filter,
     )
-    plt.suptitle(
-        "_".join([field, image_version, catalog_version, filter]) + " objects",
-        color="white",
-        fontsize=20,
-    )
+
     plt.savefig(objects_path, bbox_inches="tight", pad_inches=0.0)
     plt.close()
 
