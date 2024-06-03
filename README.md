@@ -27,12 +27,11 @@ poetry install
 poetry run morphfits --config-path=./examples/single_ficlo/config.yaml
 ```
 and MorphFITS will run GalWrap, a wrapper for GALFIT, over the FICLOs found in `config.yaml`. The outputs can be
-found at `examples/single_ficlo/galwrap_root/output`.
+found at `examples/single_ficlo/morphfits_root/output`.
 
 
 # Setup
-## GalWrap
-GalWrap runs are based on FICLOs, configuration objects based on the parameters
+MorphFITS runs are based on FICLOs, configuration objects based on the parameters
 of field, image version, catalog version, filter, and object. To read more about
 FICLOs, and the directory structure, read [the data documentation
 here](./data/README.md).
@@ -108,11 +107,10 @@ segmentation map, exposure map, science frame, and weights map are downloaded as
 appropriate directories. MorphFITS will create product and output directories
 from the root of the input directory, so to avoid git conflicts, it is
 recommended to locate the input directory under an untracked directory, such as
-`sandbox`, or `morphfits_data`.
+`sandbox`, or `morphfits_root`.
 
 
 # Usage
-## GalWrap
 The program can be configured in three ways. If it receives parameters from multiple
 sources, it will use the values in this order.
 
@@ -121,7 +119,8 @@ sources, it will use the values in this order.
 3. Automatic input detection
 
 The program requires the following parameters to run. Note the first cannot be
-discovered, and must be declared via CLI call or configuration file.
+discovered, and must be declared via CLI call or configuration file. As well,
+the only available wrapper is `galwrap`.
 
 |CLI Key|File Key|Type|Description|
 |:---|:---|:---|:---|
@@ -133,10 +132,10 @@ discovered, and must be declared via CLI call or configuration file.
 |`--objects`|`objects`|`list[int]`|Object IDs in catalog over which to fit.|
 
 
-### Terminal
-To run GalWrap via CLI call, run
+## Terminal
+To run MorphFITS via CLI call, run
 ```
-poetry run morphfits galwrap [OPTIONS]
+poetry run morphfits [wrapper] [OPTIONS]
 ```
 for the following options
 
@@ -166,16 +165,16 @@ for the following options
 |`--help`|`None`|Display all options.|
 
 
-### Configuration File
-To run GalWrap via a configuration file, run
+## Configuration File
+To run MorphFITS via a configuration file, run
 ```
-poetry run morphfits galwrap --config-path [config_path]
+poetry run morphfits [wrapper] --config-path=[config_path] [OPTIONS]
 ```
 
 for the path to some configuration file.
 
 
-### Stages
+# Stages
 
 The program executes the following stages.
 
@@ -196,9 +195,9 @@ The program executes the following stages.
     - outputs plot to output directory
 
 
-# GalWrap Cookbook
+# Cookbook
 ## Typical Operation
-A typical run of GalWrap involves collecting and structuring the correct data,
+A typical run of MorphFITS involves collecting and structuring the correct data,
 then running the program.
 ```
 poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml
