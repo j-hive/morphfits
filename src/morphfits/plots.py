@@ -121,14 +121,15 @@ def plot_objects(
     # Create new plot
     num_stamps = len(list(stamp_paths.keys()))
     rows = int(num_stamps / columns) + 1
+    extra_height = 0.2
     figure, axes = plt.subplots(
-        rows, columns, figsize=(2 * columns, 2 * (rows + 0.2)), facecolor="black"
+        rows,
+        columns,
+        figsize=(2 * columns, 2 * (rows + extra_height)),
+        facecolor="black",
     )
-    plt.subplots_adjust(hspace=0, wspace=0)
-    plt.suptitle(
-        "_".join([field, image_version, catalog_version, filter]) + " objects",
-        color="white",
-        fontsize=20,
+    plt.subplots_adjust(
+        top=(1 - extra_height / (2 * (rows + extra_height))), hspace=0, wspace=0
     )
 
     # Remove extra spots
@@ -155,6 +156,14 @@ def plot_objects(
         del stamp_file
         gc.collect()
 
+    # Write title
+    plt.suptitle(
+        "_".join([field, image_version, catalog_version, filter]) + " objects",
+        color="white",
+        fontsize=20,
+    )
+    plt.tight_layout(pad=0)
+
     # Save plot
     objects_path = paths.get_path(
         "ficl_objects",
@@ -164,7 +173,6 @@ def plot_objects(
         catalog_version=catalog_version,
         filter=filter,
     )
-
     plt.savefig(objects_path, bbox_inches="tight", pad_inches=0.0)
     plt.close()
 
