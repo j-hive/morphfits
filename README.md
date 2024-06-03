@@ -16,15 +16,16 @@ poetry install
 To see what the directory structure, the products and output, and the run looks
 like, use one of the settings from [the examples directory](./examples/). For
 example, for the field `abell2744clu`, image version `grizli-v7.2`, catalog
-version `dja-v7.2`, filter `f200w`, and object `4215`, using GALFIT, run
+version `dja-v7.2`, filter `f200w`, and object `4215`, using GALFIT, run from
+the base directory (`morphfits`)
 
 ```
 sh ./examples/single_ficlo/setup.sh
 ```
-in a bash environment to download JWST data, which will take several minutes.
-Then, download [the simulated PSF for the filter
+in a bash environment to download and unzip JWST data, which will take several
+minutes and ~`13GB`. Then, download [the simulated PSF for the filter
 here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
-and move it to the appropriate location..
+and move it to the appropriate location.
 ```
 mv /mnt/c/Users/[Windows Username]/Downloads/PSF_NIRCam_in_flight_opd_filter_F200W.fits morphfits/examples/single_ficlo/morphfits_root/input/psfs
 ```
