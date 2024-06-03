@@ -2,10 +2,8 @@
 sandbox/
 *.log.*
 galfit.*
-galwrap_root/
-galwrap_input/
-galwrap_products/
-galwrap_output/
+!galfit.py
+morphfits_root/
 
 
 # Byte-compiled / optimized / DLL files

@@ -10,7 +10,7 @@ import logging.handlers
 from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
 from pathlib import Path
 
-from .. import LOG_ROOT
+from .. import LOGS_ROOT
 
 
 # Constants
@@ -19,7 +19,7 @@ from .. import LOG_ROOT
 ## Logging
 
 
-LOGGER_FILENAME = LOG_ROOT / "morphfits.log"
+LOGGER_FILENAME = LOGS_ROOT / "morphfits.log"
 """Default log file path.
 """
 
@@ -67,7 +67,7 @@ def resolve_record_name(name: str) -> str:
     Parameters
     ----------
     name : str
-        Record module name, e.g. `apscheduler.scheduler`.
+        Record module name, e.g. `tqdm.tqdm`.
 
     Returns
     -------
@@ -78,10 +78,6 @@ def resolve_record_name(name: str) -> str:
     #     return "GUNICORN"
     # elif "uvicorn" in name:
     #     return "UVICORN"
-    # elif "apscheduler" in name:
-    #     return "SCHEDULER"
-    # elif "urllib3" in name:
-    #     return "VRM"
     # else:
     #     return name
     return name
@@ -216,7 +212,7 @@ def create_logger(
     """
     # Validate file directory
     if filename == LOGGER_FILENAME:
-        LOG_ROOT.mkdir(exist_ok=True)
+        LOGS_ROOT.mkdir(exist_ok=True)
 
     # Validate level
     level = level.upper()

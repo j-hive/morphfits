@@ -19,16 +19,16 @@ ROOT = Path(resources.files(__package__) / ".." / "..").resolve()
 """
 
 
-CONFIG_ROOT = ROOT / "config"
-"""Path to root of the configuration directory.
-"""
-
-
 DATA_ROOT = ROOT / "data"
 """Path to root of the data standards directory.
 """
 
 
-LOG_ROOT = ROOT / "logs"
+EXAMPLES_ROOT = ROOT / "examples"
+"""Path to root of the examples directory.
+"""
+
+
+LOGS_ROOT = ROOT / "logs"
 """Path to root of the logs directory.
 """

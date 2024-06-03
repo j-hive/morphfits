@@ -13,11 +13,10 @@ poetry install
 ```
 
 # Quickstart
-## GalWrap
 To see what the directory structure, the products and output, and the run looks
 like, use one of the settings from [the examples directory](./examples/). For
 example, for the field `abell2744clu`, image version `grizli-v7.2`, catalog
-version `dja-v7.2`, filter `f200w`, and object `4215`, run
+version `dja-v7.2`, filter `f200w`, and object `4215`, using GALFIT, run
 
 ```
 sh ./examples/single_ficlo/setup.sh
@@ -25,9 +24,9 @@ sh ./examples/single_ficlo/setup.sh
 which will take several minutes. Then, run 
 ```
 poetry install
-poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml --regenerate-products --no-apply-sigma --no-apply-psf --no-apply-mask
+poetry run morphfits --config-path=./examples/single_ficlo/config.yaml
 ```
-and GalWrap will run over the FICLOs found in `config.yaml`. The outputs can be
+and MorphFITS will run GalWrap, a wrapper for GALFIT, over the FICLOs found in `config.yaml`. The outputs can be
 found at `examples/single_ficlo/galwrap_root/output`.
 
 
@@ -38,29 +37,28 @@ of field, image version, catalog version, filter, and object. To read more about
 FICLOs, and the directory structure, read [the data documentation
 here](./data/README.md).
 
-|Letter|Parameter|Description|Example|
-|:---|:---|:---|:---|
-|`F`|`field`|Center of cluster/field instrument is pointed at.|`abell2744clu`|
-|`I`|`image_version`|Image processing version.|`grizli-v7.2`|
-|`C`|`catalog_version`|Catalog version.|`dja-v7.2`|
-|`L`|`filter`|Observational filter band.|`f200w`|
-|`O`|`object`|Integer ID of galaxy in catalog.|`1003`|
+|Letter|Name|
+|:---|:---|
+|`F`|Field|
+|`I`|Image Version|
+|`C`|Catalog Version|
+|`L`|Filter|
+|`O`|Object|
 
 For a given FICLO, the program requires the following files,
 
-1. Simulated PSF, which can be [downloaded from
-   STSci for a filter](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124).
-2. Segmentation map, which can be [downloaded from
-   JWST for a field and image
+1. Simulated PSF, which can be [downloaded from STSci for a
+   filter](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124).
+2. Segmentation map, which can be [downloaded from JWST for a field and image
    version](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
-2. Photometric catalog, which can be [downloaded from
-JWST for a field and image
+3. Photometric catalog, which can be [downloaded from JWST for a field and image
 version](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
-2. Exposure map, which can be [downloaded from
-JWST for a field, image
-version, and filter](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
-2. Segmentation map, which can be [downloaded from
-JWST for a field, image version, and filter](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
+4. Exposure map, which can be [downloaded from JWST for a field, image version,
+and filter](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
+5. Science frame, which can be [downloaded from JWST for a field, image version,
+and filter](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
+6. Weights map, which can be [downloaded from JWST for a field, image version,
+and filter](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
 
 and the following input directory/filename structure,
 <table>
@@ -92,12 +90,12 @@ input/
 
 <td>
 <pre>
-<br><br>Simulated PSF
-<br><br>Segmentation Map
-Photometric Catalog
-<br>Exposure Map
-Science Frame
-Weights Map
+<br><br>1. Simulated PSF
+<br><br>2. Segmentation Map
+3. Photometric Catalog
+<br>4. Exposure Map
+5. Science Frame
+6. Weights Map
 </pre>
 </td>
 </tr>
@@ -107,9 +105,10 @@ for a given filter `{F}`, image version `{I}`, and filter `{L}`, and where the
 final three files contain either the string `drc` or `drz`. Note the
 segmentation map, exposure map, science frame, and weights map are downloaded as
 `.fits.gz` files, and must be uncompressed, e.g. via `gzip -vd *` in the
-appropriate directories. GalWrap will create product and output directories from
-the root of the input directory, so to avoid git conflicts, it is recommended to
-locate the input directory under an untracked directory, such as `sandbox`.
+appropriate directories. MorphFITS will create product and output directories
+from the root of the input directory, so to avoid git conflicts, it is
+recommended to locate the input directory under an untracked directory, such as
+`sandbox`, or `morphfits_data`.
 
 
 # Usage
@@ -163,7 +162,7 @@ for the following options
 |`--apply-psf`|`bool`|Use the PSF in GALFIT.|
 |`--apply-sigma`|`bool`|Use the sigma map in GALFIT.|
 |`--kron-factor`|`bool`|Stamp size factor, by default 3. The higher the number, the larger the image, and smaller the object.|
-|`--psf-factor`|`bool`|PSF size factor, by default 4. The higher the number, the smaller the image, and the larger the PSF center.|
+|`--display-progress`|`bool`|Display progress as a loading bar, rather than a line for each object.|
 |`--help`|`None`|Display all options.|
 
 

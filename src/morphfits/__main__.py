@@ -9,9 +9,9 @@ from typing import Optional
 
 import typer
 
+from . import config, plots, products
+from .wrappers import galfit
 from .utils import logs
-from .galwrap.main import main as galwrap_main
-from .galwrap.main import stamp as galwrap_stamp
 
 
 # Instantiations
@@ -31,7 +31,7 @@ app = typer.Typer()
 @app.command()
 def galwrap(
     config_path: Optional[str] = None,
-    galwrap_root: Optional[str] = None,
+    morphfits_root: Optional[str] = None,
     input_root: Optional[str] = None,
     product_root: Optional[str] = None,
     output_root: Optional[str] = None,
@@ -50,17 +50,17 @@ def galwrap(
     apply_psf: bool = True,
     apply_sigma: bool = True,
     kron_factor: int = 3,
-    psf_factor: int = 4,
+    display_progress: bool = False,
 ):
-    """Command to invoke GalWrap program for MorphFITS.
+    """Run GALFIT over given FICLOs.
 
     Parameters
     ----------
     config_path : str | Path | None, optional
         Path to user config yaml file, by default None (no user config file
         provided).
-    galwrap_root : str | Path | None, optional
-        Path to root directory of GalWrap filesystem, by default None (not
+    morphfits_root : str | Path | None, optional
+        Path to root directory of MorphFITS filesystem, by default None (not
         passed through CLI).
     input_root : str | Path | None, optional
         Path to root directory of input products, e.g. catalogs, science images,
@@ -107,12 +107,13 @@ def galwrap(
         Apply generated sigma product in GALFIT run, by default False.
     kron_factor : int, optional
         Multiplicative factor for image size, by default 3.
-    psf_factor : int, optional
-        Division factor for PSF crop size, by default 4.
+    display_progress : bool, optional
+        Display progress on terminal screen via tqdm, by default False.
     """
-    galwrap_main(
+    # Create configuration object
+    morphfits_config = config.create_config(
         config_path=config_path,
-        galwrap_root=galwrap_root,
+        morphfits_root=morphfits_root,
         input_root=input_root,
         product_root=product_root,
         output_root=output_root,
@@ -121,6 +122,12 @@ def galwrap(
         catalog_versions=catalog_versions,
         filters=filters,
         objects=objects,
+        display_progress=display_progress,
+    )
+
+    # Call wrapper
+    galfit.main(
+        morphfits_config=morphfits_config,
         regenerate_products=regenerate_products,
         regenerate_stamp=regenerate_stamp,
         regenerate_psf=regenerate_psf,
@@ -131,14 +138,23 @@ def galwrap(
         apply_psf=apply_psf,
         apply_sigma=apply_sigma,
         kron_factor=kron_factor,
-        psf_factor=psf_factor,
+        display_progress=display_progress,
     )
+
+    # Exit
     logger.info("Exiting MorphFITS.")
 
 
 @app.command()
-def pyfits(to_be_implemented: int):
-    pass
+def imcascade():
+    """Run imcascade over given FICLOs. NOT IMPLEMENTED"""
+    raise NotImplementedError
+
+
+@app.command()
+def pysersic():
+    """Run pysersic over given FICLOs. NOT IMPLEMENTED"""
+    raise NotImplementedError
 
 
 # Other Apps
@@ -155,7 +171,7 @@ def stamp(
     output_root: Optional[str] = None,
     kron_factor: int = 3,
 ):
-    """Command to generate stamp cutouts of all objects for a given FICL.
+    """Generate stamp cutouts of all objects for a given FICL.
 
     Parameters
     ----------
@@ -181,16 +197,58 @@ def stamp(
         Multiplicative factor for image size, by default 3. The higher this is,
         the larger the image, and the smaller the object appears in the image.
     """
-    galwrap_stamp(
+    """Generate stamp cutouts of all objects for a given FICL.
+
+    Parameters
+    ----------
+    morphfits_config : MorphFITSConfig
+        Configuration object for this program run.
+    kron_factor : int, optional
+        Multiplicative factor for image size, by default 3. The higher this is,
+        the larger the image, and the smaller the object appears in the image.
+    """
+    # Create configuration object
+    morphfits_config = config.create_config(
         input_root=input_root,
         product_root=product_root,
         output_root=output_root,
-        field=field,
-        image_version=image_version,
-        catalog_version=catalog_version,
-        filter=filter,
-        kron_factor=kron_factor,
+        fields=[field],
+        image_versions=[image_version],
+        catalog_versions=[catalog_version],
+        filters=[filter],
+        display_progress=True,
     )
+
+    # Display progress
+    ficl = next(morphfits_config.get_FICLs())
+    logger.info(f"Starting MorphFITS stamps for FICL {ficl}.")
+
+    # Regenerate stamps for each object in FICL
+    products.generate_stamps(
+        input_root=morphfits_config.input_root,
+        product_root=morphfits_config.product_root,
+        image_version=ficl.image_version,
+        field=ficl.field,
+        catalog_version=ficl.catalog_version,
+        filter=ficl.filter,
+        objects=ficl.objects,
+        kron_factor=kron_factor,
+        display_progress=True,
+    )
+
+    # Plot all objects
+    plots.plot_objects(
+        product_root=morphfits_config.product_root,
+        output_root=morphfits_config.output_root,
+        field=ficl.field,
+        image_version=ficl.image_version,
+        catalog_version=ficl.catalog_version,
+        filter=ficl.filter,
+        objects=ficl.objects,
+        display_progress=True,
+    )
+
+    # Exit
     logger.info("Exiting MorphFITS.")
 
 

@@ -1,0 +1,201 @@
+morphfits_root:
+  file: False
+  path: "."
+  alts:
+    - root
+
+# Input
+## Directories
+input_root:
+  file: False
+  path: "[morphfits_root]/input"
+  alts:
+    - inputs
+input_psfs:
+  file: False
+  path: "[input_root]/psfs"
+  alts:
+    - original psfs
+input_data:
+  file: False
+  path: "[input_root]/{F}/{I}"
+  alts:
+    - input imver
+    - input image version
+input_images:
+  file: False
+  path: "[input_data]/{L}"
+  alts:
+    - images
+## Files
+original_psf:
+  file: True
+  path: "[input_psfs]/PSF_NIRCam_in_flight_opd_filter_{L}.fits"
+  alts:
+    - old psf
+    - raw psf
+    - input psf
+segmap:
+  file: True
+  path: "[input_data]/{F}-{I}-ir_seg.fits"
+  alts:
+    - segmentation map
+    - seg map
+catalog:
+  file: True
+  path: "[input_data]/{F}-{I}-fix_phot_apcorr.fits"
+  alts:
+    - input catalog
+    - photometric catalog
+    - phot
+    - table
+exposure:
+  file: True
+  path: "[input_images]/{F}-{I}-*{L}*_dr*_exp.fits"
+  alts:
+    - exp
+    - exposure map
+science:
+  file: True
+  path: "[input_images]/{F}-{I}-*{L}*_dr*_sci.fits"
+  alts:
+    - sci
+    - input image
+weights:
+  file: True
+  path: "[input_images]/{F}-{I}-*{L}*_dr*_wht.fits"
+  alts:
+    - wht
+    - weight map
+
+# Products
+## Directories
+product_root:
+  file: False
+  path: "[morphfits_root]/products"
+  alts:
+    - products
+ficlo_products:
+  file: False
+  path: "[product_root]/{F}/{I}/{C}/{L}/{O}"
+  alts:
+    - product ficlo
+## Files
+feedfile:
+  file: True
+  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}.feedfile"
+  alts:
+    - feedme
+mask:
+  file: True
+  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}_mask.fits"
+  alts:
+    - segmap cutout
+psf:
+  file: True
+  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}_psf.fits"
+  alts:
+    - psf product
+    - cropped psf
+sigma:
+  file: True
+  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}_sigma.fits"
+  alts:
+    - rms
+    - variance
+stamp:
+  file: True
+  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}_stamp.fits"
+  alts:
+    - cutout
+
+# Output
+## Directories
+output_root:
+  file: False
+  path: "[morphfits_root]/output"
+  alts:
+    - outputs
+ficl_output:
+  file: False
+  path: "[output_root]/{F}/{I}/{C}/{L}"
+  alts:
+    - output ficl
+ficlo_output:
+  file: False
+  path: "[ficl_output]/{O}"
+  alts:
+    - output ficlo
+logs:
+  file: False
+  path: "[ficlo_output]/logs"
+  alts:
+    - ficlo logs
+models:
+  file: False
+  path: "[ficlo_output]/models"
+  alts:
+    - ficlo models
+visualizations:
+  file: False
+  path: "[ficlo_output]/visualizations"
+  alts:
+    - plots
+    - ficlo plots
+    - ficlo viz
+    - viz
+## Files
+ficl_objects:
+  file: True
+  path: "[ficl_output]/{F}_{I}_{C}_{L}_objects.png"
+  alts:
+    - objects
+    - all objects
+    - object viz
+    - object display
+galfit_log:
+  file: True
+  path: "[logs]/{F}_{I}_{C}_{L}_{O}_galfit.log"
+  alts:
+    - galfit log
+    - fit log
+galfit_model:
+  file: True
+  path: "[models]/{F}_{I}_{C}_{L}_{O}_galfit.fits"
+  alts:
+    - galfit fit
+imcascade_model:
+  file: True
+  path: "[models]/{F}_{I}_{C}_{L}_{O}_imcascade.fits"
+  alts:
+    - imcascade fit
+pysersic_model:
+  file: True
+  path: "[models]/{F}_{I}_{C}_{L}_{O}_pysersic.fits"
+  alts:
+    - pysersic fit
+galfit_plot:
+  file: True
+  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_galfit.png"
+  alts:
+    - galfit viz
+imcascade_plot:
+  file: True
+  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_imcascade.png"
+  alts:
+    - imcascade viz
+pysersic_plot:
+  file: True
+  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_pysersic.png"
+  alts:
+    - pysersic viz
+products_plot:
+  file: True
+  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_products.png"
+  alts:
+    - product viz
+wrapper_comparison:
+  file: True
+  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_wrappers.png"
+  alts:
+    - wrapper viz
