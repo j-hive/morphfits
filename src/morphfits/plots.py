@@ -65,7 +65,7 @@ def plot_objects(
     catalog_version: str,
     filter: str,
     objects: list[int],
-    columns: int = 12,
+    columns: int = 25,
     display_progress: bool = False,
 ):
     """Plot all objects for a given FICL.
@@ -116,9 +116,13 @@ def plot_objects(
 
     # Create new plot
     num_stamps = len(list(stamp_paths.keys()))
-    rows = int(num_stamps / columns)
-    plt.subplots(rows, columns, figsize=(columns, rows))
+    rows = int(num_stamps / columns) + 1
+    fig, axes = plt.subplots(rows, columns, figsize=(columns, rows), facecolor="black")
     plt.subplots_adjust(hspace=0, wspace=0)
+
+    # Remove extra spots
+    for i in range(columns - 1, columns - num_stamps % columns - 2, -1):
+        fig.delaxes(axes[rows - 1, i])
 
     # Plot all objects
     for i in tqdm(range(len(objects))) if display_progress else range(len(objects)):
@@ -146,11 +150,11 @@ def plot_objects(
         filter=filter,
     )
     plt.suptitle(
-        "_".join([field, image_version, catalog_version, filter]) + " Objects",
-        color="black",
+        "_".join([field, image_version, catalog_version, filter]) + " objects",
+        color="white",
         fontsize=20,
     )
-    plt.savefig(objects_path, bbox_inches="tight", pad_inches=0.0, dpi=60)
+    plt.savefig(objects_path, bbox_inches="tight", pad_inches=0.0)
     plt.close()
 
 
