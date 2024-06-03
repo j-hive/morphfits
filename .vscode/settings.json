@@ -163,6 +163,7 @@
         "photutils",
         "pixnames",
         "psfs",
+        "pysersic",
         "reproject",
         "sciname",
         "segmap",

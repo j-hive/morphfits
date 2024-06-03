@@ -3,8 +3,8 @@
 # Setup directories
 echo Setting up directories.
 cd examples/single_ficlo
-mkdir -p galwrap_root/input
-cd galwrap_root/input
+mkdir -p morphfits_root/input
+cd morphfits_root/input
 mkdir -p psfs abell2744clu/grizli-v7.2/f200w
 
 # Download files

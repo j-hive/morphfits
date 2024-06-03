@@ -1,4 +1,4 @@
-input_root: ./examples/single_ficlo/galwrap_root/input/
+input_root: ./examples/single_ficlo/data/input/
 fields:
   - "abell2744clu"
 image_versions:
@@ -9,3 +9,5 @@ filters:
   - "f200w-clear"
 objects:
   - 4215
+wrappers:
+  - "galfit"

@@ -19,9 +19,10 @@ from astropy.wcs import WCS
 from jinja2 import Template
 from tqdm import tqdm
 
-from . import paths, GALWRAP_DATA_ROOT
-from .setup import FICLO, FICL, GalWrapConfig
-from ..utils import science
+from . import paths
+from .config import MorphFITSConfig
+from .wrappers import galfit
+from .utils import science
 
 
 # Constants
@@ -170,15 +171,17 @@ def generate_stamps(
             if (np.amax(stamp.data) > 0) and (
                 stamp.data.shape == (image_size, image_size)
             ):
-                stamp_hdul = fits.PrimaryHDU(
-                    data=stamp.data, header=stamp.wcs.to_header()
-                )
+                stamp_headers = stamp.wcs.to_header()
+                stamp_headers["EXPTIME"] = 1
+
+                stamp_hdul = fits.PrimaryHDU(data=stamp.data, header=stamp_headers)
                 stamp_hdul.writeto(stamp_path, overwrite=True)
 
                 # Store object ID, position, and image size for other products
                 generated[0].append(object)
                 generated[1].append(position)
                 generated[2].append(image_size)
+                del stamp_headers
                 del stamp_hdul
             else:
                 skipped.append(object)
@@ -217,6 +220,7 @@ def generate_sigmas(
     positions: list[SkyCoord],
     image_sizes: list[int],
     regenerate: bool = False,
+    display_progress: bool = False,
 ):
     """Generate sigma maps for all objects in a FICL.
 
@@ -242,6 +246,8 @@ def generate_sigmas(
         List of image sizes corresponding to each object's stamp.
     regenerate : bool, optional
         Regenerate existing sigma maps, by default False.
+    display_progress : bool, optional
+        Display progress on terminal screen via tqdm, by default False.
 
     See Also
     --------
@@ -284,7 +290,7 @@ def generate_sigmas(
 
     # Iterate over each object, position, and image_size tuple
     skipped = []
-    for i in range(len(objects)):
+    for i in tqdm(range(len(objects))) if display_progress else range(len(objects)):
         object, position, image_size = objects[i], positions[i], image_sizes[i]
 
         # Skip objects which already have sigma maps
@@ -298,13 +304,15 @@ def generate_sigmas(
             object=object,
         )
         if sigma_path.exists() and not regenerate:
-            logger.debug(f"Skipping object {object}, sigma map exists.")
+            if not display_progress:
+                logger.debug(f"Skipping object {object}, sigma map exists.")
             skipped.append(object)
             continue
 
         # Try generating sigma map for object
         try:
-            logger.info(f"Generating sigma map for object {object}.")
+            if not display_progress:
+                logger.info(f"Generating sigma map for object {object}.")
 
             # Load stamp for this object and filter over minimum of 0
             stamp_path = paths.get_path(
@@ -383,30 +391,33 @@ def generate_sigmas(
             gc.collect()
 
             # Calculate total variance -> electrons / s
-            variance = weights_variance  # + poisson_variance
+            variance = weights_variance + poisson_variance
             del poisson_variance
             del weights_variance
             gc.collect()
 
             # Calculate sigma and clip to range
             sigma = np.sqrt(variance)
-            fits.PrimaryHDU(
+            sigma_hdul = fits.PrimaryHDU(
                 data=sigma,
                 header=exposure_wcs.to_header(),
-            ).writeto(sigma_path, overwrite=True)
+            )
+            sigma_hdul.writeto(sigma_path, overwrite=True)
 
             # Clear memory
             del sigma_path
             del object
             del position
             del image_size
-            del sigma
             del variance
+            del sigma
+            del sigma_hdul
             gc.collect()
 
         # Catch skipped objects
         except Exception as e:
-            logger.error(e)
+            if not display_progress:
+                logger.error(e)
             skipped.append(object)
 
     # Display skipped objects
@@ -416,13 +427,19 @@ def generate_sigmas(
         )
 
 
-def generate_psf(
+def generate_psfs(
     input_root: Path,
     product_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
     filter: str,
-    pixscale: float,
-    regenerate: bool = False,
+    objects: list[int],
+    image_sizes: list[int],
+    pixscale: float = 0.04,
     size_factor: int = 4,
+    regenerate: bool = False,
+    display_progress: bool = False,
 ):
     """Generate PSF crops for all frames in a filter.
 
@@ -432,54 +449,89 @@ def generate_psf(
         Path to root GalWrap input directory.
     product_root : Path
         Path to root GalWrap products directory.
+    field : str
+        Field of observation.
+    image_version : str
+        Version of image processing used on observation.
+    catalog_version : str
+        Version of cataloguing used for field.
     filter : str
         Filter used for observation.
-    pixscale : float
-        Pixel scale of science frame.
-    regenerate : bool, optional
-        Regenerate existing crops, by default False.
+    objects : list[str]
+        List of object IDs in catalog for which to generate masks.
+    image_sizes : list[int]
+        List of image sizes corresponding to each object's stamp.
+    pixscale : float, optional
+        Pixel scale of science frame, by default 0.04''/px.
     size_factor : int, optional
         PSF size divisor for image size, by default 4.
+    regenerate : bool, optional
+        Regenerate existing crops, by default False.
+    display_progress : bool, optional
+        Display progress on terminal screen via tqdm, by default False.
     """
-    logger.info("Generating PSF crop.")
-
-    # Skip filters which already have PSF cutouts
-    psf_path = paths.get_path(
-        "psf",
-        product_root=product_root,
-        filter=filter,
-        pixscale=pixscale,
-    )
-    if psf_path.exists() and not regenerate:
-        logger.debug(f"Skipping, PSF crop exists.")
-        return
+    logger.info("Generating PSF crops.")
 
     # Load in PSF and clear memory
-    rawpsf_path = paths.get_path(
-        "rawpsf",
+    original_psf_path = paths.get_path(
+        "original_psf",
         input_root=input_root,
         filter=filter,
     )
-    rawpsf_file = fits.open(rawpsf_path)
-    rawpsf_data = rawpsf_file["PRIMARY"].data
-    rawpsf_headers = rawpsf_file["PRIMARY"].header
-    rawpsf_file.close
-    del rawpsf_file
+    original_psf_file = fits.open(original_psf_path)
+    original_psf_data = original_psf_file["PRIMARY"].data
+    original_psf_headers = original_psf_file["PRIMARY"].header
+    psf_pixscale = original_psf_headers["PIXELSCL"]
+    psf_length = original_psf_headers["NAXIS1"]
+    original_psf_file.close
+    del original_psf_file
+    del original_psf_headers
     gc.collect()
 
-    # Calculate PSF size from ratio of PSF pixscale to science pixscale
-    image_size = int(
-        rawpsf_headers["NAXIS1"] * rawpsf_headers["PIXELSCL"] / pixscale / size_factor
-    )
-    center = int(rawpsf_headers["NAXIS1"] / 2)
-    del rawpsf_headers
-    gc.collect()
+    # Iterate over each object
+    skipped = []
+    for i in tqdm(range(len(objects))) if display_progress else range(len(objects)):
+        object, image_size = objects[i], image_sizes[i]
 
-    # Cutout square of calculated size, centered at PSF center
-    psf = Cutout2D(data=rawpsf_data, position=(center, center), size=image_size)
+        # Skip existing PSF cutouts
+        psf_path = paths.get_path(
+            "psf",
+            product_root=product_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+        if psf_path.exists() and not regenerate:
+            if not display_progress:
+                logger.debug(f"Skipping, PSF crop exists.")
+            return
 
-    # Write to file
-    fits.PrimaryHDU(data=psf.data).writeto(psf_path, overwrite=True)
+        # Calculate PSF size from ratio of PSF pixscale to science pixscale
+        psf_image_size = int(image_size * psf_pixscale / pixscale)
+        center = int(psf_length / 2)
+
+        try:
+            # Cutout square of calculated size, centered at PSF center
+            psf = Cutout2D(
+                data=original_psf_data, position=(center, center), size=psf_image_size
+            )
+
+            # Write to file
+            psf_hdul = fits.PrimaryHDU(data=psf.data)
+            psf_hdul.writeto(psf_path, overwrite=True)
+
+        except Exception as e:
+            if not display_progress:
+                logger.error(e)
+            skipped.append(object)
+
+    # Display skipped objects
+    if len(skipped) > 0:
+        logger.debug(
+            f"Skipped generating sigma maps for {len(skipped)} objects: {skipped}."
+        )
 
 
 def generate_masks(
@@ -493,8 +545,9 @@ def generate_masks(
     positions: list[SkyCoord],
     image_sizes: list[int],
     regenerate: bool = False,
+    display_progress: bool = False,
 ):
-    """Generate masks for all objects in a FIC.
+    """Generate masks for all objects in a FICL.
 
     Parameters
     ----------
@@ -518,6 +571,8 @@ def generate_masks(
         List of image sizes corresponding to each object's stamp.
     regenerate : bool, optional
         Regenerate existing masks, by default False.
+    display_progress : bool, optional
+        Display progress on terminal screen via tqdm, by default False.
     """
     logger.info("Generating masks.")
 
@@ -541,7 +596,7 @@ def generate_masks(
 
     # Iterate over each object, position, and image_size tuple
     skipped = []
-    for i in range(len(objects)):
+    for i in tqdm(range(len(objects))) if display_progress else range(len(objects)):
         object, position, image_size = objects[i], positions[i], image_sizes[i]
 
         # Skip objects which already have masks
@@ -555,26 +610,32 @@ def generate_masks(
             object=object,
         )
         if mask_path.exists() and not regenerate:
-            logger.debug(f"Skipping object {object}, mask exists.")
+            if not display_progress:
+                logger.debug(f"Skipping object {object}, mask exists.")
             skipped.append(object)
             continue
 
         # Try generating mask for object
         try:
-            logger.info(f"Generating mask for object {object}.")
+            if not display_progress:
+                logger.info(f"Generating mask for object {object}.")
 
-            # Generate mask from segmap
-            mask = Cutout2D(
+            # Create cutout from segmap
+            segmap_cutout = Cutout2D(
                 data=segmap_data,
                 position=position,
                 size=image_size,
                 wcs=segmap_wcs,
             )
 
+            # Set array of ones to zero where object is
+            mask = np.ones(shape=(image_size, image_size))
+            object_locations = np.where(segmap_cutout.data == object + 1)
+            mask[object_locations] = 0
+
             # Write to disk
-            fits.PrimaryHDU(data=mask.data, header=mask.wcs.to_header()).writeto(
-                mask_path, overwrite=True
-            )
+            mask_hdul = fits.PrimaryHDU(data=mask, header=segmap_cutout.wcs.to_header())
+            mask_hdul.writeto(mask_path, overwrite=True)
 
             # Clear memory
             del mask_path
@@ -582,11 +643,13 @@ def generate_masks(
             del position
             del image_size
             del mask
+            del mask_hdul
             gc.collect()
 
         # Catch skipped objects
         except Exception as e:
-            logger.error(e)
+            if not display_progress:
+                logger.error(e)
             skipped.append(object)
 
     # Display skipped objects
@@ -594,237 +657,11 @@ def generate_masks(
         logger.debug(f"Skipped generating masks for {len(skipped)} objects: {skipped}.")
 
 
-def generate_feedfiles(
-    input_root: Path,
-    product_root: Path,
-    output_root: Path,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    objects: list[int],
-    image_sizes: list[int],
-    pixscale: float,
-    regenerate: bool = False,
-    apply_sigma: bool = True,
-    apply_psf: bool = True,
-    apply_mask: bool = True,
-    feedfile_template_path: Path = GALWRAP_DATA_ROOT / "feedfile.jinja",
-    constraints_path: Path = GALWRAP_DATA_ROOT / "default.constraints",
-    path_length: int = 64,
-    float_length: int = 12,
-):
-    """Generate feedfiles for all objects in a FICL.
-
-    Parameters
-    ----------
-    input_root : Path
-        Path to root GalWrap input directory.
-    product_root : Path
-        Path to root GalWrap products directory.
-    output_root : Path
-        Path to root Galwrap output directory.
-    field : str
-        Field of observation.
-    image_version : str
-        Version of image processing used on observation.
-    catalog_version : str
-        Version of cataloguing used for field.
-    filter : str
-        Filter used for observation.
-    objects : list[str]
-        List of object IDs in catalog for which to generate feedfiles.
-    image_sizes : list[int]
-        List of image sizes corresponding to each object's stamp.
-    pixscale : float
-        Pixel scale of science frame.
-    regenerate : bool, optional
-        Regenerate existing feedfiles, by default False.
-    apply_sigma : bool, optional
-        Use corresponding sigma map in GALFIT, by default True.
-    apply_psf : bool, optional
-        Use corresponding PSF in GALFIT, by default True.
-    apply_mask : bool, optional
-        Use corresponding mask in GALFIT, by default True.
-    feedfile_template_path : Path, optional
-        Path to jinja2 feedfile template, by default from the repository data
-        directory.
-    constraints_path : Path, optional
-        Path to the GALFIT constraints file, by default from the repository data
-        directory.
-    path_length : int, optional
-        Length of path strings in the template for comment alignment, by default
-        64, so that comments start at column 69.
-    float_length : int, optional
-        Length of float strings in the template for comment alignment, by
-        default 12.
-    """
-    logger.info("Generating feedfiles.")
-
-    # Define functions for comment alignment
-    path_str = lambda x: str(x).ljust(path_length)
-    float_str = lambda x: str(x).ljust(float_length)[:float_length]
-
-    # Load in catalog
-    catalog_path = paths.get_path(
-        "catalog",
-        input_root=input_root,
-        field=field,
-        image_version=image_version,
-    )
-    catalog = Table.read(catalog_path)
-
-    # Get zeropoint
-    science_path = paths.get_path(
-        "science",
-        input_root=input_root,
-        field=field,
-        image_version=image_version,
-        filter=filter,
-    )
-    zeropoint = science.get_zeropoint(image_path=science_path)
-
-    # Clear memory
-    del catalog_path
-    del science_path
-    gc.collect()
-
-    # Iterate over each object, and image_size tuple
-    skipped = []
-    for i in range(len(objects)):
-        object, image_size = objects[i], image_sizes[i]
-
-        # Skip objects which already have feedfiles
-        feedfile_path = paths.get_path(
-            "feedfile",
-            product_root=product_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-        if feedfile_path.exists() and not regenerate:
-            logger.debug(f"Skipping object {object}, feedfile exists.")
-            skipped.append(object)
-            continue
-
-        # Generate feedfile for object
-        logger.info(f"Generating feedfile for object {object}.")
-
-        # Get paths
-        model_path = paths.get_path(
-            "model",
-            output_root=output_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-        stamp_path = paths.get_path(
-            "stamp",
-            product_root=product_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-        sigma_path = paths.get_path(
-            "sigma",
-            product_root=product_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-        psf_path = paths.get_path(
-            "psf",
-            product_root=product_root,
-            filter=filter,
-            pixscale=pixscale,
-        )
-        mask_path = paths.get_path(
-            "mask",
-            product_root=product_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-
-        magnitude = catalog[object]["mag_auto"]
-        half_light_radius = catalog[object]["a_image"]
-        axis_ratio = catalog[object]["b_image"] / catalog[object]["a_image"]
-
-        # Set configuration parameters from input
-        feedfile_dict = {
-            "stamp_path": path_str(stamp_path.name),
-            "output_galfit_path": path_str(model_path.name),
-            "sigma_path": path_str(sigma_path.name if apply_sigma else ""),
-            "psf_path": path_str(
-                "../../../../../psfs/" + psf_path.name if apply_psf else ""
-            ),
-            "mask_path": path_str(mask_path.name if apply_mask else ""),
-            "constraints_path": path_str(".constraints"),
-            "image_size": str(image_size),
-            "zeropoint": float_str(zeropoint),
-            "position": str(image_size / 2),
-            "magnitude": float_str(magnitude),
-            "half_light_radius": float_str(half_light_radius),
-            "axis_ratio": float_str(axis_ratio),
-        }
-
-        # Write new feedfile from template and save to output directory
-        with open(feedfile_template_path, "r") as feedfile_template:
-            template = Template(feedfile_template.read())
-        lines = template.render(feedfile_dict)
-        with open(feedfile_path, "w") as feedfile:
-            feedfile.write(lines)
-
-        # Clear memory
-        del object
-        del image_size
-        del feedfile_path
-        del model_path
-        del stamp_path
-        del sigma_path
-        del psf_path
-        del mask_path
-        del magnitude
-        del half_light_radius
-        del axis_ratio
-        del feedfile_dict
-        del template
-        del lines
-        gc.collect()
-
-
 ## Main
 
 
-def generate_product_ficlo(
-    galwrap_config: GalWrapConfig,
-    ficlo: FICLO,
-    regenerate_products: bool = False,
-    regenerate_stamp: bool = False,
-    regenerate_sigma: bool = False,
-    regenerate_psf: bool = False,
-    regenerate_mask: bool = False,
-    regenerate_feedfile: bool = True,
-    apply_sigma: bool = True,
-    apply_psf: bool = True,
-    apply_mask: bool = True,
-    minimum_image_size: int = 32,
-):
-    raise NotImplementedError()
-
-
 def generate_products(
-    galwrap_config: GalWrapConfig,
+    morphfits_config: MorphFITSConfig,
     regenerate_products: bool = False,
     regenerate_stamp: bool = False,
     regenerate_sigma: bool = False,
@@ -836,14 +673,14 @@ def generate_products(
     apply_mask: bool = True,
     minimum_image_size: int = 32,
     kron_factor: int = 3,
-    psf_factor: int = 4,
+    display_progress: bool = False,
 ):
     """Generate all products for a given configuration.
 
     Parameters
     ----------
-    galwrap_config : GalWrapConfig
-        Configuration object for this GalWrap run.
+    morphfits_config : MorphFITSConfig
+        Configuration object for this MorphFITS run.
     regenerate_products : bool, optional
         Regenerate all products, by default False.
     regenerate_stamp : bool, optional
@@ -867,17 +704,17 @@ def generate_products(
     kron_factor : int, optional
         Multiplicative factor to apply to Kron radius for each object to
         determine image size of stamp, by default 3.
-    psf_factor : int, optional
-        Division factor to apply to PSF crop, by default 4.
+    display_progress : bool, optional
+        Display progress on terminal screen via tqdm, by default False.
     """
     # Iterate over each FICL in configuration
-    for ficl in galwrap_config.get_FICLs():
+    for ficl in morphfits_config.get_FICLs():
         logger.info(f"Generating products for FICL {ficl}.")
 
         # Generate science cutouts if missing or requested
         objects, positions, image_sizes = generate_stamps(
-            input_root=galwrap_config.input_root,
-            product_root=galwrap_config.product_root,
+            input_root=morphfits_config.input_root,
+            product_root=morphfits_config.product_root,
             field=ficl.field,
             image_version=ficl.image_version,
             catalog_version=ficl.catalog_version,
@@ -886,12 +723,13 @@ def generate_products(
             minimum_image_size=minimum_image_size,
             kron_factor=kron_factor,
             regenerate=regenerate_products or regenerate_stamp,
+            display_progress=display_progress,
         )
 
         # Generate sigma maps if missing or requested
         generate_sigmas(
-            input_root=galwrap_config.input_root,
-            product_root=galwrap_config.product_root,
+            input_root=morphfits_config.input_root,
+            product_root=morphfits_config.product_root,
             field=ficl.field,
             image_version=ficl.image_version,
             catalog_version=ficl.catalog_version,
@@ -900,22 +738,27 @@ def generate_products(
             positions=positions,
             image_sizes=image_sizes,
             regenerate=regenerate_products or regenerate_sigma,
+            display_progress=display_progress,
         )
 
         # Generate PSF if missing or requested
-        generate_psf(
-            input_root=galwrap_config.input_root,
-            product_root=galwrap_config.product_root,
+        generate_psfs(
+            input_root=morphfits_config.input_root,
+            product_root=morphfits_config.product_root,
+            field=ficl.field,
+            image_version=ficl.image_version,
+            catalog_version=ficl.catalog_version,
             filter=ficl.filter,
-            pixscale=ficl.pixscale,
+            objects=objects,
+            image_sizes=image_sizes,
             regenerate=regenerate_products or regenerate_psf,
-            size_factor=psf_factor,
+            display_progress=display_progress,
         )
 
         # Generate masks if missing or requested
         generate_masks(
-            input_root=galwrap_config.input_root,
-            product_root=galwrap_config.product_root,
+            input_root=morphfits_config.input_root,
+            product_root=morphfits_config.product_root,
             field=ficl.field,
             image_version=ficl.image_version,
             catalog_version=ficl.catalog_version,
@@ -924,22 +767,31 @@ def generate_products(
             positions=positions,
             image_sizes=image_sizes,
             regenerate=regenerate_products or regenerate_mask,
+            display_progress=display_progress,
         )
 
-        # Generate feedfiles if missing or requested
-        generate_feedfiles(
-            input_root=galwrap_config.input_root,
-            product_root=galwrap_config.product_root,
-            output_root=galwrap_config.output_root,
-            field=ficl.field,
-            image_version=ficl.image_version,
-            catalog_version=ficl.catalog_version,
-            filter=ficl.filter,
-            objects=objects,
-            image_sizes=image_sizes,
-            pixscale=ficl.pixscale,
-            regenerate=regenerate_products or regenerate_feedfile,
-            apply_sigma=apply_sigma,
-            apply_psf=apply_psf,
-            apply_mask=apply_mask,
-        )
+        # Generate wrapper-specific files
+        for wrapper in morphfits_config.wrappers:
+            match wrapper:
+                # GALFIT requires a feedfile to run
+                case "galfit":
+                    galfit.generate_feedfiles(
+                        input_root=morphfits_config.input_root,
+                        product_root=morphfits_config.product_root,
+                        output_root=morphfits_config.output_root,
+                        field=ficl.field,
+                        image_version=ficl.image_version,
+                        catalog_version=ficl.catalog_version,
+                        filter=ficl.filter,
+                        objects=objects,
+                        image_sizes=image_sizes,
+                        pixscale=ficl.pixscale,
+                        regenerate=regenerate_products or regenerate_feedfile,
+                        apply_sigma=apply_sigma,
+                        apply_psf=apply_psf,
+                        apply_mask=apply_mask,
+                        display_progress=display_progress,
+                    )
+                # Other wrappers unrecognized
+                case _:
+                    raise NotImplementedError(f"Wrapper for {wrapper} not implemented.")
