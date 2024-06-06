@@ -221,7 +221,7 @@ def run_galfit(
     catalog_version: str,
     filter: str,
     objects: list[int],
-    display_progess: bool = False,
+    display_progress: bool = False,
 ):
     """Run GALFIT over all objects in a FICL.
 
@@ -251,7 +251,7 @@ def run_galfit(
     )
 
     # Iterate over each object in FICL
-    for object in tqdm(objects) if display_progess else objects:
+    for object in tqdm(objects) if display_progress else objects:
         # Copy GALFIT and constraints to FICLO product directory
         galfit_path = GALFIT_DATA_ROOT / "galfit"
         constraints_path = GALFIT_DATA_ROOT / "default.constraints"
@@ -280,12 +280,12 @@ def run_galfit(
 
         # Terminate if either path missing
         if not feedfile_path.exists():
-            if not display_progess:
+            if not display_progress:
                 logger.error(f"Missing feedfile, skipping.")
             continue
 
         # Run subprocess and pipe output
-        if not display_progess:
+        if not display_progress:
             logger.info(f"Running GALFIT for object {object}.")
         process = Popen(
             f"cd {str(ficlo_products_path)} && ./galfit {feedfile_path.name}",
@@ -299,43 +299,42 @@ def run_galfit(
         # Capture output and log and close subprocess
         sublogger = logging.getLogger("GALFIT")
         for line in iter(process.stdout.readline, b""):
-            if not display_progess:
+            if not display_progress:
                 sublogger.info(line.rstrip().decode("utf-8"))
         process.stdout.close()
         process.wait()
 
         # Clean up GALFIT output
-        if process.returncode == 0:
-            for path in ficlo_products_path.iterdir():
-                # Move model to output directory
-                if "galfit.fits" in path.name:
-                    path.rename(
-                        paths.get_path(
-                            "galfit_model",
-                            output_root=output_root,
-                            field=field,
-                            image_version=image_version,
-                            catalog_version=catalog_version,
-                            filter=filter,
-                            object=object,
-                        )
+        for path in ficlo_products_path.iterdir():
+            # Move model to output directory
+            if "galfit.fits" in path.name:
+                path.rename(
+                    paths.get_path(
+                        "galfit_model",
+                        output_root=output_root,
+                        field=field,
+                        image_version=image_version,
+                        catalog_version=catalog_version,
+                        filter=filter,
+                        object=object,
                     )
-                # Move logs to output directory
-                elif "log" in path.name:
-                    path.rename(
-                        paths.get_path(
-                            "galfit_log",
-                            output_root=output_root,
-                            field=field,
-                            image_version=image_version,
-                            catalog_version=catalog_version,
-                            filter=filter,
-                            object=object,
-                        )
+                )
+            # Move logs to output directory
+            elif "log" in path.name:
+                path.rename(
+                    paths.get_path(
+                        "galfit_log",
+                        output_root=output_root,
+                        field=field,
+                        image_version=image_version,
+                        catalog_version=catalog_version,
+                        filter=filter,
+                        object=object,
                     )
-                # Remove script, constraints, and feedfile records
-                elif ("galfit" in path.name) or ("constraints" in path.name):
-                    path.unlink()
+                )
+            # Remove script, constraints, and feedfile records
+            elif ("galfit" in path.name) or ("constraints" in path.name):
+                path.unlink()
 
 
 ## Main
@@ -411,7 +410,7 @@ def main(
             catalog_version=ficl.catalog_version,
             filter=ficl.filter,
             objects=ficl.objects,
-            display_progess=display_progress,
+            display_progress=display_progress,
         )
 
     # Plot models, for each FICLO

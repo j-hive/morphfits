@@ -391,15 +391,24 @@ def generate_sigmas(
             gc.collect()
 
             # Calculate total variance -> electrons / s
-            variance = weights_variance + poisson_variance
+            variance = 1 * weights_variance + 0.25 * poisson_variance
             del poisson_variance
             del weights_variance
             gc.collect()
 
-            # Calculate sigma and clip to range
+            # Calculate sigma from variance
             sigma = np.sqrt(variance)
+
+            # Correct for NaNs in first row and column
+            corrected_sigma = np.copy(sigma)
+            corrected_sigma[0, :] = corrected_sigma[1, :]
+            corrected_sigma[:, 0] = corrected_sigma[:, 1]
+            pmax = np.nanpercentile(sigma, 99)
+            corrected_sigma = np.nan_to_num(corrected_sigma, nan=pmax, posinf=pmax)
+
+            # Write sigma to file
             sigma_hdul = fits.PrimaryHDU(
-                data=sigma,
+                data=corrected_sigma,
                 header=exposure_wcs.to_header(),
             )
             sigma_hdul.writeto(sigma_path, overwrite=True)
@@ -411,6 +420,8 @@ def generate_sigmas(
             del image_size
             del variance
             del sigma
+            del corrected_sigma
+            del pmax
             del sigma_hdul
             gc.collect()
 
@@ -437,7 +448,6 @@ def generate_psfs(
     objects: list[int],
     image_sizes: list[int],
     pixscale: float = 0.04,
-    size_factor: int = 4,
     regenerate: bool = False,
     display_progress: bool = False,
 ):
@@ -463,8 +473,6 @@ def generate_psfs(
         List of image sizes corresponding to each object's stamp.
     pixscale : float, optional
         Pixel scale of science frame, by default 0.04''/px.
-    size_factor : int, optional
-        PSF size divisor for image size, by default 4.
     regenerate : bool, optional
         Regenerate existing crops, by default False.
     display_progress : bool, optional
@@ -727,7 +735,12 @@ def generate_products(
             objects=ficl.objects,
             minimum_image_size=minimum_image_size,
             kron_factor=kron_factor,
-            regenerate=regenerate_products or regenerate_stamp,
+            regenerate=regenerate_products
+            or regenerate_stamp
+            or regenerate_sigma
+            or regenerate_psf
+            or regenerate_mask
+            or regenerate_feedfile,
             display_progress=display_progress,
         )
 

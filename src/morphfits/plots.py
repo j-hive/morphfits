@@ -265,12 +265,19 @@ def plot_model(
         psf = psf_file["PRIMARY"].data
         mask = mask_file["PRIMARY"].data
         model = model_file[2].data
-        norm_model = np.copy(model)
-        norm_model -= np.min(model)
-        norm_model /= np.max(model)
-        norm_model *= np.max(stamp) - np.min(stamp)
-        norm_model += np.min(stamp)
-        residual = norm_model - stamp
+
+        # Normalize model to stamp
+        stamp_min, stamp_max = np.min(stamp), np.max(stamp)
+        if len(model_file) > 2:
+            residual = model_file[3].data
+        else:
+            norm_model = np.copy(model)
+            norm_model -= np.min(model)
+            norm_model /= np.max(model)
+            norm_model *= stamp_max - stamp_min
+            norm_model += stamp_min
+            residual = norm_model - stamp
+            del norm_model
 
         # Clear memory
         stamp_file.close()
@@ -283,7 +290,7 @@ def plot_model(
         del psf_file
         del mask_file
         del model_file
-        del model
+        gc.collect()
 
         # Plot each product
         plt.subplots(2, 3, figsize=(12, 8), facecolor="black")
@@ -312,12 +319,12 @@ def plot_model(
         plt.axis("off")
 
         plt.subplot(2, 3, 4)
-        plt.imshow(norm_model, cmap=JHIVE_CMAP)
+        plt.imshow(model, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
         plt.title(wrapper + " model", y=0, fontsize=20, color="white")
         plt.axis("off")
 
         plt.subplot(2, 3, 5)
-        plt.imshow(residual, cmap=JHIVE_CMAP)
+        plt.imshow(residual, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
         plt.title("residuals", y=0, fontsize=20, color="white")
         plt.axis("off")
 
@@ -333,11 +340,13 @@ def plot_model(
         plt.close()
 
         # Clear memory
+        del object_paths
         del stamp
         del sigma
         del psf
         del mask
-        del norm_model
+        del model
+        del stamp_min
+        del stamp_max
         del residual
-        del object_paths
         gc.collect()
