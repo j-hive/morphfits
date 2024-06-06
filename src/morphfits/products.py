@@ -628,21 +628,26 @@ def generate_masks(
                 wcs=segmap_wcs,
             )
 
-            # Set array of ones to zero where object is
+            # Set array of ones to zero where object and sky are
             mask = np.ones(shape=(image_size, image_size))
-            object_locations = np.where(segmap_cutout.data == object + 1)
-            mask[object_locations] = 0
+            object_location = np.where(segmap_cutout.data == object + 1)
+            sky_location = np.where(segmap_cutout.data == 0)
+            mask[object_location] = 0
+            mask[sky_location] = 0
 
             # Write to disk
             mask_hdul = fits.PrimaryHDU(data=mask, header=segmap_cutout.wcs.to_header())
             mask_hdul.writeto(mask_path, overwrite=True)
 
             # Clear memory
-            del mask_path
             del object
             del position
             del image_size
+            del mask_path
+            del segmap_cutout
             del mask
+            del object_location
+            del sky_location
             del mask_hdul
             gc.collect()
 
