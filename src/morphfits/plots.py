@@ -308,7 +308,7 @@ def plot_model(
 
         plt.subplot(2, 3, 3)
         plt.imshow(mask, cmap=JHIVE_CMAP)
-        plt.title("mask", y=0, fontsize=20, color="black")
+        plt.title("mask", y=0, fontsize=20, color="white")
         plt.axis("off")
 
         plt.subplot(2, 3, 4)
