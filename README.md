@@ -25,13 +25,12 @@ sh ./examples/single_ficlo/setup.sh
 in a bash environment to download and unzip JWST data, which will take several
 minutes and ~`13GB`. Then, download [the simulated PSF for the filter
 here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
-and move it to the appropriate location.
+and move it to `examples/single_ficlo/morphfits_root/input/psfs/`, for example via
 ```
-mv /mnt/c/Users/[Windows Username]/Downloads/PSF_NIRCam_in_flight_opd_filter_F200W.fits morphfits/examples/single_ficlo/morphfits_root/input/psfs
+mv [download folder]/PSF_NIRCam_in_flight_opd_filter_F200W.fits ./examples/single_ficlo/morphfits_root/input/psfs
 ```
 Then, run 
 ```
-poetry install
 poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml
 ```
 and MorphFITS will run GalWrap, a wrapper for GALFIT, over the FICLOs found in `config.yaml`. The outputs can be
@@ -123,7 +122,7 @@ The program can be configured in three ways. If it receives parameters from mult
 sources, it will use the values in this order.
 
 1. CLI call (see below)
-2. Configuration file [(see a sample here)](./data/galwrap/sample_config.yaml)
+2. Configuration file [(see a sample here)](./data/galfit/sample_config.yaml)
 3. Automatic input detection
 
 The program requires the following parameters to run. Note the first cannot be
@@ -150,7 +149,7 @@ for the following options
 |CLI Key|Type|Description|
 |:---|:---|:---|
 |`--config-path`|`str`|Path to configuration file.|
-|`--galwrap-root`|`str`|Path to root data directory.|
+|`--morphfits-root`|`str`|Path to root data directory.|
 |`--input-root`|`str`|Path to root input directory, under root.|
 |`--product-root`|`str`|Path to root products directory.|
 |`--output-root `|`str`|Path to root output directory.|
@@ -196,8 +195,8 @@ The program executes the following stages.
     - exposure and weight sigma map cutouts
     - PSF crops
     - mask cutouts
-    - GALFIT feedfiles
-4. Run GALFIT on created products
+    - wrapper-specific products (e.g. GALFIT feedfiles)
+4. Run morphology fitter on created products
     - outputs model and log to output directory
 5. Create plots from output model and products
     - outputs plot to output directory
