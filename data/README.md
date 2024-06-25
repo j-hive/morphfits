@@ -19,6 +19,7 @@ of a galaxy or cluster to be fitted.
 |`x`|`input_root`|Root input directory.|`morphfits_root/input`|
 |`y`|`product_root`|Root products directory.|`morphfits_root/products`|
 |`z`|`output_root`|Root output directory.|`morphfits_root/output`|
+|`d`|`datetime`|Datetime at start of program run.|`20240624T134958`|
 
 
 # Filesystem Structure
@@ -69,6 +70,8 @@ morphfits_root/
 │                       ├── F_I_C_L_O_sigma.fits
 │                       └── F_I_C_L_O_stamp.fits
 └── output/
+    ├── runs/
+    │   └── d.csv
     └── F/
         └── I/
             └── C/
@@ -116,6 +119,8 @@ morphfits_root/
 │                       ├── sigma
 │                       └── stamp
 └── output_root/
+    ├── runs/
+    │   └── run
     └── .../
         └── .../
             └── .../
@@ -165,6 +170,8 @@ running `paths.get_path` for the required variables.
 |Product|`sigma`|`.fits`|`yFICLO`|Sigma map.|
 |Product|`stamp`|`.fits`|`yFICLO`|Object cutout.|
 |Output|`output_root`|`/`|`z`|Root directory for all output files.|
+|Output|`runs`|`/`||Directory for all run results.|
+|Output|`run`|`.csv`|`YMDhms`|Success and parameter states for a given run.|
 |Output|`ficl_output`|`/`|`zFICLO`|Directory for all output for a FICL.|
 |Output|`ficl_objects`|`.png`|`zFICLO`|Image showing all objects in a FICL.|
 |Output|`ficlo_output`|`/`|`zFICLO`|Directory for all output for a FICLO.|

@@ -391,7 +391,7 @@ def generate_sigmas(
             gc.collect()
 
             # Calculate total variance -> electrons / s
-            variance = 1 * weights_variance + 0.25 * poisson_variance
+            variance = weights_variance + poisson_variance
             del poisson_variance
             del weights_variance
             gc.collect()

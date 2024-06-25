@@ -9,6 +9,7 @@ import gc
 import logging
 import re
 from pathlib import Path
+from datetime import datetime as dt
 
 import yaml
 from pydantic import BaseModel
@@ -36,6 +37,7 @@ TEMPLATE_MAPPINGS = {
     "C": "catalog_version",
     "L": "filter",
     "O": "object",
+    "d": "datetime",
 }
 """Dict mapping from template abbreviations to parameter names.
 """
@@ -103,6 +105,8 @@ class MorphFITSPath(BaseModel):
             Filter used in observation, by default None.
         object : int | None, optional
             Target galaxy or cluster ID in catalog, by default None.
+        datetime : datetime | None, optional
+            Datetime at start of program run, by default None.
 
         Returns
         -------

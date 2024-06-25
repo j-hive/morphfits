@@ -10,6 +10,7 @@
         "CATVER",
         "Colourmap",
         "DATADIR",
+        "EXPTIME",
         "FEEDDIR",
         "FICL",
         "FIELDID",
