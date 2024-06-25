@@ -71,7 +71,9 @@ morphfits_root/
 │                       └── F_I_C_L_O_stamp.fits
 └── output/
     ├── runs/
-    │   └── d.csv
+    │   └── d/
+    │       ├── .log
+    │       └── parameters.csv
     └── F/
         └── I/
             └── C/
@@ -120,7 +122,9 @@ morphfits_root/
 │                       └── stamp
 └── output_root/
     ├── runs/
-    │   └── run
+    │   └── run/
+    │       ├── morphfits_log
+    │       └── parameters
     └── .../
         └── .../
             └── .../
@@ -171,7 +175,9 @@ running `paths.get_path` for the required variables.
 |Product|`stamp`|`.fits`|`yFICLO`|Object cutout.|
 |Output|`output_root`|`/`|`z`|Root directory for all output files.|
 |Output|`runs`|`/`||Directory for all run results.|
-|Output|`run`|`.csv`|`YMDhms`|Success and parameter states for a given run.|
+|Output|`run`|`/`|`d`|Directory for log files from a single run.|
+|Output|`morphfits_log`|`.log`|`d`|MorphFITS program log.|
+|Output|`parameters`|`.csv`|`d`|Parameters found from run.|
 |Output|`ficl_output`|`/`|`zFICLO`|Directory for all output for a FICL.|
 |Output|`ficl_objects`|`.png`|`zFICLO`|Image showing all objects in a FICL.|
 |Output|`ficlo_output`|`/`|`zFICLO`|Directory for all output for a FICLO.|

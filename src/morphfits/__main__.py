@@ -6,22 +6,16 @@
 
 import logging
 from typing import Optional
+from datetime import datetime as dt
 
 import typer
 
-from . import config, plots, products
+from . import config, paths, plots, products
 from .wrappers import galfit
 from .utils import logs
 
 
-# Instantiations
-
-
-## Create logger for program and module
-main_logger = logs.create_logger()
-logger = logging.getLogger("MORPHFITS")
-
-## Create typer app
+# App Instantiation
 app = typer.Typer()
 
 
@@ -125,6 +119,17 @@ def galwrap(
         display_progress=display_progress,
     )
 
+    # Create program and module logger
+    logs.create_logger(
+        filename=paths.get_path(
+            "morphfits_log",
+            output_root=morphfits_config.output_root,
+            datetime=morphfits_config.datetime,
+        )
+    )
+    logger = logging.getLogger("MORPHFITS")
+    logger.info("Starting MorphFITS.")
+
     # Call wrapper
     galfit.main(
         morphfits_config=morphfits_config,
@@ -219,6 +224,17 @@ def stamp(
         display_progress=True,
     )
 
+    # Create program and module logger
+    logs.create_logger(
+        filename=paths.get_path(
+            "morphfits_log",
+            output_root=morphfits_config.output_root,
+            datetime=morphfits_config.datetime,
+        )
+    )
+    logger = logging.getLogger("MORPHFITS")
+    logger.info("Starting MorphFITS.")
+
     # Display progress
     ficl = next(morphfits_config.get_FICLs())
     logger.info(f"Starting MorphFITS stamps for FICL {ficl}.")
@@ -256,9 +272,14 @@ def stamp(
 
 
 def main():
-    logger.info("Starting MorphFITS.")
     app()
 
 
 if __name__ == "__main__":
     main()
+
+
+# TODO
+# want to save logs to each run
+# can't save it there until directory is created
+# directory created after something has already been logged
