@@ -15,7 +15,8 @@ import yaml
 from pydantic import BaseModel, StringConstraints
 from tqdm import tqdm
 
-from . import paths, ROOT, DATA_ROOT
+from . import paths, ROOT
+from .utils import logs
 
 
 # Constants
@@ -199,7 +200,13 @@ class MorphFITSConfig(BaseModel):
             # Iterate over each object in FICL
             for object in tqdm(ficl.objects) if display_progress else ficl.objects:
                 # Make leaf FICLO directories
-                for path_name in ["ficlo_products", "logs", "models", "visualizations"]:
+                for path_name in [
+                    "ficlo_products",
+                    "run",
+                    "logs",
+                    "models",
+                    "visualizations",
+                ]:
                     # Create directory if it does not exist
                     paths.get_path(
                         name=path_name,
@@ -211,6 +218,7 @@ class MorphFITSConfig(BaseModel):
                         catalog_version=ficl.catalog_version,
                         filter=ficl.filter,
                         object=object,
+                        datetime=self.datetime,
                     ).mkdir(parents=True, exist_ok=True)
 
 

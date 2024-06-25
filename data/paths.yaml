@@ -121,6 +121,11 @@ runs:
   path: "[output_root]/runs"
   alts:
     - output runs
+run:
+  file: False
+  path: "[runs]/{d}"
+  alts:
+    - output run
 ficl_output:
   file: False
   path: "[output_root]/{F}/{I}/{C}/{L}"
@@ -150,12 +155,18 @@ visualizations:
     - ficlo viz
     - viz
 ## Files
-run:
+morphfits_log:
   file: True
-  path: "[runs]/{d}.csv"
+  path: "[run]/.log"
   alts:
-    - saves
-    - states
+    - program log
+parameters:
+  file: True
+  path: "[run]/parameters.csv"
+  alts:
+    - fit parameters
+    - success
+    - failure
 ficl_objects:
   file: True
   path: "[ficl_output]/{F}_{I}_{C}_{L}_objects.png"

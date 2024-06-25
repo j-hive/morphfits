@@ -81,6 +81,7 @@ class MorphFITSPath(BaseModel):
         catalog_version: str | None = None,
         filter: str | None = None,
         object: int | None = None,
+        datetime: dt | None = None,
     ) -> Path | None:
         """Get the full path for this path object for passed configuration
         parameters.
@@ -113,6 +114,11 @@ class MorphFITSPath(BaseModel):
         Path
             Full path to directory or file corresponding to this path object.
         """
+        # Convert start datetime to string
+        if datetime is not None:
+            datetime_object = datetime
+            datetime = datetime.strftime("%Y%m%dT%H%M%S")
+
         # Get passed values reference-able by name
         parameters = locals()
 
@@ -149,6 +155,9 @@ class MorphFITSPath(BaseModel):
                             catalog_version=catalog_version,
                             filter=filter,
                             object=object,
+                            datetime=(
+                                datetime_object if datetime is not None else datetime
+                            ),
                         )
                     ),
                     resolved_path,
@@ -458,6 +467,7 @@ def get_path(
     catalog_version: str | None = None,
     filter: str | None = None,
     object: int | None = None,
+    datetime: dt | None = None,
 ) -> Path | None:
     """Get the path to a MorphFITS file or directory.
 
@@ -483,6 +493,8 @@ def get_path(
         Filter used in observation, by default None.
     object : int | None, optional
         Target galaxy or cluster ID in catalog, by default None.
+    datetime : datetime | None, optional
+        Datetime at start of program run, by default None.
 
     Returns
     -------
@@ -508,4 +520,5 @@ def get_path(
         catalog_version=catalog_version,
         filter=filter,
         object=object,
+        datetime=datetime,
     )

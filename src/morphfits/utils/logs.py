@@ -10,18 +10,11 @@ import logging.handlers
 from logging import DEBUG, INFO, WARNING, ERROR, CRITICAL
 from pathlib import Path
 
-from .. import LOGS_ROOT
-
 
 # Constants
 
 
 ## Logging
-
-
-LOGGER_FILENAME = LOGS_ROOT / "morphfits.log"
-"""Default log file path.
-"""
 
 
 LOGGER_MAX_BYTES = 1000000
@@ -184,7 +177,7 @@ class StreamFormatter(UTCFormatter):
 
 def create_logger(
     logger: logging.Logger = logging.getLogger(),
-    filename: str | Path = LOGGER_FILENAME,
+    filename: str | Path = ".log",
     level: str = logging._levelToName[DEBUG],
     max_bytes: int = LOGGER_MAX_BYTES,
     backup_count: int = LOGGER_BACKUP_COUNT,
@@ -196,7 +189,7 @@ def create_logger(
     logger : Logger, optional
         Logger object to create or update, by default a new logger.
     filename : str | Path, optional
-        Name or path to file to log to, by default `logs/ramotswe_broker.logs`.
+        Name or path to file to log to, by default `.log`.
     level : str, optional
         Logging level to output, by default `WARNING`.
     max_bytes : int, optional
@@ -210,10 +203,6 @@ def create_logger(
     Logger
         Logger object for this program.
     """
-    # Validate file directory
-    if filename == LOGGER_FILENAME:
-        LOGS_ROOT.mkdir(exist_ok=True)
-
     # Validate level
     level = level.upper()
     if level not in [
