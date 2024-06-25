@@ -9,6 +9,7 @@ import itertools
 import re
 from pathlib import Path
 from typing import Generator, Annotated
+from datetime import datetime as dt
 
 import yaml
 from pydantic import BaseModel, StringConstraints
@@ -89,6 +90,8 @@ class MorphFITSConfig(BaseModel):
 
     Attributes
     ----------
+    datetime : datetime
+        Datetime at start of program run.
     input_root : Path
         Path to root input directory.
     product_root : Path
@@ -117,6 +120,7 @@ class MorphFITSConfig(BaseModel):
         List of morphology fitting algorithms to run, by default only GALFIT.
     """
 
+    datetime: dt
     input_root: Path
     product_root: Path
     output_root: Path
@@ -347,6 +351,9 @@ def create_config(
     for field in config_dict["filters"]:
         cleaned_filters.append(field.split("-")[0])
     config_dict["filters"] = cleaned_filters
+
+    # Set start datetime
+    config_dict["datetime"] = dt.now()
 
     # Create configuration object from dict
     morphfits_config = MorphFITSConfig(**config_dict)

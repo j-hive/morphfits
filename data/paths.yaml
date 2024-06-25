@@ -116,6 +116,11 @@ output_root:
   path: "[morphfits_root]/output"
   alts:
     - outputs
+runs:
+  file: False
+  path: "[output_root]/runs"
+  alts:
+    - output runs
 ficl_output:
   file: False
   path: "[output_root]/{F}/{I}/{C}/{L}"
@@ -145,6 +150,12 @@ visualizations:
     - ficlo viz
     - viz
 ## Files
+run:
+  file: True
+  path: "[runs]/{d}.csv"
+  alts:
+    - saves
+    - states
 ficl_objects:
   file: True
   path: "[ficl_output]/{F}_{I}_{C}_{L}_objects.png"
