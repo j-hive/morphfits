@@ -330,7 +330,7 @@ def run_galfit(
         if not feedfile_path.exists():
             if not display_progress:
                 logger.error(f"Missing feedfile, skipping.")
-            return_codes.append(-1)
+            return_codes.append(2)
             continue
 
         ## Run subprocess and pipe output
