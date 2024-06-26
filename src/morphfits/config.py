@@ -221,6 +221,29 @@ class MorphFITSConfig(BaseModel):
                         datetime=self.datetime,
                     ).mkdir(parents=True, exist_ok=True)
 
+    def write(self):
+        """Write configurations settings for a program run to a YAML file in the
+        corresponding run directory.
+        """
+        logger.info("Recording configuration settings for this run.")
+
+        # Convert Path objects to strings
+        write_config = self.__dict__
+        for key in write_config:
+            if isinstance(write_config[key], Path):
+                write_config[key] = str(write_config[key])
+
+        # Write config to file
+        yaml.safe_dump(
+            write_config,
+            open(
+                paths.get_path(
+                    "config", output_root=self.output_root, datetime=self.datetime
+                ),
+                mode="w",
+            ),
+        )
+
 
 # Functions
 

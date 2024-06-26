@@ -167,6 +167,12 @@ parameters:
     - fit parameters
     - success
     - failure
+config:
+  file: True
+  path: "[run]/config.yaml"
+  alts:
+    - run config
+    - configuration
 ficl_objects:
   file: True
   path: "[ficl_output]/{F}_{I}_{C}_{L}_objects.png"

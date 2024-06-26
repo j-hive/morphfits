@@ -130,6 +130,10 @@ def galwrap(
     logger = logging.getLogger("MORPHFITS")
     logger.info("Starting MorphFITS.")
 
+    # Write configuration to file in run directory
+    morphfits_config.write()
+    return
+
     # Call wrapper
     galfit.main(
         morphfits_config=morphfits_config,
@@ -145,6 +149,9 @@ def galwrap(
         kron_factor=kron_factor,
         display_progress=display_progress,
     )
+
+    # Write configuration to file in run directory
+    morphfits_config.write()
 
     # Exit
     logger.info("Exiting MorphFITS.")
