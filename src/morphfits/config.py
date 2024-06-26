@@ -198,7 +198,11 @@ class MorphFITSConfig(BaseModel):
         # Iterate over each possible FICLO from configurations
         for ficl in self.get_FICLs():
             # Iterate over each object in FICL
-            for object in tqdm(ficl.objects) if display_progress else ficl.objects:
+            for object in (
+                tqdm(ficl.objects, unit="dir", leave=False)
+                if display_progress
+                else ficl.objects
+            ):
                 # Make leaf FICLO directories
                 for path_name in [
                     "ficlo_products",

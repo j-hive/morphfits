@@ -119,7 +119,9 @@ def generate_stamps(
 
     # Iterate over each object
     generated, skipped = ([], [], []), []
-    for object in tqdm(objects) if display_progress else objects:
+    for object in (
+        tqdm(objects, unit="stamp", leave=False) if display_progress else objects
+    ):
         # Record object position from catalog
         position = SkyCoord(
             ra=catalog[object]["ra"], dec=catalog[object]["dec"], unit="deg"
@@ -290,7 +292,11 @@ def generate_sigmas(
 
     # Iterate over each object, position, and image_size tuple
     skipped = []
-    for i in tqdm(range(len(objects))) if display_progress else range(len(objects)):
+    for i in (
+        tqdm(range(len(objects)), unit="sigma", leave=False)
+        if display_progress
+        else range(len(objects))
+    ):
         object, position, image_size = objects[i], positions[i], image_sizes[i]
 
         # Skip objects which already have sigma maps
@@ -498,7 +504,11 @@ def generate_psfs(
 
     # Iterate over each object
     skipped = []
-    for i in tqdm(range(len(objects))) if display_progress else range(len(objects)):
+    for i in (
+        tqdm(range(len(objects)), unit="psf", leave=False)
+        if display_progress
+        else range(len(objects))
+    ):
         object, image_size = objects[i], image_sizes[i]
 
         # Skip existing PSF cutouts
@@ -604,7 +614,11 @@ def generate_masks(
 
     # Iterate over each object, position, and image_size tuple
     skipped = []
-    for i in tqdm(range(len(objects))) if display_progress else range(len(objects)):
+    for i in (
+        tqdm(range(len(objects)), unit="mask", leave=False)
+        if display_progress
+        else range(len(objects))
+    ):
         object, position, image_size = objects[i], positions[i], image_sizes[i]
 
         # Skip objects which already have masks

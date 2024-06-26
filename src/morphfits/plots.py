@@ -101,7 +101,9 @@ def plot_objects(
         "Checking stamps for FICL "
         + f"{'_'.join([field, image_version, catalog_version, filter])}."
     )
-    for object in tqdm(objects) if display_progress else objects:
+    for object in (
+        tqdm(objects, unit="object", leave=False) if display_progress else objects
+    ):
         stamp_path = paths.get_path(
             "stamp",
             product_root=product_root,
@@ -138,7 +140,7 @@ def plot_objects(
 
     # Plot all objects
     for i in (
-        tqdm(range(len(list(stamp_paths.keys()))))
+        tqdm(range(len(list(stamp_paths.keys()))), unit="object", leave=False)
         if display_progress
         else range(len(list(stamp_paths.keys())))
     ):
@@ -216,7 +218,9 @@ def plot_model(
     )
 
     # Iterate over each object in FICL
-    for object in tqdm(objects) if display_progress else objects:
+    for object in (
+        tqdm(objects, unit="object", leave=False) if display_progress else objects
+    ):
         # Get paths
         product_path_names = [
             "stamp",
