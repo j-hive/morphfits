@@ -9,7 +9,10 @@ import logging
 import shutil
 from subprocess import Popen, PIPE, STDOUT
 from pathlib import Path
+from datetime import datetime as dt
+import csv
 
+from astropy.io import fits
 from astropy.table import Table
 from jinja2 import Template
 from tqdm import tqdm
@@ -23,6 +26,34 @@ from ..utils import science
 
 
 logger = logging.getLogger("GALWRAP")
+"""Logging object for this module.
+"""
+
+
+FLAGS = {
+    "1": "maximum iterations",
+    "2": "convergence error",
+    "A-1": "image missing",
+    "A-2": "psf missing",
+    "A-3": "CCD diffusion kernel missing",
+    "A-4": "mask missing",
+    "A-5": "sigma missing",
+    "A-6": "constraints missing",
+    "C-1": "constraints unreadable",
+    "C-2": "fixed parameter cannot be constrained",
+    "H-1": "exposure time header missing",
+    "H-2": "exposure time zero",
+    "H-3": "gain header missing",
+    "H-4": "ncombine header missing",
+    "I-1": "PSF larger than convolution",
+    "I-2": "fitting box larger than image",
+    "I-3": "image infinite pixels set to 0",
+    "I-4": "sigma zero and negative pixels set to 1e10",
+    "I-5": "mask and image of different shapes",
+}
+"""GALFIT flags as written in the model headers, and their corresponding
+definition.
+"""
 
 
 # Functions
@@ -222,7 +253,7 @@ def run_galfit(
     filter: str,
     objects: list[int],
     display_progress: bool = False,
-):
+) -> list[str]:
     """Run GALFIT over all objects in a FICL.
 
     Parameters
@@ -245,14 +276,20 @@ def run_galfit(
         List of object IDs in catalog for which to generate feedfiles.
     display_progress : bool, optional
         Display progress on terminal screen, by default False.
+
+    Returns
+    -------
+    list[str]
+        List of string run statuses on each FICLO.
     """
     logger.info(
         f"Running GALFIT for FICL {'_'.join([field, image_version, catalog_version, filter])}."
     )
 
     # Iterate over each object in FICL
+    status = []
     for object in tqdm(objects) if display_progress else objects:
-        # Copy GALFIT and constraints to FICLO product directory
+        ## Copy GALFIT and constraints to FICLO product directory
         galfit_path = GALFIT_DATA_ROOT / "galfit"
         constraints_path = GALFIT_DATA_ROOT / "default.constraints"
         ficlo_products_path = paths.get_path(
@@ -267,7 +304,7 @@ def run_galfit(
         shutil.copy(galfit_path, ficlo_products_path / "galfit")
         shutil.copy(constraints_path, ficlo_products_path / ".constraints")
 
-        # Get product paths
+        ## Get product paths
         feedfile_path = paths.get_path(
             "feedfile",
             product_root=product_root,
@@ -278,13 +315,14 @@ def run_galfit(
             object=object,
         )
 
-        # Terminate if either path missing
+        ## Terminate if either path missing
         if not feedfile_path.exists():
             if not display_progress:
                 logger.error(f"Missing feedfile, skipping.")
+            status.append("missing feedfile")
             continue
 
-        # Run subprocess and pipe output
+        ## Run subprocess and pipe output
         if not display_progress:
             logger.info(f"Running GALFIT for object {object}.")
         process = Popen(
@@ -296,7 +334,7 @@ def run_galfit(
             close_fds=True,
         )
 
-        # Capture output and log and close subprocess
+        ## Capture output and log and close subprocess
         sublogger = logging.getLogger("GALFIT")
         for line in iter(process.stdout.readline, b""):
             if not display_progress:
@@ -304,9 +342,9 @@ def run_galfit(
         process.stdout.close()
         process.wait()
 
-        # Clean up GALFIT output
+        ## Clean up GALFIT output
         for path in ficlo_products_path.iterdir():
-            # Move model to output directory
+            ### Move model to output directory
             if "galfit.fits" in path.name:
                 path.rename(
                     paths.get_path(
@@ -319,7 +357,7 @@ def run_galfit(
                         object=object,
                     )
                 )
-            # Move logs to output directory
+            ### Move logs to output directory
             elif "log" in path.name:
                 path.rename(
                     paths.get_path(
@@ -332,9 +370,171 @@ def run_galfit(
                         object=object,
                     )
                 )
-            # Remove script, constraints, and feedfile records
+            ### Remove script, constraints, and feedfile records
             elif ("galfit" in path.name) or ("constraints" in path.name):
                 path.unlink()
+
+        ## Append GALFIT return code
+        match process.returncode:
+            case 0:
+                status.append("fitted")
+            case 1:
+                status.append("failed")
+            case 139:
+                status.append("segmentation fault")
+            case _:
+                status.append(f"unknown - {process.returncode}")
+
+    return status
+
+
+def record_parameters(
+    statuses: list[str],
+    datetime: dt,
+    output_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str,
+    objects: list[int],
+    display_progress: bool = False,
+):
+    """Record GALFIT fitting parameters to the corresponding run directory.
+
+    Parameters
+    ----------
+    statuses : list[str]
+        List of string run statuses on each FICLO.
+    output_root : Path
+        Path to root MorphFITS output directory.
+    field : str
+        Field of observation.
+    image_version : str
+        Version of image processing used on observation.
+    catalog_version : str
+        Version of cataloguing used for field.
+    filter : str
+        Filter used for observation.
+    objects : list[str]
+        List of object IDs in catalog for which to generate feedfiles.
+    display_progress : bool, optional
+        Display progress on terminal screen, by default False.
+    """
+    logger.info(
+        "Recording parameters for FICL "
+        + f"{'_'.join([field, image_version, catalog_version, filter])}."
+    )
+
+    # Create CSV if missing and write headers
+    parameters_path = paths.get_path(
+        "parameters", output_root=output_root, datetime=datetime
+    )
+    if not parameters_path.exists():
+        with open(parameters_path, mode="w", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(
+                [
+                    "field",
+                    "image version",
+                    "catalog version",
+                    "filter",
+                    "object",
+                    "status",
+                    "flags",
+                    "center x",
+                    "center y",
+                    "integrated magnitude",
+                    "effective radius",
+                    "concentration",
+                    "axis ratio",
+                    "position angle",
+                ]
+            )
+
+    # Iterate over each object in FICL
+    for i in (
+        tqdm(range(len(objects)), unit="object")
+        if display_progress
+        else range(len(objects))
+    ):
+        object, status = objects[i], statuses[i]
+        galfit_log_path = paths.get_path(
+            "galfit_log",
+            output_root=output_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+
+        ## Write parameters from GALFIT log for successful runs
+        if ("fitted" in status) and (galfit_log_path.exists()):
+            ### Get flags from model
+            galfit_model_path = paths.get_path(
+                "galfit_model",
+                output_root=output_root,
+                field=field,
+                image_version=image_version,
+                catalog_version=catalog_version,
+                filter=filter,
+                object=object,
+            )
+            galfit_model_file = fits.open(galfit_model_path)
+            galfit_model_headers = galfit_model_file[2].header
+            flags = []
+            for flag in galfit_model_headers["FLAGS"].split():
+                flags.append(FLAGS[flag])
+            galfit_model_file.close()
+            del galfit_model_file
+            del galfit_model_headers
+            gc.collect()
+
+            ### Get parameters from GALFIT log
+            with open(galfit_log_path, mode="r") as log_file:
+                lines = log_file.readlines()
+                for line in lines:
+                    if "sersic" in line:
+                        raw_parameters = line.split()
+
+            ### Write parameters and flags to CSV
+            csv_row = [
+                field,
+                image_version,
+                catalog_version,
+                filter,
+                object,
+                status,
+                " & ".join(flags),
+            ]
+            for raw_parameter in raw_parameters[3:]:
+                csv_row.append(raw_parameter.replace(")", "").replace(",", ""))
+            with open(parameters_path, mode="a", newline="") as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow(csv_row)
+
+        ## Write empty row for failures
+        else:
+            with open(parameters_path, mode="a", newline="") as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow(
+                    [
+                        field,
+                        image_version,
+                        catalog_version,
+                        filter,
+                        object,
+                        status,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    ]
+                )
 
 
 ## Main
@@ -399,11 +599,22 @@ def main(
         display_progress=display_progress,
     )
 
-    # Run GALFIT, for each FICLO
+    # Run GALFIT and record parameters, for each FICLO
     for ficl in morphfits_config.get_FICLs():
-        run_galfit(
+        statuses = run_galfit(
             input_root=morphfits_config.input_root,
             product_root=morphfits_config.product_root,
+            output_root=morphfits_config.output_root,
+            field=ficl.field,
+            image_version=ficl.image_version,
+            catalog_version=ficl.catalog_version,
+            filter=ficl.filter,
+            objects=ficl.objects,
+            display_progress=display_progress,
+        )
+        record_parameters(
+            statuses=statuses,
+            datetime=morphfits_config.datetime,
             output_root=morphfits_config.output_root,
             field=ficl.field,
             image_version=ficl.image_version,

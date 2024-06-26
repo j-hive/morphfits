@@ -157,7 +157,7 @@ visualizations:
 ## Files
 morphfits_log:
   file: True
-  path: "[run]/.log"
+  path: "[run]/morphfits.log"
   alts:
     - program log
 parameters:
