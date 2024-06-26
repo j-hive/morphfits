@@ -144,32 +144,7 @@ To run MorphFITS via CLI call, run
 ```
 poetry run morphfits [wrapper] [OPTIONS]
 ```
-for the following options
-
-|CLI Key|Type|Description|
-|:---|:---|:---|
-|`--config-path`|`str`|Path to configuration file.|
-|`--morphfits-root`|`str`|Path to root data directory.|
-|`--input-root`|`str`|Path to root input directory, under root.|
-|`--product-root`|`str`|Path to root products directory.|
-|`--output-root `|`str`|Path to root output directory.|
-|`--fields`|`list[str]`|Fields of frames over which to fit.|
-|`--image-versions`|`list[str]`|Image versions of frames over which to fit.|
-|`--catalog-versions`|`list[str]`|Catalog versions of frames over which to fit.|
-|`--filters`|`list[str]`|Filters of frames over which to fit.|
-|`--objects`|`list[int]`|IDs of objects in frames over which to fit.|
-|`--regenerate-products`|`bool`|Regenerate all products.|
-|`--regenerate-stamp`|`bool`|Regenerate stamp cutouts.|
-|`--regenerate-psf`|`bool`|Regenerate PSF crops.|
-|`--regenerate-mask`|`bool`|Regenerate mask cutouts.|
-|`--regenerate-sigma`|`bool`|Regenerate sigma maps.|
-|`--regenerate-feedfile`|`bool`|Regenerate feedfiles.|
-|`--apply-mask`|`bool`|Use the mask in GALFIT.|
-|`--apply-psf`|`bool`|Use the PSF in GALFIT.|
-|`--apply-sigma`|`bool`|Use the sigma map in GALFIT.|
-|`--kron-factor`|`bool`|Stamp size factor, by default 3. The higher the number, the larger the image, and smaller the object.|
-|`--display-progress`|`bool`|Display progress as a loading bar, rather than a line for each object.|
-|`--help`|`None`|Display all options.|
+and use the flag `--help` for details on each option.
 
 
 ## Configuration File
@@ -182,7 +157,6 @@ for the path to some configuration file.
 
 
 # Stages
-
 The program executes the following stages.
 
 1. Load in configuration parameters
@@ -200,6 +174,65 @@ The program executes the following stages.
     - outputs model and log to output directory
 5. Create plots from output model and products
     - outputs plot to output directory
+
+
+## Program Logs
+The program records the run status of each FICLO to the `run_root`, with the
+following headers (along with the logs and configuration settings). For more information on the location of this records, and
+other files, refer to [the data documentation](./data/README.md).
+
+|Header|Type|Description|
+|:---|:---|:---|
+|`field`|`str`|Field of image.|
+|`image version`|`str`|Image processing version.|
+|`catalog version`|`str`|Cataloging version.|
+|`filter`|`str`|Filter wavelength.|
+|`object`|`int`|Object ID in catalog.|
+|`use`|`bool`|Fitting successful and accurate.|
+|`status`|`int`|Fitting return code.|
+|`galfit flags`|`int`|Bit-mask of GALFIT flags.|
+|`center x`|`float`|X-position of model center.|
+|`center y`|`float`|Y-position of model center.|
+|`integrated magnitude`|`float`|Total flux across image.|
+|`effective radius`|`float`|Effective object radius.|
+|`concentration`|`float`|`n`, concentration parameter.|
+|`axis ratio`|`float`|Ratio of model axes.|
+|`position angle`|`float`|Rotation angle of model.|
+
+The header `status` records the integer code returned by the fitting program,
+detailed below. Note any nonzero code represents a failure.
+
+|Code|Description|
+|:---|:---|
+|`0`|Success|
+|`1`|Failure|
+|`2`|Missing feedfile (GALFIT only)|
+|`139`|Segmentation fault|
+
+The header `galfit flags` records the flags raised by GALFIT, detailed below.
+Note not all flags result in failed fittings.
+
+|Flag|Failing|Digit|Bit-mask|Description|
+|:---|:---:|---:|---:|:---|
+|`1`|:x:|0|1|Maximum number of iterations reached. Quit out early.|
+|`2`|:x:|1|2|Suspected numerical convergence error in current solution.|
+|`A-1`|:x:|2|4|No input data image found. Creating model only.|
+|`A-2`|:x:|3|8|PSF image not found.  No convolution performed.|
+|`A-3`||4|16|No CCD diffusion kernel found or applied.|
+|`A-4`|:x:|5|32|No bad pixel mask image found.|
+|`A-5`|:x:|6|64|No sigma image found.|
+|`A-6`|:x:|7|128|No constraint file found.|
+|`C-1`|:x:|8|256|Error parsing the constraint file.|
+|`C-2`||9|512|Trying to constrain a parameter that is being held fixed.|
+|`H-1`||10|1024|Exposure time header keyword is missing.  Default to 1 second.|
+|`H-2`||11|2048|Exposure time is zero seconds.  Default to 1 second.|
+|`H-3`||12|4096|`GAIN` header information is missing.|
+|`H-4`||13|8192|`NCOMBINE` header information is missing.|
+|`I-1`||14|16384|Convolution PSF exceeds the convolution box.|
+|`I-2`||15|32768|Fitting box exceeds image boundary.|
+|`I-3`||16|65536|Some pixels have infinite ADUs; set to 0.|
+|`I-4`||17|131072|Sigma image has zero or negative pixels; set to 1e10.|
+|`I-5`||18|262144|Pixel mask is not same size as data image.|
 
 
 # Cookbook
