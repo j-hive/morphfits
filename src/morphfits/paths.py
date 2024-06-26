@@ -37,7 +37,8 @@ TEMPLATE_MAPPINGS = {
     "C": "catalog_version",
     "L": "filter",
     "O": "object",
-    "d": "datetime",
+    "D": "datetime",
+    "N": "run_number",
 }
 """Dict mapping from template abbreviations to parameter names.
 """
@@ -74,14 +75,16 @@ class MorphFITSPath(BaseModel):
         self,
         morphfits_root: Path | None = None,
         input_root: Path | None = None,
-        product_root: Path | None = None,
         output_root: Path | None = None,
+        product_root: Path | None = None,
+        run_root: Path | None = None,
         field: str | None = None,
         image_version: str | None = None,
         catalog_version: str | None = None,
         filter: str | None = None,
         object: int | None = None,
         datetime: dt | None = None,
+        run_number: int | None = None,
     ) -> Path | None:
         """Get the full path for this path object for passed configuration
         parameters.
@@ -92,10 +95,12 @@ class MorphFITSPath(BaseModel):
             Path to root of MorphFITS filesystem, by default None.
         input_root : Path | None, optional
             Path to root input directory, by default None.
-        product_root : Path | None, optional
-            Path to root products directory, by default None.
         output_root : Path | None, optional
             Path to root output directory, by default None.
+        product_root : Path | None, optional
+            Path to root products directory, by default None.
+        run_root : Path | None, optional
+            Path to root runs directory, by default None.
         field : str | None, optional
             Field of observation, by default None.
         image_version : str | None, optional
@@ -108,16 +113,21 @@ class MorphFITSPath(BaseModel):
             Target galaxy or cluster ID in catalog, by default None.
         datetime : datetime | None, optional
             Datetime at start of program run, by default None.
+        run_number : int | None, optional
+            Number of run in collection with same datetime, by default None.
 
         Returns
         -------
         Path
             Full path to directory or file corresponding to this path object.
         """
-        # Convert start datetime to string
+        # Convert start datetime and run number to string
         if datetime is not None:
             datetime_object = datetime
             datetime = datetime.strftime("%Y%m%dT%H%M%S")
+        if run_number is not None:
+            run_number_int = run_number
+            run_number = str(run_number).rjust(2, "0")
 
         # Get passed values reference-able by name
         parameters = locals()
@@ -140,6 +150,8 @@ class MorphFITSPath(BaseModel):
                     resolved_path = re.sub(pattern, str(product_root), resolved_path)
                 elif "output" in path_name:
                     resolved_path = re.sub(pattern, str(output_root), resolved_path)
+                elif "run" in path_name:
+                    resolved_path = re.sub(pattern, str(run_root), resolved_path)
             ## Replace all other paths recursively
             else:
                 resolved_path = re.sub(
@@ -148,15 +160,19 @@ class MorphFITSPath(BaseModel):
                         MORPHFITS_PATHS[path_name].resolve(
                             morphfits_root=morphfits_root,
                             input_root=input_root,
-                            product_root=product_root,
                             output_root=output_root,
+                            product_root=product_root,
+                            run_root=run_root,
                             field=field,
                             image_version=image_version,
                             catalog_version=catalog_version,
                             filter=filter,
                             object=object,
                             datetime=(
-                                datetime_object if datetime is not None else datetime
+                                datetime if datetime is None else datetime_object
+                            ),
+                            run_number=(
+                                run_number if run_number is None else run_number_int
                             ),
                         )
                     ),
@@ -460,14 +476,16 @@ def get_path(
     name: str,
     morphfits_root: Path | None = None,
     input_root: Path | None = None,
-    product_root: Path | None = None,
     output_root: Path | None = None,
+    product_root: Path | None = None,
+    run_root: Path | None = None,
     field: str | None = None,
     image_version: str | None = None,
     catalog_version: str | None = None,
     filter: str | None = None,
     object: int | None = None,
     datetime: dt | None = None,
+    run_number: int | None = None,
 ) -> Path | None:
     """Get the path to a MorphFITS file or directory.
 
@@ -479,10 +497,12 @@ def get_path(
         Path to root of MorphFITS filesystem, by default None.
     input_root : Path | None, optional
         Path to root input directory, by default None.
-    product_root : Path | None, optional
-        Path to root products directory, by default None.
     output_root : Path | None, optional
         Path to root output directory, by default None.
+    product_root : Path | None, optional
+        Path to root products directory, by default None.
+    run_root : Path | None, optional
+        Path to root runs directory, by default None.
     field : str | None, optional
         Field of observation, by default None.
     image_version : str | None, optional
@@ -495,6 +515,8 @@ def get_path(
         Target galaxy or cluster ID in catalog, by default None.
     datetime : datetime | None, optional
         Datetime at start of program run, by default None.
+    run_number : int | None, optional
+        Number of run in collection with same datetime, by default None.
 
     Returns
     -------
@@ -513,12 +535,14 @@ def get_path(
     return MORPHFITS_PATHS[path_name].resolve(
         morphfits_root=morphfits_root,
         input_root=input_root,
-        product_root=product_root,
         output_root=output_root,
+        product_root=product_root,
+        run_root=run_root,
         field=field,
         image_version=image_version,
         catalog_version=catalog_version,
         filter=filter,
         object=object,
         datetime=datetime,
+        run_number=run_number,
     )

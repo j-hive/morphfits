@@ -58,8 +58,8 @@ JHIVE_CMAP = mplc.LinearSegmentedColormap(
 
 
 def plot_objects(
-    product_root: Path,
     output_root: Path,
+    product_root: Path,
     field: str,
     image_version: str,
     catalog_version: str,
@@ -72,10 +72,10 @@ def plot_objects(
 
     Parameters
     ----------
-    product_root : Path
-        Path to root products directory.
     output_root : Path
         Path to root output directory.
+    product_root : Path
+        Path to root products directory.
     field : str
         Field of observation.
     image_version : str
@@ -180,8 +180,8 @@ def plot_objects(
 
 
 def plot_model(
-    product_root: Path,
     output_root: Path,
+    product_root: Path,
     field: str,
     image_version: str,
     catalog_version: str,
@@ -194,10 +194,10 @@ def plot_model(
 
     Parameters
     ----------
-    product_root : Path
-        Path to root products directory.
     output_root : Path
         Path to root output directory.
+    product_root : Path
+        Path to root products directory.
     field : str
         Field of observation.
     image_version : str
