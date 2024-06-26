@@ -95,6 +95,7 @@
         "mplc",
         "nanmax",
         "nanpercentile",
+        "ncombine",
         "nddata",
         "noisim",
         "nuker",
