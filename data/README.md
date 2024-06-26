@@ -72,8 +72,9 @@ morphfits_root/
 └── output/
     ├── runs/
     │   └── d/
-    │       ├── .log
-    │       └── parameters.csv
+    │       ├── morphfits.log
+    │       ├── parameters.csv
+    │       └── config.yaml
     └── F/
         └── I/
             └── C/
@@ -124,7 +125,8 @@ morphfits_root/
     ├── runs/
     │   └── run/
     │       ├── morphfits_log
-    │       └── parameters
+    │       ├── parameters
+    │       └── config
     └── .../
         └── .../
             └── .../
@@ -178,6 +180,7 @@ running `paths.get_path` for the required variables.
 |Output|`run`|`/`|`d`|Directory for log files from a single run.|
 |Output|`morphfits_log`|`.log`|`d`|MorphFITS program log.|
 |Output|`parameters`|`.csv`|`d`|Parameters found from run.|
+|Output|`config`|`.yaml`|`d`|Configuration settings from run.|
 |Output|`ficl_output`|`/`|`zFICLO`|Directory for all output for a FICL.|
 |Output|`ficl_objects`|`.png`|`zFICLO`|Image showing all objects in a FICL.|
 |Output|`ficlo_output`|`/`|`zFICLO`|Directory for all output for a FICLO.|
