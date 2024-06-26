@@ -162,7 +162,11 @@ def generate_feedfiles(
 
     # Iterate over each object, and image_size tuple
     skipped = []
-    for i in tqdm(range(len(objects))) if display_progress else range(len(objects)):
+    for i in (
+        tqdm(range(len(objects)), unit="feedfile", leave=False)
+        if display_progress
+        else range(len(objects))
+    ):
         object, image_size = objects[i], image_sizes[i]
 
         # Skip objects which already have feedfiles
@@ -288,7 +292,9 @@ def run_galfit(
 
     # Iterate over each object in FICL
     status = []
-    for object in tqdm(objects) if display_progress else objects:
+    for object in (
+        tqdm(objects, unit="run", leave=False) if display_progress else objects
+    ):
         ## Copy GALFIT and constraints to FICLO product directory
         galfit_path = GALFIT_DATA_ROOT / "galfit"
         constraints_path = GALFIT_DATA_ROOT / "default.constraints"
@@ -453,7 +459,7 @@ def record_parameters(
 
     # Iterate over each object in FICL
     for i in (
-        tqdm(range(len(objects)), unit="object")
+        tqdm(range(len(objects)), unit="object", leave=False)
         if display_progress
         else range(len(objects))
     ):
