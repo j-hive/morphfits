@@ -5,8 +5,9 @@
 
 
 import logging
-from typing import Optional
-from datetime import datetime as dt
+from typing import Optional, List
+from typing_extensions import Annotated
+from pathlib import Path
 
 import typer
 
@@ -24,90 +25,199 @@ app = typer.Typer()
 
 @app.command()
 def galwrap(
-    config_path: Optional[str] = None,
-    morphfits_root: Optional[str] = None,
-    input_root: Optional[str] = None,
-    output_root: Optional[str] = None,
-    product_root: Optional[str] = None,
-    run_root: Optional[str] = None,
-    fields: Optional[list[str]] = None,
-    image_versions: Optional[list[str]] = None,
-    catalog_versions: Optional[list[str]] = None,
-    filters: Optional[list[str]] = None,
-    objects: Optional[list[int]] = None,
-    regenerate_products: bool = False,
-    regenerate_stamp: bool = False,
-    regenerate_psf: bool = False,
-    regenerate_mask: bool = False,
-    regenerate_sigma: bool = False,
-    regenerate_feedfile: bool = True,
-    apply_mask: bool = True,
-    apply_psf: bool = True,
-    apply_sigma: bool = True,
-    kron_factor: int = 3,
-    display_progress: bool = False,
+    config_path: Annotated[
+        typer.FileText,
+        typer.Option(
+            help="Path to configuration settings YAML file.",
+            rich_help_panel="Paths",
+            exists=True,
+            dir_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    morphfits_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to MorphFITS filesystem root.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    input_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root input directory. Must be set here or in --config-path.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    output_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root output directory.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+            writable=True,
+        ),
+    ] = None,
+    product_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root products directory.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+            writable=True,
+        ),
+    ] = None,
+    run_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root runs directory.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+            writable=True,
+        ),
+    ] = None,
+    fields: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--fields",
+            "-F",
+            help="List of fields over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+    image_versions: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--image-versions",
+            "-I",
+            help="List of image versions over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+    catalog_versions: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--catalog-versions",
+            "-C",
+            help="List of catalog versions over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+    filters: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--filters",
+            "-L",
+            help="List of filters over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+    objects: Annotated[
+        Optional[List[int]],
+        typer.Option(
+            "--objects",
+            "-O",
+            help="List of object IDs over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+    regenerate_products: Annotated[
+        bool,
+        typer.Option(
+            "--regenerate-products",
+            help="Regenerate all products. Overrides other flags.",
+            rich_help_panel="Product Regeneration",
+            is_flag=True,
+        ),
+    ] = False,
+    regenerate_stamps: Annotated[
+        bool,
+        typer.Option(
+            "--regenerate-stamps",
+            help="Regenerate all stamps. Must be set for other products to regenerate.",
+            rich_help_panel="Product Regeneration",
+            is_flag=True,
+        ),
+    ] = False,
+    regenerate_psfs: Annotated[
+        bool,
+        typer.Option(
+            "--regenerate-psfs",
+            help="Regenerate all PSF crops.",
+            rich_help_panel="Product Regeneration",
+            is_flag=True,
+        ),
+    ] = False,
+    regenerate_masks: Annotated[
+        bool,
+        typer.Option(
+            "--regenerate-masks",
+            help="Regenerate all bad pixel masks.",
+            rich_help_panel="Product Regeneration",
+            is_flag=True,
+        ),
+    ] = False,
+    regenerate_sigmas: Annotated[
+        bool,
+        typer.Option(
+            "--regenerate-sigmas",
+            help="Regenerate all sigma maps.",
+            rich_help_panel="Product Regeneration",
+            is_flag=True,
+        ),
+    ] = False,
+    keep_feedfiles: Annotated[
+        bool,
+        typer.Option(
+            "--keep-feedfiles",
+            help="Use existing GALFIT feedfiles.",
+            rich_help_panel="Product Regeneration",
+            is_flag=True,
+        ),
+    ] = False,
+    plot_models: Annotated[
+        bool,
+        typer.Option(
+            "--plot_models",
+            "-p",
+            help="Plot all successful models against their corresponding stamps.",
+            is_flag=True,
+        ),
+    ] = False,
+    display_progress: Annotated[
+        bool,
+        typer.Option(
+            "--display-progress",
+            "-d",
+            help="Display progress as a loading bar and suppress per-object logging.",
+            is_flag=True,
+        ),
+    ] = False,
 ):
-    """Run GALFIT over given FICLOs.
-
-    Parameters
-    ----------
-    config_path : str | Path | None, optional
-        Path to user config yaml file, by default None (no user config file
-        provided).
-    morphfits_root : str | Path | None, optional
-        Path to root directory of MorphFITS filesystem, by default None (not
-        passed through CLI).
-    input_root : str | Path | None, optional
-        Path to root directory of input products, e.g. catalogs, science images,
-        and PSFs, by default None (not passed through CLI).
-    output_root : str | Path | None, optional
-        Path to root directory of GALFIT output products, e.g. morphology model
-        and plots, by default None (not passed through CLI).
-    product_root : str | Path | None, optional
-        Path to root directory of products generated by this program to execute
-        GALFIT, e.g. cutouts/stamps, masks, and feedfiles, by default None (not
-        passed through CLI).
-    run_root : str | Path | None, optional
-        Path to root directory of records generated by this program for each
-        run, by default None (not passed through CLI).
-    fields : list[str] | None, optional
-        List of fields over which to execute GALFIT, by default None (not passed
-        through CLI).
-    image_versions : list[str] | None, optional
-        List of image versions over which to execute GALFIT, by default None
-        (not passed through CLI).
-    catalog_versions : list[str] | None, optional
-        List of catalog versions over which to execute GALFIT, by default None
-        (not passed through CLI).
-    filters : list[str] | None, optional
-        List of filter bands over which to execute GALFIT, by default None (not
-        passed through CLI).
-    objects : list[int] | None, optional
-        List of target IDs over which to execute GALFIT, for each catalog, by
-        default None (not passed through CLI).
-    regenerate_products : bool, optional
-        Regenerate all products, by default False.
-    regenerate_stamp : bool, optional
-        Regenerate stamps, by default False.
-    regenerate_mask : bool, optional
-        Regenerate masks, by default False.
-    regenerate_psf : bool, optional
-        Regenerate psfs, by default False.
-    regenerate_sigma : bool, optional
-        Regenerate sigmas, by default False.
-    regenerate_feedfile : bool, optional
-        Regenerate feedfile, by default False.
-    apply_mask : bool, optional
-        Apply generated mask product in GALFIT run, by default False.
-    apply_psf : bool, optional
-        Apply generated psf product in GALFIT run, by default False.
-    apply_sigma : bool, optional
-        Apply generated sigma product in GALFIT run, by default False.
-    kron_factor : int, optional
-        Multiplicative factor for image size, by default 3.
-    display_progress : bool, optional
-        Display progress on terminal screen via tqdm, by default False.
-    """
+    """Model objects from given FICLs using GALFIT."""
     # Create configuration object
     morphfits_config = config.create_config(
         config_path=config_path,
@@ -140,15 +250,12 @@ def galwrap(
     galfit.main(
         morphfits_config=morphfits_config,
         regenerate_products=regenerate_products,
-        regenerate_stamp=regenerate_stamp,
-        regenerate_psf=regenerate_psf,
-        regenerate_mask=regenerate_mask,
-        regenerate_sigma=regenerate_sigma,
-        regenerate_feedfile=regenerate_feedfile,
-        apply_mask=apply_mask,
-        apply_psf=apply_psf,
-        apply_sigma=apply_sigma,
-        kron_factor=kron_factor,
+        regenerate_stamp=regenerate_stamps,
+        regenerate_psf=regenerate_psfs,
+        regenerate_mask=regenerate_masks,
+        regenerate_sigma=regenerate_sigmas,
+        regenerate_feedfile=not keep_feedfiles,
+        plot_models=plot_models,
         display_progress=display_progress,
     )
 
@@ -161,13 +268,13 @@ def galwrap(
 
 @app.command()
 def imcascade():
-    """Run imcascade over given FICLOs. NOT IMPLEMENTED"""
+    """Model objects from given FICLs using imcascade. NOT IMPLEMENTED"""
     raise NotImplementedError
 
 
 @app.command()
 def pysersic():
-    """Run pysersic over given FICLOs. NOT IMPLEMENTED"""
+    """Model objects from given FICLs using pysersic. NOT IMPLEMENTED"""
     raise NotImplementedError
 
 
@@ -176,51 +283,83 @@ def pysersic():
 
 @app.command()
 def stamp(
-    input_root: str,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    product_root: Optional[str] = None,
-    output_root: Optional[str] = None,
-    kron_factor: int = 3,
+    input_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root input directory.",
+            show_default=False,
+            exists=True,
+            file_okay=False,
+            rich_help_panel="Paths",
+            resolve_path=True,
+        ),
+    ],
+    field: Annotated[
+        str,
+        typer.Option(
+            "--field",
+            "-F",
+            show_default=False,
+            help="Field over which to generate stamps.",
+            rich_help_panel="FICL",
+        ),
+    ],
+    image_version: Annotated[
+        str,
+        typer.Option(
+            "--image-version",
+            "-I",
+            show_default=False,
+            help="Version of image processing over which to generate stamps.",
+            rich_help_panel="FICL",
+        ),
+    ],
+    catalog_version: Annotated[
+        str,
+        typer.Option(
+            "--catalog-version",
+            "-C",
+            show_default=False,
+            help="Version of cataloguing from which object IDs are taken.",
+            rich_help_panel="FICL",
+        ),
+    ],
+    filter: Annotated[
+        str,
+        typer.Option(
+            "--filter",
+            "-L",
+            show_default=False,
+            help="Filter over which to generate stamps.",
+            rich_help_panel="FICL",
+        ),
+    ],
+    product_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root product directory.",
+            show_default='"products" directory created at --input-root level',
+            exists=True,
+            file_okay=False,
+            rich_help_panel="Paths",
+            resolve_path=True,
+            writable=True,
+        ),
+    ] = None,
+    output_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root output directory.",
+            show_default='"output" directory created at --input-root level',
+            exists=True,
+            file_okay=False,
+            rich_help_panel="Paths",
+            resolve_path=True,
+            writable=True,
+        ),
+    ] = None,
 ):
-    """Generate stamp cutouts of all objects for a given FICL.
-
-    Parameters
-    ----------
-    input_root : str
-        Path to root directory of input products, e.g. catalogs, science images,
-        and PSFs.
-    field : str
-        Field over which to generate stamps.
-    image_version : str
-        Version of image processing over which to generate stamps.
-    catalog_version : str
-        Version of cataloguing from which to get objects.
-    filter : str
-        Filter of observation.
-    product_root : str, optional
-        Path to root directory of products generated by this program to execute
-        GALFIT, e.g. cutouts/stamps, masks, and feedfiles, by default found from
-        input root.
-    output_root : str, optional
-        Path to root directory of GALFIT output products, e.g. morphology model
-        and plots), by default found from input root.
-    kron_factor : int, optional
-        Multiplicative factor for image size, by default 3. The higher this is,
-        the larger the image, and the smaller the object appears in the image.
-    """
-    """Generate stamp cutouts of all objects for a given FICL.
-
-    Parameters
-    ----------
-    morphfits_config : MorphFITSConfig
-        Configuration object for this program run.
-    kron_factor : int, optional
-        Multiplicative factor for image size, by default 3. The higher this is,
-        the larger the image, and the smaller the object appears in the image.
-    """
+    """Generate stamp cutouts of all objects from a given FICL."""
     # Create configuration object
     morphfits_config = config.create_config(
         input_root=input_root,
@@ -258,7 +397,6 @@ def stamp(
         catalog_version=ficl.catalog_version,
         filter=ficl.filter,
         objects=ficl.objects,
-        kron_factor=kron_factor,
         display_progress=True,
     )
 
@@ -287,9 +425,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# TODO
-# want to save logs to each run
-# can't save it there until directory is created
-# directory created after something has already been logged
