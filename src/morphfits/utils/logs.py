@@ -22,7 +22,7 @@ LOGGER_MAX_BYTES = 1000000
 """
 
 
-LOGGER_BACKUP_COUNT = 4
+LOGGER_BACKUP_COUNT = 100
 """Default number of log files before rotation.
 """
 

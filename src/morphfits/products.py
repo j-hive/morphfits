@@ -695,9 +695,6 @@ def generate_products(
     regenerate_psf: bool = False,
     regenerate_mask: bool = False,
     regenerate_feedfile: bool = True,
-    apply_sigma: bool = True,
-    apply_psf: bool = True,
-    apply_mask: bool = True,
     minimum_image_size: int = 32,
     kron_factor: int = 3,
     display_progress: bool = False,
@@ -819,9 +816,6 @@ def generate_products(
                         image_sizes=image_sizes,
                         pixscale=ficl.pixscale,
                         regenerate=regenerate_products or regenerate_feedfile,
-                        apply_sigma=apply_sigma,
-                        apply_psf=apply_psf,
-                        apply_mask=apply_mask,
                         display_progress=display_progress,
                     )
                 # Other wrappers unrecognized

@@ -76,9 +76,6 @@ def generate_feedfiles(
     image_sizes: list[int],
     pixscale: float,
     regenerate: bool = False,
-    apply_sigma: bool = True,
-    apply_psf: bool = True,
-    apply_mask: bool = True,
     feedfile_template_path: Path = GALFIT_DATA_ROOT / "feedfile.jinja",
     constraints_path: Path = GALFIT_DATA_ROOT / "default.constraints",
     path_length: int = 64,
@@ -111,12 +108,6 @@ def generate_feedfiles(
         Pixel scale of science frame.
     regenerate : bool, optional
         Regenerate existing feedfiles, by default False.
-    apply_sigma : bool, optional
-        Use corresponding sigma map in GALFIT, by default True.
-    apply_psf : bool, optional
-        Use corresponding PSF in GALFIT, by default True.
-    apply_mask : bool, optional
-        Use corresponding mask in GALFIT, by default True.
     feedfile_template_path : Path, optional
         Path to jinja2 feedfile template, by default from the repository data
         directory.
@@ -219,9 +210,9 @@ def generate_feedfiles(
         feedfile_dict = {
             "stamp_path": path_str(product_paths["stamp"].name),
             "output_galfit_path": path_str(product_paths["galfit_model"].name),
-            "sigma_path": path_str(product_paths["sigma"].name if apply_sigma else ""),
-            "psf_path": path_str(product_paths["psf"].name if apply_psf else ""),
-            "mask_path": path_str(product_paths["mask"].name if apply_mask else ""),
+            "sigma_path": path_str(product_paths["sigma"].name),
+            "psf_path": path_str(product_paths["psf"].name),
+            "mask_path": path_str(product_paths["mask"].name),
             "constraints_path": path_str(".constraints"),
             "image_size": str(image_size),
             "zeropoint": float_str(zeropoint),
@@ -566,10 +557,7 @@ def main(
     regenerate_mask: bool = False,
     regenerate_sigma: bool = False,
     regenerate_feedfile: bool = True,
-    apply_mask: bool = True,
-    apply_psf: bool = True,
-    apply_sigma: bool = True,
-    kron_factor: int = 3,
+    plot_models: bool = False,
     display_progress: bool = False,
 ):
     """Orchestrate GalWrap functions for passed configurations.
@@ -590,14 +578,10 @@ def main(
         Regenerate sigmas, by default False.
     regenerate_feedfile : bool, optional
         Regenerate feedfile, by default False.
-    apply_mask : bool, optional
-        Apply generated mask product in GALFIT run, by default False.
-    apply_psf : bool, optional
-        Apply generated psf product in GALFIT run, by default False.
-    apply_sigma : bool, optional
-        Apply generated sigma product in GALFIT run, by default False.
-    kron_factor : int, optional
-        Multiplicative factor for image size, by default 3.
+    plot_models : bool, optional
+        Plot successful models, by default False.
+    display_progress : bool, optional
+        Display progress as loading bar and suppress logging, by default False.
     """
     logger.info("Starting GalWrap.")
 
@@ -610,10 +594,6 @@ def main(
         regenerate_mask=regenerate_mask,
         regenerate_sigma=regenerate_sigma,
         regenerate_feedfile=regenerate_feedfile,
-        apply_mask=apply_mask,
-        apply_psf=apply_psf,
-        apply_sigma=apply_sigma,
-        kron_factor=kron_factor,
         display_progress=display_progress,
     )
 
@@ -645,17 +625,18 @@ def main(
         )
 
     # Plot models, for each FICLO
-    for ficl in morphfits_config.get_FICLs():
-        plots.plot_model(
-            output_root=morphfits_config.output_root,
-            product_root=morphfits_config.product_root,
-            field=ficl.field,
-            image_version=ficl.image_version,
-            catalog_version=ficl.catalog_version,
-            filter=ficl.filter,
-            objects=ficl.objects,
-            wrapper="galfit",
-            display_progress=display_progress,
-        )
+    if plot_models:
+        for ficl in morphfits_config.get_FICLs():
+            plots.plot_model(
+                output_root=morphfits_config.output_root,
+                product_root=morphfits_config.product_root,
+                field=ficl.field,
+                image_version=ficl.image_version,
+                catalog_version=ficl.catalog_version,
+                filter=ficl.filter,
+                objects=ficl.objects,
+                wrapper="galfit",
+                display_progress=display_progress,
+            )
 
     logger.info("Exiting GalWrap.")
