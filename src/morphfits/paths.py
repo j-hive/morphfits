@@ -183,11 +183,16 @@ class MorphFITSPath(BaseModel):
         for template, parameter_name in TEMPLATE_MAPPINGS.items():
             if "{" + template + "}" in resolved_path:
                 ## Handle special filter case
-                ## Simulated STSci PSFs have all-caps filters
+                ## Simulated STSci PSFs are named by single filter and in uppercase
                 if (template == "L") and ("PSF_NIRCam" in resolved_path):
+                    if "-" in filter:
+                        filter_1, filter_2 = str(parameters[parameter_name]).split("-")
+                        main_filter = filter_1 if "clear" in filter_2 else filter_2
+                    else:
+                        main_filter = filter
                     resolved_path = re.sub(
                         "({" + template + "})",
-                        str(parameters[parameter_name]).upper(),
+                        main_filter.upper(),
                         resolved_path,
                     )
                 ## Otherwise, replace template with value in place
@@ -207,7 +212,11 @@ class MorphFITSPath(BaseModel):
                     resolved_path_obj.parent.glob(resolved_path_obj.name)
                 )[0]
             except:
-                raise FileNotFoundError(f"No file found at {resolved_path_obj}.")
+                # logger.warning(
+                #     f"File {resolved_path_obj} expected but not found, skipping."
+                # )
+                # raise FileNotFoundError(f"No file found at {resolved_path_obj}.")
+                pass
 
         # Return resolved path
         return resolved_path_obj

@@ -51,19 +51,19 @@ catalog:
     - table
 exposure:
   file: True
-  path: "[input_images]/{F}-{I}-*{L}*_dr*_exp.fits"
+  path: "[input_images]/{F}-{I}-{L}_dr*_exp.fits"
   alts:
     - exp
     - exposure map
 science:
   file: True
-  path: "[input_images]/{F}-{I}-*{L}*_dr*_sci.fits"
+  path: "[input_images]/{F}-{I}-{L}_dr*_sci.fits"
   alts:
     - sci
     - input image
 weights:
   file: True
-  path: "[input_images]/{F}-{I}-*{L}*_dr*_wht.fits"
+  path: "[input_images]/{F}-{I}-{L}_dr*_wht.fits"
   alts:
     - wht
     - weight map
