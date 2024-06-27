@@ -180,7 +180,7 @@ class MorphFITSConfig(BaseModel):
                     catalog_version=catalog_version,
                     filter=filter,
                 ).exists():
-                    logger.debug(
+                    logger.warning(
                         f"FICL {ficl} missing {required_input} file, skipping."
                     )
                     missing_input = True
@@ -396,12 +396,6 @@ def create_config(
             config_dict[parameter + "s"] = paths.find_parameter_from_input(
                 parameter_name=parameter, input_root=config_dict["input_root"]
             )
-
-    # Remove any suffices from filters, such as 'clear'
-    cleaned_filters = []
-    for field in config_dict["filters"]:
-        cleaned_filters.append(field.split("-")[0])
-    config_dict["filters"] = cleaned_filters
 
     # Set start datetime and run number
     config_dict["datetime"] = dt.now()
