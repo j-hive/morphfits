@@ -212,7 +212,7 @@ detailed below. Note any nonzero code represents a failure.
 The header `galfit flags` records the flags raised by GALFIT, detailed below.
 Note not all flags result in failed fittings.
 
-|Flag|Failing|Digit|Bit-mask|Description|
+|Flag|Fails|Bit|Value|Description|
 |:---|:---:|---:|---:|:---|
 |`1`|:x:|0|1|Maximum number of iterations reached. Quit out early.|
 |`2`|:x:|1|2|Suspected numerical convergence error in current solution.|
