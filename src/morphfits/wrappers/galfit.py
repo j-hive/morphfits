@@ -56,8 +56,13 @@ bit-mask exponent, where 2 is the base.
 """
 
 
-FAILS = [0, 1, 2, 3, 5, 6, 7, 8]
+FAIL = 495
 """GALFIT flags which indicate a failed run.
+
+See Also
+--------
+README.md 
+    Breakdown on binary flag values, and which flags result in failed runs. 
 """
 
 
@@ -291,6 +296,24 @@ def run_galfit(
     for object in (
         tqdm(objects, unit="run", leave=False) if display_progress else objects
     ):
+        ## Get feedfile path
+        feedfile_path = paths.get_path(
+            "feedfile",
+            product_root=product_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+
+        ## Skip object if feedfile missing
+        if not feedfile_path.exists():
+            if not display_progress:
+                logger.error(f"Missing feedfile, skipping.")
+            return_codes.append(2)
+            continue
+
         ## Copy GALFIT and constraints to FICLO product directory
         galfit_path = GALFIT_DATA_ROOT / "galfit"
         constraints_path = GALFIT_DATA_ROOT / "default.constraints"
@@ -305,24 +328,6 @@ def run_galfit(
         )
         shutil.copy(galfit_path, ficlo_products_path / "galfit")
         shutil.copy(constraints_path, ficlo_products_path / ".constraints")
-
-        ## Get product paths
-        feedfile_path = paths.get_path(
-            "feedfile",
-            product_root=product_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-
-        ## Terminate if either path missing
-        if not feedfile_path.exists():
-            if not display_progress:
-                logger.error(f"Missing feedfile, skipping.")
-            return_codes.append(2)
-            continue
 
         ## Run subprocess and pipe output
         if not display_progress:
@@ -439,7 +444,7 @@ def record_parameters(
                     "catalog version",
                     "filter",
                     "object",
-                    "use",
+                    "success",
                     "status",
                     "galfit flags",
                     "center x",
@@ -483,19 +488,19 @@ def record_parameters(
             ### Get flags from model
             galfit_model_file = fits.open(galfit_model_path)
             galfit_model_headers = galfit_model_file[2].header
-            flags = []
+            flags = 0
             for flag in galfit_model_headers["FLAGS"].split():
-                flags.append(FLAGS[flag])
+                flags += 2 ** FLAGS[flag]
             galfit_model_file.close()
             del galfit_model_file
             del galfit_model_headers
             gc.collect()
 
-            ### Get validity ("use") from return code and flags
-            if (return_code != 0) or any([flag in FAILS for flag in flags]):
-                use = 0
+            ### Get validity ("success") from return code and flags
+            if (return_code != 0) or ((flags & FAIL) > 0):
+                success = False
             else:
-                use = 1
+                success = True
 
             ### Get parameters from GALFIT log
             with open(galfit_log_path, mode="r") as log_file:
@@ -511,9 +516,9 @@ def record_parameters(
                 catalog_version,
                 filter,
                 object,
-                use,
+                success,
                 return_code,
-                sum([2**flag for flag in flags]),
+                flags,
             ]
             for raw_parameter in raw_parameters:
                 csv_row.append(raw_parameter.replace(")", "").replace(",", ""))
