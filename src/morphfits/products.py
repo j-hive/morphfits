@@ -186,6 +186,13 @@ def generate_stamps(
                 del stamp_headers
                 del stamp_hdul
             else:
+                if np.amax(stamp.data) <= 0:
+                    logger.warning(f"Skipping object {object}, missing nonzero data.")
+                else:
+                    logger.warning(
+                        f"Skipping object {object}, dimensions "
+                        + f"{stamp.data.shape} don't match expected image size {image_size}."
+                    )
                 skipped.append(object)
 
             # Clear memory

@@ -310,7 +310,7 @@ def run_galfit(
         ## Skip object if feedfile missing
         if not feedfile_path.exists():
             if not display_progress:
-                logger.error(f"Missing feedfile, skipping.")
+                logger.warning(f"Skipping object {object}, missing products.")
             return_codes.append(2)
             continue
 
