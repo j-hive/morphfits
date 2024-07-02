@@ -199,15 +199,19 @@ other files, refer to [the data documentation](./data/README.md).
 |`axis ratio`|`float`|Ratio of model axes.|
 |`position angle`|`float`|Rotation angle of model.|
 
+The header `use` is a flag indicating the validity of a fit, based on the status
+and flags raised, detailed below. `0` indicates a fit not recommended to be
+used, and `1` indicates a recommended fit.
+
 The header `status` records the integer code returned by the fitting program,
 detailed below. Note any nonzero code represents a failure.
 
 |Code|Description|
 |:---|:---|
-|`0`|Success|
-|`1`|Failure|
-|`2`|Missing feedfile (GALFIT only)|
-|`139`|Segmentation fault|
+|`0`|Fitting executed without termination.|
+|`1`|Fitting failed.|
+|`2`|Missing products.|
+|`139`|Segmentation fault.|
 
 The header `galfit flags` records the flags raised by GALFIT, detailed below.
 Note not all flags result in failed fittings.
@@ -242,8 +246,8 @@ then running the program.
 ```
 poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml
 ```
-The model is visually compared in `output_ficlo/plots/...products.png`, and
-stored as a FITS in `output_ficlo/galfit/...model.fits`.
+The model is visually compared in `[ficlo_output]/plots/F_I_C_L_O_products.png`, and
+stored as a FITS in `[ficlo_output]/galfit/F_I_C_L_O_galfit.fits`.
 
 
 ## Selecting Objects
@@ -254,9 +258,9 @@ poetry run morphfits stamp [OPTIONS]
 ```
 for the same CLI options as above. This will generate stamps of each available
 object for a given FICL, and store them in the product directory corresponding
-to either `product_root` or `input_root/../products`. It will then plot stamps,
+to either `[product_root]` or `[input_root]/../products`. It will then plot stamps,
 50 at a time, and store them in the corresponding output directory, i.e.
-`output_root/plots/F_I_C_L_O1-to-O2.png`.
+`[ficl_output]/F_I_C_L_objects.png`.
 
 
 ## Regenerating Products
