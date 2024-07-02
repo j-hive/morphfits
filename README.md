@@ -199,9 +199,9 @@ other files, refer to [the data documentation](./data/README.md).
 |`axis ratio`|`float`|Ratio of model axes.|
 |`position angle`|`float`|Rotation angle of model.|
 
-The header `use` is a flag indicating the validity of a fit, based on the status
-and flags raised, detailed below. `0` indicates a fit not recommended to be
-used, and `1` indicates a recommended fit.
+The header `use` is a flag indicating the validity of a fit and whether or not
+it is recommended for usage, based on the status and flags raised, detailed
+below.
 
 The header `status` records the integer code returned by the fitting program,
 detailed below. Note any nonzero code represents a failure.

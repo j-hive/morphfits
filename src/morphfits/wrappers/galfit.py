@@ -310,7 +310,7 @@ def run_galfit(
         ## Skip object if feedfile missing
         if not feedfile_path.exists():
             if not display_progress:
-                logger.warning(f"Skipping object {object}, missing products.")
+                logger.debug(f"Skipping object {object}, missing products.")
             return_codes.append(2)
             continue
 
@@ -343,9 +343,20 @@ def run_galfit(
 
         ## Capture output and log and close subprocess
         sublogger = logging.getLogger("GALFIT")
+        in_warning_section = False
         for line in iter(process.stdout.readline, b""):
             if not display_progress:
-                sublogger.info(line.rstrip().decode("utf-8"))
+                if "segmentation fault" in str(line).casefold():
+                    sublogger.error(line.rstrip().decode("utf-8"))
+                elif ("warning" in str(line).casefold()) or (in_warning_section):
+                    if "=====" in str(line):
+                        in_warning_section = False
+                        sublogger.info(line.rstrip().decode("utf-8"))
+                    else:
+                        in_warning_section = True
+                        sublogger.warning(line.rstrip().decode("utf-8"))
+                else:
+                    sublogger.info(line.rstrip().decode("utf-8"))
         process.stdout.close()
         process.wait()
         return_codes.append(process.returncode)
@@ -537,7 +548,7 @@ def record_parameters(
                         catalog_version,
                         filter,
                         object,
-                        0,
+                        False,
                         return_code,
                         0,
                         "",
