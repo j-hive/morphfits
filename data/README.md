@@ -73,7 +73,7 @@ morphfits_root/
 │                       │   ├── F_I_C_L_O_galfit.fits
 │                       │   ├── F_I_C_L_O_imcascade.fits
 │                       │   └── F_I_C_L_O_pysersic.fits
-│                       └── visualizations/
+│                       └── plots/
 │                           ├── F_I_C_L_O_galfit.png
 │                           ├── F_I_C_L_O_imcascade.png
 │                           ├── F_I_C_L_O_products.png
@@ -125,7 +125,7 @@ morphfits_root/
 │                       │   ├── galfit_model
 │                       │   ├── imcascade_model
 │                       │   └── pysersic_model
-│                       └── visualizations/
+│                       └── plots/
 │                           ├── galfit_plot
 │                           ├── imcascade_plot
 │                           ├── products_plot
@@ -180,7 +180,7 @@ running `paths.get_path` for the required variables.
 |Output|`galfit_model`|`.fits`|`zFICLO`|GALFIT fit model.|
 |Output|`imcascade_model`|`.fits`|`zFICLO`|Imcascade fit model.|
 |Output|`pysersic_model`|`.fits`|`zFICLO`|Pysersic fit model.|
-|Output|`visualizations`|`/`|`zFICLO`|Directory for visualizations.|
+|Output|`plots`|`/`|`zFICLO`|Directory for plots.|
 |Output|`galfit_plot`|`.png`|`zFICLO`|GALFIT model fidelity visualization.|
 |Output|`imcascade_plot`|`.png`|`zFICLO`|Imcascade model fidelity visualization.|
 |Output|`products_plot`|`.png`|`zFICLO`|Display of all products.|

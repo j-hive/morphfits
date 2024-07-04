@@ -95,9 +95,9 @@ models:
   path: "[ficlo_output]/models"
   alts:
     - ficlo models
-visualizations:
+plots:
   file: False
-  path: "[ficlo_output]/visualizations"
+  path: "[ficlo_output]/plots"
   alts:
     - plots
     - ficlo plots
@@ -135,27 +135,27 @@ pysersic_model:
     - pysersic fit
 galfit_plot:
   file: True
-  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_galfit.png"
+  path: "[plots]/{F}_{I}_{C}_{L}_{O}_galfit.png"
   alts:
     - galfit viz
 imcascade_plot:
   file: True
-  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_imcascade.png"
+  path: "[plots]/{F}_{I}_{C}_{L}_{O}_imcascade.png"
   alts:
     - imcascade viz
 pysersic_plot:
   file: True
-  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_pysersic.png"
+  path: "[plots]/{F}_{I}_{C}_{L}_{O}_pysersic.png"
   alts:
     - pysersic viz
 products_plot:
   file: True
-  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_products.png"
+  path: "[plots]/{F}_{I}_{C}_{L}_{O}_products.png"
   alts:
     - product viz
 wrapper_comparison:
   file: True
-  path: "[visualizations]/{F}_{I}_{C}_{L}_{O}_wrappers.png"
+  path: "[plots]/{F}_{I}_{C}_{L}_{O}_wrappers.png"
   alts:
     - wrapper viz
 
