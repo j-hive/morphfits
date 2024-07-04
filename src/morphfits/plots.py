@@ -187,7 +187,7 @@ def plot_model(
     catalog_version: str,
     filter: str,
     objects: list[int],
-    wrapper: list[str],
+    wrapper: str,
     display_progress: bool = False,
 ):
     """Plot all models for a given FICL.
