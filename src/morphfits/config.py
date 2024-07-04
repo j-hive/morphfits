@@ -6,6 +6,7 @@
 
 import logging
 import itertools
+import shutil
 import re
 from pathlib import Path
 from typing import Generator, Annotated
@@ -215,7 +216,7 @@ class MorphFITSConfig(BaseModel):
                     "ficlo_products",
                     "logs",
                     "models",
-                    "visualizations",
+                    "plots",
                 ]:
                     # Create directory if it does not exist
                     paths.get_path(
@@ -232,6 +233,75 @@ class MorphFITSConfig(BaseModel):
                         datetime=self.datetime,
                         run_number=self.run_number,
                     ).mkdir(parents=True, exist_ok=True)
+
+    def clean_paths(self, display_progress: bool = False):
+        """Remove product and output directories for skipped FICLOs of this
+        configuration object.
+
+        Parameters
+        ----------
+        display_progress : bool, optional
+            Display cleaning progress via tqdm, by default False.
+        """
+        logger.info("Cleaning product and output directories where skipped.")
+
+        # Iterate over each possible FICLO from configurations
+        for ficl in self.get_FICLs():
+            # Iterate over each object in FICL
+            for object in (
+                tqdm(ficl.objects, unit="dir", leave=False)
+                if display_progress
+                else ficl.objects
+            ):
+                # Clean product paths
+                for path_name in ["stamp", "sigma", "psf", "mask"]:
+                    # Remove FICLO products directory if any missing
+                    if not paths.get_path(
+                        name=path_name,
+                        product_root=self.product_root,
+                        field=ficl.field,
+                        image_version=ficl.image_version,
+                        catalog_version=ficl.catalog_version,
+                        filter=ficl.filter,
+                        object=object,
+                    ).exists():
+                        shutil.rmtree(
+                            paths.get_path(
+                                name="ficlo_products",
+                                product_root=self.product_root,
+                                field=ficl.field,
+                                image_version=ficl.image_version,
+                                catalog_version=ficl.catalog_version,
+                                filter=ficl.filter,
+                                object=object,
+                            )
+                        )
+                        break
+
+                # Clean output paths
+                for wrapper in self.wrappers:
+                    # Remove FICLO outputs directory if any models missing
+                    if not paths.get_path(
+                        name=f"{wrapper}_model",
+                        output_root=self.output_root,
+                        field=ficl.field,
+                        image_version=ficl.image_version,
+                        catalog_version=ficl.catalog_version,
+                        filter=ficl.filter,
+                        object=object,
+                    ).exists():
+                        shutil.rmtree(
+                            paths.get_path(
+                                name="ficlo_output",
+                                output_root=self.output_root,
+                                field=ficl.field,
+                                image_version=ficl.image_version,
+                                catalog_version=ficl.catalog_version,
+                                filter=ficl.filter,
+                                object=object,
+                            )
+                        )
+                        break
 
     def write(self):
         """Write configurations settings for a program run to a YAML file in the
