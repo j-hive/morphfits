@@ -387,6 +387,7 @@ def run_galfit(
                 with open(galfit_log_path, mode="a") as galfit_log_file:
                     for line in summary:
                         galfit_log_file.write(line + "\n")
+                path.unlink()
             ### Remove script, constraints, and feedfile records
             elif ("galfit" in path.name) or ("constraints" in path.name):
                 path.unlink()

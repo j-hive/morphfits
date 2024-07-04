@@ -259,6 +259,9 @@ def galwrap(
         display_progress=display_progress,
     )
 
+    # Remove empty directories
+    morphfits_config.clean_paths(display_progress=display_progress)
+
     # Write configuration to file in run directory
     morphfits_config.write()
 
