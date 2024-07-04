@@ -341,25 +341,27 @@ def run_galfit(
             close_fds=True,
         )
 
-        ## Capture output and log and close subprocess
-        sublogger = logging.getLogger("GALFIT")
-        in_warning_section = False
+        ## Capture output and close subprocess
+        galfit_lines = []
         for line in iter(process.stdout.readline, b""):
-            if not display_progress:
-                if "segmentation fault" in str(line).casefold():
-                    sublogger.error(line.rstrip().decode("utf-8"))
-                elif ("warning" in str(line).casefold()) or (in_warning_section):
-                    if "=====" in str(line):
-                        in_warning_section = False
-                        sublogger.info(line.rstrip().decode("utf-8"))
-                    else:
-                        in_warning_section = True
-                        sublogger.warning(line.rstrip().decode("utf-8"))
-                else:
-                    sublogger.info(line.rstrip().decode("utf-8"))
+            galfit_lines.append(line.rstrip().decode("utf-8"))
         process.stdout.close()
         process.wait()
         return_codes.append(process.returncode)
+
+        ## Write captured output to GALFIT log file
+        galfit_log_path = paths.get_path(
+            "galfit_log",
+            output_root=output_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+        with open(galfit_log_path, mode="w") as galfit_log_file:
+            for line in galfit_lines:
+                galfit_log_file.write(line + "\n")
 
         ## Clean up GALFIT output
         for path in ficlo_products_path.iterdir():
@@ -378,17 +380,13 @@ def run_galfit(
                 )
             ### Move logs to output directory
             elif "log" in path.name:
-                path.rename(
-                    paths.get_path(
-                        "galfit_log",
-                        output_root=output_root,
-                        field=field,
-                        image_version=image_version,
-                        catalog_version=catalog_version,
-                        filter=filter,
-                        object=object,
-                    )
-                )
+                summary = []
+                with open(path, mode="r") as summary_file:
+                    for line in summary_file.readlines():
+                        summary.append(line.strip())
+                with open(galfit_log_path, mode="a") as galfit_log_file:
+                    for line in summary:
+                        galfit_log_file.write(line + "\n")
             ### Remove script, constraints, and feedfile records
             elif ("galfit" in path.name) or ("constraints" in path.name):
                 path.unlink()
