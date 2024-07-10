@@ -16,13 +16,13 @@ O) regular                                                          # Display ty
 P) 0                                                                # Choose: 0=optimize, 1=model, 2=imgblock, 3=subcomps
 
 # Object number: 1
- 0) nuker                                                           # object type
+ 0) sersic                                                          # object type
  1) {{position}} {{position}} 1 1                                                 # position x, y
- 3) {{magnitude}} 1                                                  # surface brightness
+ 3) {{magnitude}} 1                                                  # Integrated magnitude 
  4) {{half_light_radius}} 1                                                  # R_e (half-light radius)   [pix]
- 5) 2.0                                                             # Nuker powerlaw alpha
- 6) 2.0                                                             # Nuker powerlaw beta
- 7) 0.0                                                             # Nuker powerlaw gamma
+ 5) 2.0 1                                                           # Sersic index n (de Vaucouleurs n=4)
+ 6) 0.0000 0                                                        # -----
+ 7) 0.0000 0                                                        # -----
  8) 0.0000 0                                                        # -----
  9) {{axis_ratio}} 1                                                  # axis ratio (b/a)
 10) 0.0 1                                                           # position angle (PA) [deg: Up=0, Left=90]

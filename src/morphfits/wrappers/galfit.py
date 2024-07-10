@@ -206,9 +206,18 @@ def generate_feedfiles(
         }
 
         # Get constants from catalog
-        magnitude = catalog[object]["mag_auto"]
+        # magnitude = catalog[object]["mag_auto"]
         half_light_radius = catalog[object]["a_image"]
         axis_ratio = catalog[object]["b_image"] / catalog[object]["a_image"]
+
+        # Get constant from stamp
+        stamp_file = fits.open(product_paths["stamp"])
+        header = stamp_file["PRIMARY"].header
+        magnitude = header["SURFACE_BRIGHTNESS"]
+
+        ## Cleary memory
+        stamp_file.close()
+        del stamp_file
 
         # Set configuration parameters from input
         # Note paths are all relative to ficlo_products
@@ -571,8 +580,10 @@ def main(
     regenerate_psf: bool = False,
     regenerate_mask: bool = False,
     regenerate_sigma: bool = False,
-    regenerate_feedfile: bool = True,
-    plot_models: bool = False,
+    keep_feedfiles: bool = False,
+    skip_products: bool = False,
+    skip_fits: bool = False,
+    skip_plots: bool = False,
     display_progress: bool = False,
 ):
     """Orchestrate GalWrap functions for passed configurations.
@@ -591,56 +602,62 @@ def main(
         Regenerate psfs, by default False.
     regenerate_sigma : bool, optional
         Regenerate sigmas, by default False.
-    regenerate_feedfile : bool, optional
-        Regenerate feedfile, by default False.
-    plot_models : bool, optional
-        Plot successful models, by default False.
+    keep_feedfiles : bool, optional
+        Reuse existing feedfiles, by default False.
+    skip_products : bool, optional
+        Skip all product generation, by default False.
+    skip_fits : bool, optional
+        Skip all morphology fitting via GALFIT, by default False.
+    skip_plots : bool, optional
+        Skip plotting fits, by default False.
     display_progress : bool, optional
         Display progress as loading bar and suppress logging, by default False.
     """
     logger.info("Starting GalWrap.")
 
     # Generate products where missing, for each FICLO
-    products.generate_products(
-        morphfits_config=morphfits_config,
-        regenerate_products=regenerate_products,
-        regenerate_stamp=regenerate_stamp,
-        regenerate_psf=regenerate_psf,
-        regenerate_mask=regenerate_mask,
-        regenerate_sigma=regenerate_sigma,
-        regenerate_feedfile=regenerate_feedfile,
-        display_progress=display_progress,
-    )
+    if not skip_products:
+        products.generate_products(
+            morphfits_config=morphfits_config,
+            regenerate_products=regenerate_products,
+            regenerate_stamp=regenerate_stamp,
+            regenerate_psf=regenerate_psf,
+            regenerate_mask=regenerate_mask,
+            regenerate_sigma=regenerate_sigma,
+            regenerate_feedfile=regenerate_feedfile,
+            display_progress=display_progress,
+        )
 
     # Run GALFIT and record parameters, for each FICLO
-    for ficl in morphfits_config.get_FICLs():
-        return_codes = run_galfit(
-            input_root=morphfits_config.input_root,
-            output_root=morphfits_config.output_root,
-            product_root=morphfits_config.product_root,
-            field=ficl.field,
-            image_version=ficl.image_version,
-            catalog_version=ficl.catalog_version,
-            filter=ficl.filter,
-            objects=ficl.objects,
-            display_progress=display_progress,
-        )
-        record_parameters(
-            return_codes=return_codes,
-            datetime=morphfits_config.datetime,
-            run_number=morphfits_config.run_number,
-            output_root=morphfits_config.output_root,
-            run_root=morphfits_config.run_root,
-            field=ficl.field,
-            image_version=ficl.image_version,
-            catalog_version=ficl.catalog_version,
-            filter=ficl.filter,
-            objects=ficl.objects,
-            display_progress=display_progress,
-        )
+    if not skip_fits:
+        for ficl in morphfits_config.get_FICLs():
+            return_codes = run_galfit(
+                input_root=morphfits_config.input_root,
+                output_root=morphfits_config.output_root,
+                product_root=morphfits_config.product_root,
+                field=ficl.field,
+                image_version=ficl.image_version,
+                catalog_version=ficl.catalog_version,
+                filter=ficl.filter,
+                objects=ficl.objects,
+                display_progress=display_progress,
+            )
+            record_parameters(
+                return_codes=return_codes,
+                datetime=morphfits_config.datetime,
+                run_number=morphfits_config.run_number,
+                output_root=morphfits_config.output_root,
+                run_root=morphfits_config.run_root,
+                field=ficl.field,
+                image_version=ficl.image_version,
+                catalog_version=ficl.catalog_version,
+                filter=ficl.filter,
+                objects=ficl.objects,
+                display_progress=display_progress,
+            )
 
     # Plot models, for each FICLO
-    if plot_models:
+    if not skip_plots:
         for ficl in morphfits_config.get_FICLs():
             plots.plot_model(
                 output_root=morphfits_config.output_root,

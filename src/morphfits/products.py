@@ -39,6 +39,16 @@ warnings.filterwarnings("ignore")
 """
 
 
+BUNIT = 1e-8
+"""Numerical value of flux unit per pixel, 10nJy.
+"""
+
+
+AB_ZEROPOINT = 3631
+"""Monochromatic AB magnitude zeropoint, in Jy.
+"""
+
+
 # Functions
 
 
@@ -53,6 +63,7 @@ def generate_stamps(
     catalog_version: str,
     filter: str,
     objects: list[str],
+    pixscale: float = 0.04,
     minimum_image_size: int = 32,
     kron_factor: int = 3,
     regenerate: bool = False,
@@ -76,6 +87,8 @@ def generate_stamps(
         Filter used for observation.
     objects : list[str]
         List of object IDs in catalog to stamp from observation.
+    pixscale : float
+        Scale of observation, in arcseconds per pixel, by default 0.04 (from DJA).
     minimum_image_size : int, optional
         Minimum square stamp pixel dimensions, by default 32.
     kron_factor : int, optional
@@ -108,7 +121,8 @@ def generate_stamps(
         filter=filter,
     )
     science_file = fits.open(science_path)
-    image, wcs = science_file["PRIMARY"].data, WCS(science_file["PRIMARY"].header)
+    image, header = science_file["PRIMARY"].data, science_file["PRIMARY"].header
+    wcs = WCS(header)
 
     # Clear file from memory
     science_file.close()
@@ -176,6 +190,25 @@ def generate_stamps(
                 stamp_headers = stamp.wcs.to_header()
                 stamp_headers["EXPTIME"] = 1
 
+                # Calculate surface brightness from central flux
+                center = int(stamp.data.shape[0] / 2)
+                ## If odd length, get flux of center 9 pixels
+                if stamp.data.shape[0] % 2 == 1:
+                    flux = np.sum(
+                            stamp.data[center - 1 : center + 2, center - 1 : center + 2]
+                        )
+                        * BUNIT
+                    by_area = flux / (3*pixscale)**2
+                ## If even length, get flux of center 4 pixels
+                else:
+                    flux = np.sum(
+                            stamp.data[center - 1 : center + 1, center - 1 : center + 1]
+                        )
+                        * BUNIT
+                    by_area = flux / (2 * pixscale) ** 2
+                stamp_headers["SURFACE_BRIGHTNESS"] = -2.5 * np.log10(by_area / AB_ZEROPOINT)
+
+                # Wrote stamp to FITS file
                 stamp_hdul = fits.PrimaryHDU(data=stamp.data, header=stamp_headers)
                 stamp_hdul.writeto(stamp_path, overwrite=True)
 
@@ -183,8 +216,14 @@ def generate_stamps(
                 generated[0].append(object)
                 generated[1].append(position)
                 generated[2].append(image_size)
+                
+                # Clear memory
                 del stamp_headers
+                del center
+                del flux
+                del by_area
                 del stamp_hdul
+                gc.collect()
             else:
                 if np.amax(stamp.data) <= 0:
                     logger.debug(f"Skipping object {object}, missing nonzero data.")
@@ -751,6 +790,7 @@ def generate_products(
             catalog_version=ficl.catalog_version,
             filter=ficl.filter,
             objects=ficl.objects,
+            pixscale=morphfits_config.pixscales[0],
             minimum_image_size=minimum_image_size,
             kron_factor=kron_factor,
             regenerate=regenerate_products
