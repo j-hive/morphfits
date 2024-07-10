@@ -576,10 +576,10 @@ def record_parameters(
 def main(
     morphfits_config: config.MorphFITSConfig,
     regenerate_products: bool = False,
-    regenerate_stamp: bool = False,
-    regenerate_psf: bool = False,
-    regenerate_mask: bool = False,
-    regenerate_sigma: bool = False,
+    regenerate_stamps: bool = False,
+    regenerate_psfs: bool = False,
+    regenerate_masks: bool = False,
+    regenerate_sigmas: bool = False,
     keep_feedfiles: bool = False,
     skip_products: bool = False,
     skip_fits: bool = False,
@@ -594,13 +594,13 @@ def main(
         Configuration object for this program run.
     regenerate_products : bool, optional
         Regenerate all products, by default False.
-    regenerate_stamp : bool, optional
+    regenerate_stamps : bool, optional
         Regenerate stamps, by default False.
-    regenerate_mask : bool, optional
+    regenerate_masks : bool, optional
         Regenerate masks, by default False.
-    regenerate_psf : bool, optional
+    regenerate_psfs : bool, optional
         Regenerate psfs, by default False.
-    regenerate_sigma : bool, optional
+    regenerate_sigmas : bool, optional
         Regenerate sigmas, by default False.
     keep_feedfiles : bool, optional
         Reuse existing feedfiles, by default False.
@@ -620,11 +620,11 @@ def main(
         products.generate_products(
             morphfits_config=morphfits_config,
             regenerate_products=regenerate_products,
-            regenerate_stamp=regenerate_stamp,
-            regenerate_psf=regenerate_psf,
-            regenerate_mask=regenerate_mask,
-            regenerate_sigma=regenerate_sigma,
-            regenerate_feedfile=regenerate_feedfile,
+            regenerate_stamps=regenerate_stamps,
+            regenerate_psfs=regenerate_psfs,
+            regenerate_masks=regenerate_masks,
+            regenerate_sigmas=regenerate_sigmas,
+            keep_feedfiles=keep_feedfiles,
             display_progress=display_progress,
         )
 
