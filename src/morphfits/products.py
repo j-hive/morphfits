@@ -194,19 +194,25 @@ def generate_stamps(
                 center = int(stamp.data.shape[0] / 2)
                 ## If odd length, get flux of center 9 pixels
                 if stamp.data.shape[0] % 2 == 1:
-                    flux = np.sum(
+                    flux = (
+                        np.sum(
                             stamp.data[center - 1 : center + 2, center - 1 : center + 2]
                         )
                         * BUNIT
-                    by_area = flux / (3*pixscale)**2
+                    )
+                    by_area = flux / (3 * pixscale) ** 2
                 ## If even length, get flux of center 4 pixels
                 else:
-                    flux = np.sum(
+                    flux = (
+                        np.sum(
                             stamp.data[center - 1 : center + 1, center - 1 : center + 1]
                         )
                         * BUNIT
+                    )
                     by_area = flux / (2 * pixscale) ** 2
-                stamp_headers["SURFACE_BRIGHTNESS"] = -2.5 * np.log10(by_area / AB_ZEROPOINT)
+                stamp_headers["SURFACE_BRIGHTNESS"] = -2.5 * np.log10(
+                    by_area / AB_ZEROPOINT
+                )
 
                 # Wrote stamp to FITS file
                 stamp_hdul = fits.PrimaryHDU(data=stamp.data, header=stamp_headers)
@@ -216,7 +222,7 @@ def generate_stamps(
                 generated[0].append(object)
                 generated[1].append(position)
                 generated[2].append(image_size)
-                
+
                 # Clear memory
                 del stamp_headers
                 del center

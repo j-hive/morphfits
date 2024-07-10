@@ -149,7 +149,7 @@ def galwrap(
         typer.Option(
             "--regenerate-products",
             help="Regenerate all products. Overrides other flags.",
-            rich_help_panel="Product Regeneration",
+            rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
@@ -158,7 +158,7 @@ def galwrap(
         typer.Option(
             "--regenerate-stamps",
             help="Regenerate all stamps. Must be set for other products to regenerate.",
-            rich_help_panel="Product Regeneration",
+            rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
@@ -167,7 +167,7 @@ def galwrap(
         typer.Option(
             "--regenerate-psfs",
             help="Regenerate all PSF crops.",
-            rich_help_panel="Product Regeneration",
+            rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
@@ -176,7 +176,7 @@ def galwrap(
         typer.Option(
             "--regenerate-masks",
             help="Regenerate all bad pixel masks.",
-            rich_help_panel="Product Regeneration",
+            rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
@@ -185,7 +185,7 @@ def galwrap(
         typer.Option(
             "--regenerate-sigmas",
             help="Regenerate all sigma maps.",
-            rich_help_panel="Product Regeneration",
+            rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
@@ -194,7 +194,7 @@ def galwrap(
         typer.Option(
             "--keep-feedfiles",
             help="Use existing GALFIT feedfiles.",
-            rich_help_panel="Product Regeneration",
+            rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
@@ -382,7 +382,7 @@ def stamp(
         ),
     ] = None,
 ):
-    """Generate stamp cutouts of all objects from a given FICL."""
+    """[IN DEVELOPMENT] Generate stamp cutouts of all objects from a given FICL."""
     # Create configuration object
     morphfits_config = config.create_config(
         input_root=input_root,
