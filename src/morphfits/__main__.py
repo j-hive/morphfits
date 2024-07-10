@@ -198,12 +198,30 @@ def galwrap(
             is_flag=True,
         ),
     ] = False,
-    plot_models: Annotated[
+    skip_products: Annotated[
         bool,
         typer.Option(
-            "--plot_models",
-            "-p",
-            help="Plot all successful models against their corresponding stamps.",
+            "--skip-products",
+            help="Skip all product generation.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
+    skip_fits: Annotated[
+        bool,
+        typer.Option(
+            "--skip-fits",
+            help="Skip all fitting via GALFIT.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
+    skip_plots: Annotated[
+        bool,
+        typer.Option(
+            "--skip-plots",
+            help="Skip all model plotting and visualizations.",
+            rich_help_panel="Stages",
             is_flag=True,
         ),
     ] = False,
@@ -254,8 +272,10 @@ def galwrap(
         regenerate_psf=regenerate_psfs,
         regenerate_mask=regenerate_masks,
         regenerate_sigma=regenerate_sigmas,
-        regenerate_feedfile=not keep_feedfiles,
-        plot_models=plot_models,
+        keep_feedfiles=keep_feedfiles,
+        skip_products=skip_products,
+        skip_fits=skip_fits,
+        skip_plots=skip_plots,
         display_progress=display_progress,
     )
 
