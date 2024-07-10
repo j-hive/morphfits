@@ -39,6 +39,17 @@ warnings.filterwarnings("ignore")
 """
 
 
+KRON_FACTOR = 3
+"""Factor by which to multiply Kron radius to determine image size for each
+object.
+"""
+
+
+MINIMUM_IMAGE_SIZE = 32
+"""Minimum square stamp pixel dimensions.
+"""
+
+
 BUNIT = 1e-8
 """Numerical value of flux unit per pixel, 10nJy.
 """
@@ -64,8 +75,6 @@ def generate_stamps(
     filter: str,
     objects: list[str],
     pixscale: float = 0.04,
-    minimum_image_size: int = 32,
-    kron_factor: int = 3,
     regenerate: bool = False,
     display_progress: bool = False,
 ) -> tuple[list[int], list[SkyCoord], list[int]]:
@@ -89,11 +98,6 @@ def generate_stamps(
         List of object IDs in catalog to stamp from observation.
     pixscale : float
         Scale of observation, in arcseconds per pixel, by default 0.04 (from DJA).
-    minimum_image_size : int, optional
-        Minimum square stamp pixel dimensions, by default 32.
-    kron_factor : int, optional
-        Multiplicative factor to apply to Kron radius for each object to
-        determine image size, by default 3.
     regenerate : bool, optional
         Regenerate existing stamps, by default False.
     display_progress : bool, optional
@@ -151,8 +155,8 @@ def generate_stamps(
         ]
         image_size = np.nanmax(
             [
-                int(kron_radius / 0.04 * kron_factor),
-                minimum_image_size,
+                int(kron_radius / 0.04 * KRON_FACTOR),
+                MINIMUM_IMAGE_SIZE,
             ]
         )
 
@@ -742,13 +746,11 @@ def generate_masks(
 def generate_products(
     morphfits_config: MorphFITSConfig,
     regenerate_products: bool = False,
-    regenerate_stamp: bool = False,
-    regenerate_sigma: bool = False,
-    regenerate_psf: bool = False,
-    regenerate_mask: bool = False,
-    regenerate_feedfile: bool = True,
-    minimum_image_size: int = 32,
-    kron_factor: int = 3,
+    regenerate_stamps: bool = False,
+    regenerate_sigmas: bool = False,
+    regenerate_psfs: bool = False,
+    regenerate_masks: bool = False,
+    keep_feedfiles: bool = False,
     display_progress: bool = False,
 ):
     """Generate all products for a given configuration.
@@ -759,27 +761,16 @@ def generate_products(
         Configuration object for this MorphFITS run.
     regenerate_products : bool, optional
         Regenerate all products, by default False.
-    regenerate_stamp : bool, optional
+    regenerate_stamps : bool, optional
         Regenerate stamps, by default False.
-    regenerate_sigma : bool, optional
+    regenerate_sigmas : bool, optional
         Regenerate sigma maps, by default False.
-    regenerate_psf : bool, optional
+    regenerate_psfs : bool, optional
         Regenerate PSF crops, by default False.
-    regenerate_mask : bool, optional
+    regenerate_masks : bool, optional
         Regenerate masks, by default False.
-    regenerate_feedfile : bool, optional
-        Regenerate feedfiles, by default True.
-    apply_sigma : bool, optional
-        Use sigma maps in the GALFIT run, by default True.
-    apply_psf : bool, optional
-        Use PSFs in the GALFIT run, by default True.
-    apply_mask : bool, optional
-        Use masks in the GALFIT run, by default True.
-    minimum_image_size : int, optional
-        Minimum pixel length of square stamp, by default 32.
-    kron_factor : int, optional
-        Multiplicative factor to apply to Kron radius for each object to
-        determine image size of stamp, by default 3.
+    keep_feedfiles : bool, optional
+        Reuse existing feedfiles, by default False.
     display_progress : bool, optional
         Display progress on terminal screen via tqdm, by default False.
     """
@@ -796,15 +787,13 @@ def generate_products(
             catalog_version=ficl.catalog_version,
             filter=ficl.filter,
             objects=ficl.objects,
-            pixscale=morphfits_config.pixscales[0],
-            minimum_image_size=minimum_image_size,
-            kron_factor=kron_factor,
+            pixscale=ficl.pixscale,
             regenerate=regenerate_products
-            or regenerate_stamp
-            or regenerate_sigma
-            or regenerate_psf
-            or regenerate_mask
-            or regenerate_feedfile,
+            or regenerate_stamps
+            or regenerate_sigmas
+            or regenerate_psfs
+            or regenerate_masks
+            or not keep_feedfiles,
             display_progress=display_progress,
         )
 
@@ -819,7 +808,7 @@ def generate_products(
             objects=objects,
             positions=positions,
             image_sizes=image_sizes,
-            regenerate=regenerate_products or regenerate_sigma,
+            regenerate=regenerate_products or regenerate_sigmas,
             display_progress=display_progress,
         )
 
@@ -833,7 +822,7 @@ def generate_products(
             filter=ficl.filter,
             objects=objects,
             image_sizes=image_sizes,
-            regenerate=regenerate_products or regenerate_psf,
+            regenerate=regenerate_products or regenerate_psfs,
             display_progress=display_progress,
         )
 
@@ -848,7 +837,7 @@ def generate_products(
             objects=objects,
             positions=positions,
             image_sizes=image_sizes,
-            regenerate=regenerate_products or regenerate_mask,
+            regenerate=regenerate_products or regenerate_masks,
             display_progress=display_progress,
         )
 
@@ -868,7 +857,7 @@ def generate_products(
                         objects=objects,
                         image_sizes=image_sizes,
                         pixscale=ficl.pixscale,
-                        regenerate=regenerate_products or regenerate_feedfile,
+                        regenerate=regenerate_products or not keep_feedfiles,
                         display_progress=display_progress,
                     )
                 # Other wrappers unrecognized
