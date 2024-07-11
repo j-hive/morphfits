@@ -79,7 +79,7 @@ def generate_feedfiles(
     filter: str,
     objects: list[int],
     image_sizes: list[int],
-    pixscale: float,
+    pixscale: tuple[float, float],
     regenerate: bool = False,
     feedfile_template_path: Path = GALFIT_DATA_ROOT / "feedfile.jinja",
     constraints_path: Path = GALFIT_DATA_ROOT / "default.constraints",
@@ -109,8 +109,8 @@ def generate_feedfiles(
         List of object IDs in catalog for which to generate feedfiles.
     image_sizes : list[int]
         List of image sizes corresponding to each object's stamp.
-    pixscale : float
-        Pixel scale of science frame.
+    pixscale : tuple[float, float]
+        Pixel scale along x and y axes, in arcseconds per pixel.
     regenerate : bool, optional
         Regenerate existing feedfiles, by default False.
     feedfile_template_path : Path, optional
@@ -230,6 +230,8 @@ def generate_feedfiles(
             "constraints_path": path_str(".constraints"),
             "image_size": str(image_size),
             "zeropoint": float_str(zeropoint),
+            "pixscale_x": float_str(pixscale[0]),
+            "pixscale_y": float_str(pixscale[1]),
             "position": str(image_size / 2),
             "magnitude": float_str(magnitude),
             "half_light_radius": float_str(half_light_radius),
