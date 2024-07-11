@@ -17,6 +17,38 @@ from astropy.wcs import utils as wcs_utils
 # Functions
 
 
+def get_pixname_from_scale(pixscale: float) -> str:
+    """Get a resolution name from its corresponding scale.
+
+    Parameters
+    ----------
+    pixscale : float
+        Pixel scale.
+
+    Returns
+    -------
+    str
+        Pixel scale as human-readable text.
+    """
+    return str(int(pixscale * 10**3)) + "mas"
+
+
+def get_pixscale_from_name(pixname: str) -> float:
+    """Get a resolution scale from its corresponding name.
+
+    Parameters
+    ----------
+    pixname : str
+        Pixel scale as text.
+
+    Returns
+    -------
+    float
+        Corresponding pixel scale.
+    """
+    return float(pixname[:-3]) / 10**3
+
+
 def get_pixels_from_skycoord(
     skycoord: SkyCoord, wcs: WCS, image_size: int
 ) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -47,36 +79,42 @@ def get_pixels_from_skycoord(
     return (left, right), (down, up)
 
 
-def get_pixname(pixscale: float) -> str:
-    """Get a resolution name from its corresponding scale.
+def get_pixscale(science_path: Path):
+    """Get a FICL's pixscale from its science frame.
+
+    Used because not every frame has the same pixel scale. For the most
+    part, long wavelength filtered observations have scales of 0.04 "/pix,
+    and short wavelength filters have scales of 0.02 "/pix.
 
     Parameters
     ----------
-    pixscale : float
-        Pixel scale.
+    science_path : Path
+        Path to science frame.
 
-    Returns
-    -------
-    str
-        Pixel scale as human-readable text.
+    Raises
+    ------
+    KeyError
+        Coordinate transformation matrix element headers missing from frame.
     """
-    return str(int(pixscale * 10**3)) + "mas"
+    # Get headers from science frame
+    science_headers = fits.getheader(science_path)
 
+    # Raise error if keys not found in header
+    if any(
+        [
+            header not in science_headers
+            for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]
+        ]
+    ):
+        raise KeyError(
+            f"Science frame for FICL {self} missing "
+            + "coordinate transformation matrix element header."
+        )
 
-def get_pixscale(pixname: str) -> float:
-    """Get a resolution scale from its corresponding name.
-
-    Parameters
-    ----------
-    pixname : str
-        Pixel scale as text.
-
-    Returns
-    -------
-    float
-        Corresponding pixel scale.
-    """
-    return float(pixname[:-3]) / 10**3
+    # Calculate and set pixel scales
+    pixscale_x = np.sqrt(science_headers["CD1_1"] ** 2 + science_headers["CD1_2"])
+    pixscale_y = np.sqrt(science_headers["CD2_1"] ** 2 + science_headers["CD2_2"])
+    return (pixscale_x, pixscale_y)
 
 
 def get_zeropoint(image_path: str | Path, magnitude_system: str = "AB") -> float:

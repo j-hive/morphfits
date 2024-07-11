@@ -18,6 +18,7 @@ from pydantic import BaseModel, StringConstraints
 from tqdm import tqdm
 
 from . import paths, ROOT
+from .utils import science
 
 
 # Constants
@@ -80,54 +81,6 @@ class FICL(BaseModel):
         return "_".join(
             [self.field, self.image_version, self.catalog_version, self.filter]
         )
-
-    def _set_pixscale(self, input_root: Path):
-        """Set pixscale for FICL from science frame.
-
-        Used because not every frame has the same pixel scale. For the most
-        part, long wavelength filtered observations have scales of 0.04 "/pix,
-        and short wavelength filters have scales of 0.02 "/pix.
-
-        Parameters
-        ----------
-        input_root : Path
-            Path to root input directory.
-
-        Raises
-        ------
-        KeyError
-            Coordinate transformation matrix element headers missing from frame.
-        """
-        # Get headers from science frame
-        science_path = paths.get_path(
-            "science",
-            input_root=input_root,
-            field=self.field,
-            image_version=self.image_version,
-            filter=self.filter,
-        )
-        science_headers = fits.getheader(science_path)
-
-        # Raise error if keys not found in header
-        if any(
-            [
-                header not in science_headers
-                for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]
-            ]
-        ):
-            logger.error(
-                f"Science frame for FICL {self} missing "
-                + "coordinate transformation matrix element header."
-            )
-            raise KeyError(
-                f"Science frame for FICL {self} missing "
-                + "coordinate transformation matrix element header."
-            )
-
-        # Calculate and set pixel scales
-        pixscale_x = sqrt(science_headers["CD1_1"] ** 2 + science_headers["CD1_2"])
-        pixscale_y = sqrt(science_headers["CD2_1"] ** 2 + science_headers["CD2_2"])
-        self.pixscale = (pixscale_x, pixscale_y)
 
 
 class MorphFITSConfig(BaseModel):
@@ -199,14 +152,21 @@ class MorphFITSConfig(BaseModel):
             self.fields, self.image_versions, self.catalog_versions, self.filters
         ):
             # Create FICL for iteration, with every object, and set pixscales
+            science_path = paths.get_path(
+                "science",
+                input_root=self.input_root,
+                field=field,
+                image_version=image_version,
+                filter=filter,
+            )
             ficl = FICL(
                 field=field,
                 image_version=image_version,
                 catalog_version=catalog_version,
                 filter=filter,
                 objects=self.objects,
+                pixscale=science.get_pixscale(science_path),
             )
-            ficl._set_pixscale(self.input_root)
 
             # Skip FICL if any input missing
             missing_input = False
