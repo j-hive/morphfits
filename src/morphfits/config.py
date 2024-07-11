@@ -40,7 +40,8 @@ class FICL(BaseModel):
     """Configuration model for a single FICL.
 
     FICL is an abbreviation for the field, image version, catalog version, and
-    filter of a JWST science observation.
+    filter of a JWST science observation. Each FICL corresponds to a single
+    observation.
 
     Parameters
     ----------
@@ -60,7 +61,7 @@ class FICL(BaseModel):
     objects : list[int]
         Integer IDs of galaxies or cluster targets in catalog, e.g. `[1003,
         6371]`.
-    pixscale : str, optional
+    pixscale : float
         Pixel scale, in arcseconds per pixel, by default `0.04`, corresponding
         to "40mas".
 

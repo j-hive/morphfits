@@ -524,9 +524,16 @@ def record_parameters(
             ### Get parameters from GALFIT log
             with open(galfit_log_path, mode="r") as log_file:
                 lines = log_file.readlines()
-                for line in lines:
-                    if "sersic" in line:
-                        raw_parameters = line.split()[3:]
+                while i < len(lines):
+                    if (
+                        ("---" in lines[i])
+                        and (lines[i][0] != "#")
+                        and ("Input image" in lines[i + 2])
+                    ):
+                        raw_parameters = lines[i + 7].split()[3:]
+                        break
+                    else:
+                        i += 1
 
             ### Write parameters and flags to CSV
             csv_row = [
