@@ -74,7 +74,7 @@ def generate_stamps(
     catalog_version: str,
     filter: str,
     objects: list[str],
-    pixscale: float = 0.04,
+    pixscale: tuple[float, float],
     regenerate: bool = False,
     display_progress: bool = False,
 ) -> tuple[list[int], list[SkyCoord], list[int]]:
@@ -96,8 +96,8 @@ def generate_stamps(
         Filter used for observation.
     objects : list[str]
         List of object IDs in catalog to stamp from observation.
-    pixscale : float
-        Scale of observation, in arcseconds per pixel, by default 0.04 (from DJA).
+    pixscale : tuple[float, float]
+        Pixel scale along x and y axes, in arcseconds per pixel.
     regenerate : bool, optional
         Regenerate existing stamps, by default False.
     display_progress : bool, optional
@@ -204,7 +204,7 @@ def generate_stamps(
                         )
                         * BUNIT
                     )
-                    by_area = flux / (3 * pixscale) ** 2
+                    by_area = flux / (3 * pixscale[0] * pixscale[1]) ** 2
                 ## If even length, get flux of center 4 pixels
                 else:
                     flux = (
@@ -213,7 +213,7 @@ def generate_stamps(
                         )
                         * BUNIT
                     )
-                    by_area = flux / (2 * pixscale) ** 2
+                    by_area = flux / (2 * pixscale[0] * pixscale[1]) ** 2
                 stamp_headers["SURFACE_BRIGHTNESS"] = -2.5 * np.log10(
                     by_area / AB_ZEROPOINT
                 )
@@ -509,7 +509,7 @@ def generate_psfs(
     filter: str,
     objects: list[int],
     image_sizes: list[int],
-    pixscale: float = 0.04,
+    pixscale: tuple[float, float],
     regenerate: bool = False,
     display_progress: bool = False,
 ):
@@ -533,8 +533,8 @@ def generate_psfs(
         List of object IDs in catalog for which to generate masks.
     image_sizes : list[int]
         List of image sizes corresponding to each object's stamp.
-    pixscale : float, optional
-        Pixel scale of science frame, by default 0.04''/px.
+    pixscale : tuple[float, float]
+        Pixel scale along x and y axes, in arcseconds per pixel.
     regenerate : bool, optional
         Regenerate existing crops, by default False.
     display_progress : bool, optional
@@ -583,7 +583,7 @@ def generate_psfs(
             return
 
         # Calculate PSF size from ratio of PSF pixscale to science pixscale
-        psf_image_size = int(image_size * psf_pixscale / pixscale)
+        psf_image_size = int(image_size * psf_pixscale / max(pixscale))
         center = int(psf_length / 2)
 
         try:
@@ -822,6 +822,7 @@ def generate_products(
             filter=ficl.filter,
             objects=objects,
             image_sizes=image_sizes,
+            pixscale=ficl.pixscale,
             regenerate=regenerate_products or regenerate_psfs,
             display_progress=display_progress,
         )

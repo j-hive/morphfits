@@ -7,17 +7,17 @@
 import logging
 import itertools
 import shutil
-import re
 from pathlib import Path
 from typing import Generator, Annotated
 from datetime import datetime as dt
 
+from numpy import sqrt
+from astropy.io import fits
 import yaml
 from pydantic import BaseModel, StringConstraints
 from tqdm import tqdm
 
 from . import paths, ROOT
-from .utils import logs
 
 
 # Constants
@@ -61,9 +61,8 @@ class FICL(BaseModel):
     objects : list[int]
         Integer IDs of galaxies or cluster targets in catalog, e.g. `[1003,
         6371]`.
-    pixscale : float
-        Pixel scale, in arcseconds per pixel, by default `0.04`, corresponding
-        to "40mas".
+    pixscale : tuple[float, float]
+        Pixel scale along x and y axes, in arcseconds per pixel.
 
     Notes
     -----
@@ -75,12 +74,60 @@ class FICL(BaseModel):
     catalog_version: Annotated[str, StringConstraints(to_lower=True)]
     filter: Annotated[str, StringConstraints(to_lower=True)]
     objects: list[int]
-    pixscale: float = 0.04
+    pixscale: tuple[float, float]
 
     def __str__(self) -> str:
         return "_".join(
             [self.field, self.image_version, self.catalog_version, self.filter]
         )
+
+    def _set_pixscale(self, input_root: Path):
+        """Set pixscale for FICL from science frame.
+
+        Used because not every frame has the same pixel scale. For the most
+        part, long wavelength filtered observations have scales of 0.04 "/pix,
+        and short wavelength filters have scales of 0.02 "/pix.
+
+        Parameters
+        ----------
+        input_root : Path
+            Path to root input directory.
+
+        Raises
+        ------
+        KeyError
+            Coordinate transformation matrix element headers missing from frame.
+        """
+        # Get headers from science frame
+        science_path = paths.get_path(
+            "science",
+            input_root=input_root,
+            field=self.field,
+            image_version=self.image_version,
+            filter=self.filter,
+        )
+        science_headers = fits.getheader(science_path)
+
+        # Raise error if keys not found in header
+        if any(
+            [
+                header not in science_headers
+                for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]
+            ]
+        ):
+            logger.error(
+                f"Science frame for FICL {self} missing "
+                + "coordinate transformation matrix element header."
+            )
+            raise KeyError(
+                f"Science frame for FICL {self} missing "
+                + "coordinate transformation matrix element header."
+            )
+
+        # Calculate and set pixel scales
+        pixscale_x = sqrt(science_headers["CD1_1"] ** 2 + science_headers["CD1_2"])
+        pixscale_y = sqrt(science_headers["CD2_1"] ** 2 + science_headers["CD2_2"])
+        self.pixscale = (pixscale_x, pixscale_y)
 
 
 class MorphFITSConfig(BaseModel):
@@ -120,9 +167,6 @@ class MorphFITSConfig(BaseModel):
     morphfits_root : Path, optional
         Path to root directory containing all of input, product, and output
         directories, by default the repository root.
-    pixscales : list[float], optional
-        List of pixel scales over which to execute GALFIT, by default only `0.04`,
-        corresponding to "40mas".
     wrappers : list[str], optional
         List of morphology fitting algorithms to run, by default only GALFIT.
     """
@@ -139,7 +183,6 @@ class MorphFITSConfig(BaseModel):
     catalog_versions: list[str] = ["dja-v7.2"]
     objects: list[int] = []
     morphfits_root: Path = ROOT
-    pixscales: list[float] = [0.04]
     wrappers: list[str] = ["galfit"]
 
     def get_FICLs(self) -> Generator[FICL, None, None]:
@@ -155,7 +198,7 @@ class MorphFITSConfig(BaseModel):
         for field, image_version, catalog_version, filter in itertools.product(
             self.fields, self.image_versions, self.catalog_versions, self.filters
         ):
-            # Create FICL for iteration, with every object
+            # Create FICL for iteration, with every object, and set pixscales
             ficl = FICL(
                 field=field,
                 image_version=image_version,
@@ -163,6 +206,7 @@ class MorphFITSConfig(BaseModel):
                 filter=filter,
                 objects=self.objects,
             )
+            ficl._set_pixscale(self.input_root)
 
             # Skip FICL if any input missing
             missing_input = False
@@ -461,7 +505,6 @@ def create_config(
         # "catalog_version",
         "filter",
         "object",
-        # "pixscale",
     ]:
         if parameter + "s" not in config_dict:
             config_dict[parameter + "s"] = paths.find_parameter_from_input(
