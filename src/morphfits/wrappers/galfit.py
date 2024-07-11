@@ -218,6 +218,7 @@ def generate_feedfiles(
         ## Cleary memory
         stamp_file.close()
         del stamp_file
+        del header
 
         # Set configuration parameters from input
         # Note paths are all relative to ficlo_products
