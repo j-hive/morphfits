@@ -112,8 +112,12 @@ def get_pixscale(science_path: Path):
         )
 
     # Calculate and set pixel scales
-    pixscale_x = np.sqrt(science_headers["CD1_1"] ** 2 + science_headers["CD1_2"])
-    pixscale_y = np.sqrt(science_headers["CD2_1"] ** 2 + science_headers["CD2_2"])
+    pixscale_x = (
+        np.sqrt(science_headers["CD1_1"] ** 2 + science_headers["CD1_2"] ** 2) * 3600
+    )
+    pixscale_y = (
+        np.sqrt(science_headers["CD2_1"] ** 2 + science_headers["CD2_2"] ** 2) * 3600
+    )
     return (pixscale_x, pixscale_y)
 
 

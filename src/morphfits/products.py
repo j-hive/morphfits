@@ -196,26 +196,18 @@ def generate_stamps(
 
                 # Calculate surface brightness from central flux
                 center = int(stamp.data.shape[0] / 2)
-                ## If odd length, get flux of center 9 pixels
-                if stamp.data.shape[0] % 2 == 1:
-                    flux = (
-                        np.sum(
-                            stamp.data[center - 1 : center + 2, center - 1 : center + 2]
-                        )
-                        * BUNIT
-                    )
-                    by_area = flux / (3 * pixscale[0] * pixscale[1]) ** 2
-                ## If even length, get flux of center 4 pixels
-                else:
-                    flux = (
-                        np.sum(
-                            stamp.data[center - 1 : center + 1, center - 1 : center + 1]
-                        )
-                        * BUNIT
-                    )
-                    by_area = flux / (2 * pixscale[0] * pixscale[1]) ** 2
+
+                ## If image size is odd, get 9 center pixels, otherwise 4
+                odd_flag = stamp.data.shape[0] % 2
+                total_flux = np.sum(
+                    stamp.data[center - 1 : center + 1 + odd_flag][
+                        center - 1 : center + 1 + odd_flag
+                    ]
+                )
+                total_area = ((2 + odd_flag) ** 2) * pixscale[0] * pixscale[1]
+                flux_per_pixel = total_flux * BUNIT / total_area
                 stamp_headers["SURFACE_BRIGHTNESS"] = -2.5 * np.log10(
-                    by_area / AB_ZEROPOINT
+                    flux_per_pixel / AB_ZEROPOINT
                 )
 
                 # Wrote stamp to FITS file
@@ -230,8 +222,10 @@ def generate_stamps(
                 # Clear memory
                 del stamp_headers
                 del center
-                del flux
-                del by_area
+                del odd_flag
+                del total_flux
+                del total_area
+                del flux_per_pixel
                 del stamp_hdul
                 gc.collect()
             else:
