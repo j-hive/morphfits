@@ -200,8 +200,9 @@ def generate_stamps(
                 ## If image size is odd, get 9 center pixels, otherwise 4
                 odd_flag = stamp.data.shape[0] % 2
                 total_flux = np.sum(
-                    stamp.data[center - 1 : center + 1 + odd_flag][
-                        center - 1 : center + 1 + odd_flag
+                    stamp.data[
+                        center - 1 : center + 1 + odd_flag,
+                        center - 1 : center + 1 + odd_flag,
                     ]
                 )
                 total_area = ((2 + odd_flag) ** 2) * pixscale[0] * pixscale[1]
