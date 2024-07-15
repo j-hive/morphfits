@@ -1,3 +1,4 @@
+galfit_path: # path to GALFIT binary
 input_root: # path to input root
 fields:
   - "abell2744clu"

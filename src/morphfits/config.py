@@ -122,6 +122,8 @@ class MorphFITSConfig(BaseModel):
         directories, by default the repository root.
     wrappers : list[str], optional
         List of morphology fitting algorithms to run, by default only GALFIT.
+    galfit_path : Path
+        Path to GALFIT binary, by default None.
     """
 
     input_root: Path
@@ -137,6 +139,7 @@ class MorphFITSConfig(BaseModel):
     objects: list[int] = []
     morphfits_root: Path = ROOT
     wrappers: list[str] = ["galfit"]
+    galfit_path: Path = None
 
     def get_FICLs(self) -> Generator[FICL, None, None]:
         """Generate all FICL permutations for this configuration object, and
@@ -351,6 +354,7 @@ def create_config(
     filters: list[str] | None = None,
     objects: list[int] | None = None,
     wrappers: list[str] | None = None,
+    galfit_path: str | Path | None = None,
     display_progress: bool = False,
 ) -> MorphFITSConfig:
     """Create a MorphFITS configuration object from hierarchically preferred
@@ -395,10 +399,12 @@ def create_config(
     objects : list[int] | None, optional
         List of target IDs over which to execute GALFIT, for each catalog, by
         default None (not passed through CLI).
-    display_progress : bool, optional
-        Display progress via tqdm, by default False.
     wrappers : list[str], optional
         List of morphology fitting algorithms to run, by default only GALFIT.
+    galfit_path : str | Path | None, optional
+        Path to GALFIT binary file, by default None (not passed through CLI).
+    display_progress : bool, optional
+        Display progress via tqdm, by default False.
 
     Returns
     -------
@@ -416,6 +422,7 @@ def create_config(
         "output_root",
         "product_root",
         "run_root",
+        "galfit_path",
     ]:
         if root_key in config_dict:
             config_dict[root_key] = paths.get_path_obj(config_dict[root_key])
@@ -485,6 +492,17 @@ def create_config(
 
     # Create configuration object from dict
     morphfits_config = MorphFITSConfig(**config_dict)
+
+    # Terminate if fitter is GALFIT and binary file is not linked
+    if ("galfit" in morphfits_config.wrappers) and (
+        (morphfits_config.galfit_path is None)
+        or (not morphfits_config.galfit_path.exists())
+    ):
+        logger.error(
+            "GALFIT chosen as fitter but binary file "
+            + "not found or linked, terminating."
+        )
+        raise FileNotFoundError("GALFIT binary file not found or linked.")
 
     # Setup directories where missing
     morphfits_config.setup_paths(display_progress=display_progress)
