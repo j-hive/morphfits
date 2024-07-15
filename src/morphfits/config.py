@@ -209,6 +209,7 @@ class MorphFITSConfig(BaseModel):
             Display setup progress via tqdm, by default False.
         """
         logger.info("Creating product and output directories where missing.")
+        print("Creating product and output directories where missing.")
 
         # Iterate over each possible FICLO from configurations
         for ficl in self.get_FICLs():
@@ -412,6 +413,7 @@ def create_config(
         A configuration object for this program execution.
     """
     logger.info(f"Loading configuration.")
+    print("Loading configuration.")
 
     # Load config file values
     config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
@@ -473,7 +475,9 @@ def create_config(
         "filter",
         "object",
     ]:
-        if parameter + "s" not in config_dict:
+        if (parameter + "s" not in config_dict) or (
+            config_dict[parameter + "s"] is None
+        ):
             config_dict[parameter + "s"] = paths.find_parameter_from_input(
                 parameter_name=parameter, input_root=config_dict["input_root"]
             )
