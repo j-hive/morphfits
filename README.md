@@ -12,6 +12,8 @@ cd morphfits
 poetry install
 ```
 
+Then, download the GALFIT binary corresponding to your system [here](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html).
+
 # Quickstart
 To see what the directory structure, the products and output, and the run looks
 like, use one of the settings from [the examples directory](./examples/). For
@@ -31,10 +33,12 @@ mv [download folder]/PSF_NIRCam_in_flight_opd_filter_F200W.fits ./examples/singl
 ```
 Then, run 
 ```
-poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml
+poetry run morphfits galwrap --galfit-path=[path to GALFIT binary] --config-path=./examples/single_ficlo/config.yaml
 ```
-and MorphFITS will run GalWrap, a wrapper for GALFIT, over the FICLOs found in `config.yaml`. The outputs can be
-found at `examples/single_ficlo/morphfits_root/output`.
+replacing the `galfit-path` option with a path to your downloaded GALFIT binary,
+and MorphFITS will run GalWrap, a wrapper for GALFIT, over the FICLOs found in
+`config.yaml`. The outputs can be found at
+`examples/single_ficlo/morphfits_root/output`.
 
 
 # Setup
@@ -131,6 +135,7 @@ the only available wrapper is `galwrap`.
 
 |CLI Key|File Key|Type|Description|
 |:---|:---|:---|:---|
+|`--galfit-path`|`galfit_path`|`str`|Path to GALFIT binary file.|
 |`--input-root`|`input_root`|`str`|Path to input directory root.|
 |`--fields`|`fields`|`list[str]`|Fields of frames over which to fit.|
 |`--image-versions`|`image_versions`|`list[str]`|Image versions of frames over which to fit.|

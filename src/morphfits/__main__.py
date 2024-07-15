@@ -25,6 +25,17 @@ app = typer.Typer()
 
 @app.command()
 def galwrap(
+    galfit_path: Annotated[
+        typer.FileBinaryRead,
+        typer.Option(
+            help="Path to GALFIT binary file.",
+            rich_help_panel="Paths",
+            exists=True,
+            dir_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
     config_path: Annotated[
         typer.FileText,
         typer.Option(
@@ -249,6 +260,7 @@ def galwrap(
         catalog_versions=catalog_versions,
         filters=filters,
         objects=objects,
+        galfit_path=galfit_path,
         display_progress=display_progress,
     )
 

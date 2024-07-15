@@ -20,6 +20,9 @@ git clone git@github.com:j-hive/morphfits.git
 cd morphfits
 poetry install
 ```
+Download the GALFIT binary for your system from [the official
+page](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html), and
+move it to the location of your choosing.
 
 Next, setup a directory structure in the location of your choosing by running
 ```
@@ -65,6 +68,7 @@ input/
 To run MorphFITS, write a `config.yaml` file in `morphfits_root` with the
 following content.
 ```
+galfit_path: .../galfit
 input_root: .../morphfits_root/input
 fields:
   - "abell2744clu"
@@ -77,8 +81,9 @@ filters:
 objects:
   - 10651
 ```
-Or, use `config.yaml` as found in this directory, modifying the `input_root`
-field. Then, navigate to the project directory `...morphfits` and run
+Or, use `config.yaml` as found in this directory, modifying the `galfit_path`
+and `input_root` fields. Then, navigate to the project directory `...morphfits`
+and run
 ```
 poetry run morphfits galwrap --config-path=[path to config]
 ```
