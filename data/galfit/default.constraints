@@ -1,0 +1,39 @@
+#   component   parameter   constraint  comment
+#   /operation              range
+
+    1           re          0.1 to 100  # Hard constraint: similar to above
+                                        # except constrain the Re parameters 
+                                        # by their ratio, as defined by the
+                                        # initial parameter file.
+    1           q           0.05 to 1   # Hard constraint: similar to above
+                                        # except constrain the Re parameters 
+                                        # by their ratio, as defined by the
+                                        # initial parameter file.
+
+    1           n           0.1 to 10   # Soft constraint: Constrains the 
+                                        # sersic index n to within values 
+                                        # from 0.1 to 10.
+
+    1           x           -3  3       # Soft constraint: Constrains 
+                                        # x-position of component
+                                        # 2 to within +0.5 and -1 of the
+                                        # >>INPUT<< value.
+   
+    1           y           -3  3       # Soft constraint: Constrains 
+                                        # x-position of component
+                                        # 2 to within +0.5 and -1 of the
+                                        # >>INPUT<< value.
+
+    1           mag         -3  3       # Soft constraint:  The magnitude 
+                                        # of component 7 is constrained to 
+                                        # be WITHIN a range -0.5 mag brighter 
+                                        # than component 3, 3 magnitudes 
+                                        # fainter.
+ 
+# Note on parameter column:
+#   The parameter name options are x, y, mag, re (or rs -- it doesn't matter),
+#   n, alpha, beta, gamma, pa, q, c, f1a (Fourier amplitude), f1p (Fourier
+#   phase angle), f2a, f2p, r5 (coordinate rotation), etc., .  Or 
+#   alternatively, one can specify the parameter number instead (for the
+#   classical parameters only) corresponding to the same numbers in the 
+#   galfit input file.

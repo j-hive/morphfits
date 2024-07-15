@@ -1,0 +1,11 @@
+input_root: # path to input root
+fields:
+  - "abell2744clu"
+image_versions:
+  - "grizli-v7.2"
+catalog_versions:
+  - "dja-v7.2"
+filters:
+  - f150w-clear
+objects:
+  - 10651

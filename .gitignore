@@ -1,5 +1,10 @@
 # User-defined
 sandbox/
+*.log.*
+galfit.*
+!galfit.py
+morphfits_root/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
