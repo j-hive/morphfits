@@ -261,6 +261,7 @@ def generate_feedfiles(
 
 
 def run_galfit(
+    galfit_path: Path,
     input_root: Path,
     product_root: Path,
     output_root: Path,
@@ -275,6 +276,8 @@ def run_galfit(
 
     Parameters
     ----------
+    galfit_path : Path
+        Path to GALFIT binary file.
     input_root : Path
         Path to root MorphFITS input directory.
     product_root : Path
@@ -327,7 +330,6 @@ def run_galfit(
             continue
 
         ## Copy GALFIT and constraints to FICLO product directory
-        galfit_path = GALFIT_DATA_ROOT / "galfit"
         constraints_path = GALFIT_DATA_ROOT / "default.constraints"
         ficlo_products_path = paths.get_path(
             "ficlo_products",
@@ -642,6 +644,7 @@ def main(
     if not skip_fits:
         for ficl in morphfits_config.get_FICLs():
             return_codes = run_galfit(
+                galfit_path=morphfits_config.galfit_path,
                 input_root=morphfits_config.input_root,
                 output_root=morphfits_config.output_root,
                 product_root=morphfits_config.product_root,
