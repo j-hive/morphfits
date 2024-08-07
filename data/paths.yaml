@@ -237,10 +237,12 @@ morphfits_log:
   path: "[run]/morphfits.log"
   alts:
     - program log
-parameters:
+morphfits_catalog:
   file: True
-  path: "[run]/parameters.csv"
+  path: "[run]/catalog.csv"
   alts:
+    - parameters
+    - run catalog
     - fit parameters
     - success
     - failure

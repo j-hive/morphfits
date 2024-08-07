@@ -450,16 +450,16 @@ def record_parameters(
         Display progress on terminal screen, by default False.
     """
     logger.info(
-        "Recording parameters for FICL "
+        "Recording fitting parameters in catalog for FICL "
         + f"{'_'.join([field, image_version, catalog_version, filter])}."
     )
 
     # Create CSV if missing and write headers
-    parameters_path = paths.get_path(
-        "parameters", run_root=run_root, datetime=datetime, run_number=run_number
+    morphfits_catalog_path = paths.get_path(
+        "morphfits_catalog", run_root=run_root, datetime=datetime, run_number=run_number
     )
-    if not parameters_path.exists():
-        with open(parameters_path, mode="w", newline="") as csv_file:
+    if not morphfits_catalog_path.exists():
+        with open(morphfits_catalog_path, mode="w", newline="") as csv_file:
             writer = csv.writer(csv_file)
             writer.writerow(
                 [
@@ -585,13 +585,13 @@ def record_parameters(
                 csv_row.append(parameter)
             for error in errors:
                 csv_row.append(error)
-            with open(parameters_path, mode="a", newline="") as csv_file:
+            with open(morphfits_catalog_path, mode="a", newline="") as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(csv_row)
 
         ## Write empty row for failures
         else:
-            with open(parameters_path, mode="a", newline="") as csv_file:
+            with open(morphfits_catalog_path, mode="a", newline="") as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(
                     [

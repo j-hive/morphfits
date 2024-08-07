@@ -96,7 +96,7 @@ morphfits_root/
         ├── files.csv
         ├── histogram.png
         ├── morphfits.log
-        └── parameters.csv
+        └── catalog.csv
 </pre>
 </td>
 
@@ -150,7 +150,7 @@ morphfits_root/
         ├── files
         ├── histogram
         ├── morphfits_log
-        └── parameters
+        └── morphfits_catalog
 </pre>
 </td>
 </tr>
@@ -203,4 +203,4 @@ running `paths.get_path` for the required variables.
 |Run|`files`|`.csv`|`d`|Modified or created files from run.|
 |Run|`histogram`|`.png`|`d`|Histogram depicting parameter distribution.|
 |Run|`morphfits_log`|`.log`|`d`|MorphFITS program log from run.|
-|Run|`parameters`|`.csv`|`d`|Parameters found from run.|
+|Run|`morphfits_catalog`|`.csv`|`d`|Parameters found from run.|
