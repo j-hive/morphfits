@@ -206,9 +206,9 @@ def generate_stamps(
                     ]
                 )
                 total_area = ((2 + odd_flag) ** 2) * pixscale[0] * pixscale[1]
-                flux_per_pixel = total_flux * BUNIT / total_area
-                stamp_headers["SURFACE_BRIGHTNESS"] = -2.5 * np.log10(
-                    flux_per_pixel / AB_ZEROPOINT
+                flux_per_pixel = total_flux / total_area
+                stamp_headers["SURFACE_BRIGHTNESS"] = (
+                    -2.5 * np.log10(flux_per_pixel) + header["ZP"]
                 )
 
                 # Wrote stamp to FITS file

@@ -463,21 +463,29 @@ def record_parameters(
             writer = csv.writer(csv_file)
             writer.writerow(
                 [
+                    "use",
                     "field",
                     "image version",
                     "catalog version",
                     "filter",
                     "object",
-                    "success",
-                    "status",
-                    "galfit flags",
+                    "return code",
+                    "flags",
+                    "convergence",
                     "center x",
                     "center y",
-                    "integrated magnitude",
+                    "surface brightness",
                     "effective radius",
-                    "concentration",
+                    "sersic",
                     "axis ratio",
                     "position angle",
+                    "center x error",
+                    "center y error",
+                    "surface brightness error",
+                    "effective radius error",
+                    "sersic error",
+                    "axis ratio error",
+                    "position angle error",
                 ]
             )
 
@@ -520,12 +528,6 @@ def record_parameters(
             del galfit_model_headers
             gc.collect()
 
-            ### Get validity ("success") from return code and flags
-            if (return_code != 0) or ((flags & FAIL) > 0):
-                success = False
-            else:
-                success = True
-
             ### Get parameters from GALFIT log
             with open(galfit_log_path, mode="r") as log_file:
                 lines = log_file.readlines()
@@ -536,23 +538,53 @@ def record_parameters(
                         and ("Input image" in lines[i + 2])
                     ):
                         raw_parameters = lines[i + 7].split()[3:]
+                        raw_errors = lines[i + 8].split()[1:]
                         break
                     else:
                         i += 1
 
+            ### Strip parameters and append to list[str]
+            parameters, errors = [], []
+            convergence = 0
+            for i in range(len(raw_parameters)):
+                parameter = raw_parameters[i].strip()
+                error = raw_errors[i].strip()
+                for unwanted_character in ["(", ")", ":", ",", '"']:
+                    if unwanted_character in parameter:
+                        parameter = parameter.replace(unwanted_character, "")
+                    if unwanted_character in error:
+                        error = error.replace(unwanted_character, "")
+                parameters.append(parameter)
+                errors.append(error)
+
+                #### Only care about convergence of size, sersic, and ratio
+                if i in [3, 4, 5]:
+                    for fail_indicator in ["[", "]", "*"]:
+                        if fail_indicator in parameters[i]:
+                            convergence += 2**i
+
+            ### Get validity ("success") from return code, flags, and convergence
+            if (return_code != 0) or ((flags & FAIL) > 0) or (convergence > 0):
+                use = False
+            else:
+                use = True
+
             ### Write parameters and flags to CSV
             csv_row = [
+                use,
                 field,
                 image_version,
                 catalog_version,
                 filter,
                 object,
-                success,
                 return_code,
                 flags,
+                convergence,
             ]
-            for raw_parameter in raw_parameters:
-                csv_row.append(raw_parameter.replace(")", "").replace(",", ""))
+            for parameter in parameters:
+                csv_row.append(parameter)
+            for error in errors:
+                csv_row.append(error)
             with open(parameters_path, mode="a", newline="") as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(csv_row)
@@ -563,14 +595,22 @@ def record_parameters(
                 writer = csv.writer(csv_file)
                 writer.writerow(
                     [
+                        False,
                         field,
                         image_version,
                         catalog_version,
                         filter,
                         object,
-                        False,
                         return_code,
                         0,
+                        0,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
                         "",
                         "",
                         "",
@@ -595,7 +635,7 @@ def main(
     keep_feedfiles: bool = False,
     skip_products: bool = False,
     skip_fits: bool = False,
-    skip_plots: bool = False,
+    make_plots: bool = False,
     display_progress: bool = False,
 ):
     """Orchestrate GalWrap functions for passed configurations.
@@ -620,8 +660,8 @@ def main(
         Skip all product generation, by default False.
     skip_fits : bool, optional
         Skip all morphology fitting via GALFIT, by default False.
-    skip_plots : bool, optional
-        Skip plotting fits, by default False.
+    make_plots : bool, optional
+        Generate model plots, by default False.
     display_progress : bool, optional
         Display progress as loading bar and suppress logging, by default False.
     """
@@ -670,7 +710,7 @@ def main(
             )
 
     # Plot models, for each FICLO
-    if not skip_plots:
+    if make_plots:
         for ficl in morphfits_config.get_FICLs():
             plots.plot_model(
                 output_root=morphfits_config.output_root,

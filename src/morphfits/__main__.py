@@ -227,11 +227,11 @@ def galwrap(
             is_flag=True,
         ),
     ] = False,
-    skip_plots: Annotated[
+    make_plots: Annotated[
         bool,
         typer.Option(
-            "--skip-plots",
-            help="Skip all model plotting and visualizations.",
+            "--make-plots",
+            help="Generate model visualizations.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
@@ -287,7 +287,7 @@ def galwrap(
         keep_feedfiles=keep_feedfiles,
         skip_products=skip_products,
         skip_fits=skip_fits,
-        skip_plots=skip_plots,
+        make_plots=make_plots,
         display_progress=display_progress,
     )
 

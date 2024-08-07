@@ -313,7 +313,7 @@ def plot_model(
         plt.axis("off")
 
         plt.subplot(2, 3, 2)
-        plt.imshow(sigma, cmap=JHIVE_CMAP)
+        plt.imshow(sigma, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
         plt.title("sigma", y=0, fontsize=20, color="white")
         plt.axis("off")
 
@@ -323,12 +323,17 @@ def plot_model(
         plt.axis("off")
 
         plt.subplot(2, 3, 4)
-        plt.imshow(model, cmap=JHIVE_CMAP)
+        plt.imshow(
+            model,
+            cmap=JHIVE_CMAP,
+            vmin=stamp_min,
+            vmax=stamp_max,
+        )
         plt.title(wrapper + " model", y=0, fontsize=20, color="white")
         plt.axis("off")
 
         plt.subplot(2, 3, 5)
-        plt.imshow(residual, cmap=JHIVE_CMAP)
+        plt.imshow(residual, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
         plt.title("residuals", y=0, fontsize=20, color="white")
         plt.axis("off")
 
