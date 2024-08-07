@@ -92,9 +92,11 @@ morphfits_root/
 │                       └── F_I_C_L_O_stamp.fits
 └── runs/
     └── D.N/
+        ├── config.yaml
+        ├── files.csv
+        ├── histogram.png
         ├── morphfits.log
-        ├── parameters.csv
-        └── config.yaml
+        └── parameters.csv
 </pre>
 </td>
 
@@ -144,9 +146,11 @@ morphfits_root/
 │                       └── stamp
 └── run_root/
     └── run/
+        ├── config
+        ├── files
+        ├── histogram
         ├── morphfits_log
-        ├── parameters
-        └── config
+        └── parameters
 </pre>
 </td>
 </tr>
@@ -195,6 +199,8 @@ running `paths.get_path` for the required variables.
 |Product|`stamp`|`.fits`|`yFICLO`|Object cutout.|
 |Run|`run_root`|`/`|`r`|Directory for records from all runs.|
 |Run|`run`|`/`|`rDN`|Directory for records from a single run.|
+|Run|`config`|`.yaml`|`d`|Configuration settings from run.|
+|Run|`files`|`.csv`|`d`|Modified or created files from run.|
+|Run|`histogram`|`.png`|`d`|Histogram depicting parameter distribution.|
 |Run|`morphfits_log`|`.log`|`d`|MorphFITS program log from run.|
 |Run|`parameters`|`.csv`|`d`|Parameters found from run.|
-|Run|`config`|`.yaml`|`d`|Configuration settings from run.|
