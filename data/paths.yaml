@@ -104,6 +104,13 @@ plots:
     - ficlo viz
     - viz
 ## Files
+morphfits_catalog:
+  file: True
+  path: "[output_root]/catalog.csv"
+  alts:
+    - output catalog
+    - all runs
+    - all fits
 ficl_objects:
   file: True
   path: "[ficl_output]/{F}_{I}_{C}_{L}_objects.png"
@@ -237,11 +244,10 @@ morphfits_log:
   path: "[run]/morphfits.log"
   alts:
     - program log
-morphfits_catalog:
+parameters:
   file: True
-  path: "[run]/catalog.csv"
+  path: "[run]/parameters.csv"
   alts:
-    - parameters
     - run catalog
     - fit parameters
     - success

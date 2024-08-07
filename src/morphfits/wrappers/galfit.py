@@ -421,6 +421,7 @@ def record_parameters(
     filter: str,
     objects: list[int],
     display_progress: bool = False,
+    for_run: bool = True,
 ):
     """Record GALFIT fitting parameters to the corresponding run directory.
 
@@ -448,6 +449,9 @@ def record_parameters(
         List of object IDs in catalog for which to generate feedfiles.
     display_progress : bool, optional
         Display progress on terminal screen, by default False.
+    for_run : bool, optional
+        Record parameters only for this run, i.e. to `parameters`, else to
+        `morphfits_catalog`, by default True.
     """
     logger.info(
         "Recording fitting parameters in catalog for FICL "
@@ -455,11 +459,12 @@ def record_parameters(
     )
 
     # Create CSV if missing and write headers
-    morphfits_catalog_path = paths.get_path(
-        "morphfits_catalog", run_root=run_root, datetime=datetime, run_number=run_number
+    path_name = "parameters" if for_run else "morphfits_catalog"
+    out_catalog_path = paths.get_path(
+        path_name, run_root=run_root, datetime=datetime, run_number=run_number
     )
-    if not morphfits_catalog_path.exists():
-        with open(morphfits_catalog_path, mode="w", newline="") as csv_file:
+    if not out_catalog_path.exists():
+        with open(out_catalog_path, mode="w", newline="") as csv_file:
             writer = csv.writer(csv_file)
             writer.writerow(
                 [
@@ -585,13 +590,13 @@ def record_parameters(
                 csv_row.append(parameter)
             for error in errors:
                 csv_row.append(error)
-            with open(morphfits_catalog_path, mode="a", newline="") as csv_file:
+            with open(out_catalog_path, mode="a", newline="") as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(csv_row)
 
         ## Write empty row for failures
         else:
-            with open(morphfits_catalog_path, mode="a", newline="") as csv_file:
+            with open(out_catalog_path, mode="a", newline="") as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(
                     [
@@ -708,6 +713,8 @@ def main(
                 objects=ficl.objects,
                 display_progress=display_progress,
             )
+
+    # Generate catalog from all discovered fit parameters TODO
 
     # Plot models, for each FICLO
     if make_plots:

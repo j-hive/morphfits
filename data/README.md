@@ -61,6 +61,7 @@ morphfits_root/
 │               ├── F-I-L_dr[c/z]_sci.fits
 │               └── F-I-L_dr[c/z]_wht.fits
 ├── output/
+│   ├── catalog.csv
 │   └── F/
 │       └── I/
 │           └── C/
@@ -96,7 +97,7 @@ morphfits_root/
         ├── files.csv
         ├── histogram.png
         ├── morphfits.log
-        └── catalog.csv
+        └── parameters.csv
 </pre>
 </td>
 
@@ -115,6 +116,7 @@ morphfits_root/
 │               ├── science
 │               └── weights
 ├── output_root/
+│   ├── morphfits_catalog
 │   └── .../
 │       └── .../
 │           └── .../
@@ -150,7 +152,7 @@ morphfits_root/
         ├── files
         ├── histogram
         ├── morphfits_log
-        └── morphfits_catalog
+        └── parameters
 </pre>
 </td>
 </tr>
@@ -175,6 +177,7 @@ running `paths.get_path` for the required variables.
 |Input|`science`|`.fits`|`xFIL`|Science frame.|
 |Input|`weights`|`.fits`|`xFIL`|Weights map.|
 |Output|`output_root`|`/`|`z`|Root directory for all output files.|
+|Output|`morphfits_catalog`|`.csv`||Catalog of all fits under root.|
 |Output|`ficl_output`|`/`|`zFICLO`|Directory for all output for a FICL.|
 |Output|`ficl_objects`|`.png`|`zFICLO`|Image showing all objects in a FICL.|
 |Output|`ficlo_output`|`/`|`zFICLO`|Directory for all output for a FICLO.|
@@ -203,4 +206,4 @@ running `paths.get_path` for the required variables.
 |Run|`files`|`.csv`|`d`|Modified or created files from run.|
 |Run|`histogram`|`.png`|`d`|Histogram depicting parameter distribution.|
 |Run|`morphfits_log`|`.log`|`d`|MorphFITS program log from run.|
-|Run|`morphfits_catalog`|`.csv`|`d`|Parameters found from run.|
+|Run|`parameters`|`.csv`|`d`|Parameters found from run.|
