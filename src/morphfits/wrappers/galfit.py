@@ -10,6 +10,7 @@ import shutil
 from subprocess import Popen, PIPE, STDOUT
 from pathlib import Path
 from datetime import datetime as dt
+import re
 import csv
 
 from astropy.io import fits
@@ -63,6 +64,18 @@ See Also
 --------
 README.md 
     Breakdown on binary flag values, and which flags result in failed runs. 
+"""
+
+
+GALFIT_LOG_REGEX = "[\*|\[]?\d{1,10}[\.]\d{1,2}[\*|\[]?"
+GALFIT_LOG_FLOAT_REGEX = "\d{1,10}[\.]\d{1,2}"
+"""Regex for seven .2f numbers found in GALFIT logs, which may or may not be
+enveloped by * or [] characters.
+
+See Also
+--------
+`record_parameters`
+    Function using this expression to record the fitting parameters from logs.
 """
 
 
@@ -215,7 +228,7 @@ def generate_feedfiles(
         header = stamp_file["PRIMARY"].header
         magnitude = header["SURFACE_BRIGHTNESS"]
 
-        ## Cleary memory
+        ## Clear memory
         stamp_file.close()
         del stamp_file
         del header
@@ -421,7 +434,6 @@ def record_parameters(
     filter: str,
     objects: list[int],
     display_progress: bool = False,
-    for_run: bool = True,
 ):
     """Record GALFIT fitting parameters to the corresponding run directory.
 
@@ -450,8 +462,6 @@ def record_parameters(
     display_progress : bool, optional
         Display progress on terminal screen, by default False.
     for_run : bool, optional
-        Record parameters only for this run, i.e. to `parameters`, else to
-        `morphfits_catalog`, by default True.
     """
     logger.info(
         "Recording fitting parameters in catalog for FICL "
@@ -459,9 +469,8 @@ def record_parameters(
     )
 
     # Create CSV if missing and write headers
-    path_name = "parameters" if for_run else "morphfits_catalog"
     out_catalog_path = paths.get_path(
-        path_name, run_root=run_root, datetime=datetime, run_number=run_number
+        "parameters", run_root=run_root, datetime=datetime, run_number=run_number
     )
     if not out_catalog_path.exists():
         with open(out_catalog_path, mode="w", newline="") as csv_file:
@@ -542,31 +551,25 @@ def record_parameters(
                         and (lines[i][0] != "#")
                         and ("Input image" in lines[i + 2])
                     ):
-                        raw_parameters = lines[i + 7].split()[3:]
-                        raw_errors = lines[i + 8].split()[1:]
+                        raw_parameters = re.findall(GALFIT_LOG_REGEX, lines[i + 7])
+                        errors = re.findall(GALFIT_LOG_FLOAT_REGEX, lines[i + 8])
                         break
                     else:
                         i += 1
 
             ### Strip parameters and append to list[str]
-            parameters, errors = [], []
+            parameters = []
             convergence = 0
             for i in range(len(raw_parameters)):
-                parameter = raw_parameters[i].strip()
-                error = raw_errors[i].strip()
-                for unwanted_character in ["(", ")", ":", ",", '"']:
-                    if unwanted_character in parameter:
-                        parameter = parameter.replace(unwanted_character, "")
-                    if unwanted_character in error:
-                        error = error.replace(unwanted_character, "")
-                parameters.append(parameter)
-                errors.append(error)
+                parameter = raw_parameters[i]
 
                 #### Only care about convergence of size, sersic, and ratio
                 if i in [3, 4, 5]:
                     for fail_indicator in ["[", "]", "*"]:
-                        if fail_indicator in parameters[i]:
-                            convergence += 2**i
+                        if fail_indicator in parameter:
+                            convergence += 2 ** (i - 3)
+                            parameter = parameter.replace(fail_indicator, "")
+                parameters.append(parameter)
 
             ### Get validity ("success") from return code, flags, and convergence
             if (return_code != 0) or ((flags & FAIL) > 0) or (convergence > 0):
@@ -730,5 +733,12 @@ def main(
                 wrapper="galfit",
                 display_progress=display_progress,
             )
+
+    # Plot histogram for each run
+    plots.plot_histogram(
+        run_root=morphfits_config.run_root,
+        datetime=morphfits_config.datetime,
+        run_number=morphfits_config.run_number,
+    )
 
     logger.info("Exiting GalWrap.")
