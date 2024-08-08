@@ -230,13 +230,14 @@ def generate_stamps(
                 del stamp_hdul
                 gc.collect()
             else:
-                if np.amax(stamp.data) <= 0:
-                    logger.debug(f"Skipping object {object}, missing nonzero data.")
-                else:
-                    logger.debug(
-                        f"Skipping object {object}, dimensions "
-                        + f"{stamp.data.shape} don't match expected image size {image_size}."
-                    )
+                if not display_progress:
+                    if np.amax(stamp.data) <= 0:
+                        logger.debug(f"Skipping object {object}, missing nonzero data.")
+                    else:
+                        logger.debug(
+                            f"Skipping object {object}, dimensions "
+                            + f"{stamp.data.shape} don't match expected image size {image_size}."
+                        )
                 skipped.append(object)
 
             # Clear memory
