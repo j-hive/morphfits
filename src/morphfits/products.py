@@ -207,7 +207,7 @@ def generate_stamps(
                 )
                 total_area = ((2 + odd_flag) ** 2) * pixscale[0] * pixscale[1]
                 flux_per_pixel = total_flux / total_area
-                stamp_headers["SURFACE_BRIGHTNESS"] = (
+                stamp_headers["SURFACE_BRIGHTNESS"] = np.nan_to_num(
                     -2.5 * np.log10(flux_per_pixel) + header["ZP"]
                 )
 
