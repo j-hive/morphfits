@@ -17,6 +17,7 @@ pydantic = "^2.7.1"
 pyyaml = "^6.0.1"
 jinja2 = "^3.1.3"
 imcascade = "^1.1"
+pandas = "^2.2.2"
 
 [tool.poetry.scripts]
 morphfits = 'morphfits.__main__:main'
