@@ -385,7 +385,7 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
     # Plot histograms on each parameter per filter
     ## Plot histogram for usability
     plt.subplot(2, 3, 1)
-    labels_0 = ["yes", "no"]
+    labels_0 = ["no", "yes"]
     bins_0 = np.arange(3)
     max_count = 0
     for filter in filters:
