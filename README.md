@@ -3,6 +3,7 @@ MorphFITS is a morphology fitter program for Python.
 
 In its current iteration, it contains GalWrap, a wrapper for GALFIT, for JWST data.
 
+
 # Installation
 To install this program, clone this repository, navigate to it, and install via
 [Poetry](https://python-poetry.org/docs/).
@@ -14,31 +15,10 @@ poetry install
 
 Then, download the GALFIT binary corresponding to your system [here](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html).
 
-# Quickstart
-To see what the directory structure, the products and output, and the run looks
-like, use one of the settings from [the examples directory](./examples/). For
-example, for the field `abell2744clu`, image version `grizli-v7.2`, catalog
-version `dja-v7.2`, filter `f200w`, and object `4215`, using GALFIT, run from
-the base directory (`morphfits`)
 
-```
-sh ./examples/single_ficlo/setup.sh
-```
-in a bash environment to download and unzip JWST data, which will take several
-minutes and ~`13GB`. Then, download [the simulated PSF for the filter
-here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
-and move it to `examples/single_ficlo/morphfits_root/input/psfs/`, for example via
-```
-mv [download folder]/PSF_NIRCam_in_flight_opd_filter_F200W.fits ./examples/single_ficlo/morphfits_root/input/psfs
-```
-Then, run 
-```
-poetry run morphfits galwrap --galfit-path=[path to GALFIT binary] --config-path=./examples/single_ficlo/config.yaml
-```
-replacing the `galfit-path` option with a path to your downloaded GALFIT binary,
-and MorphFITS will run GalWrap, a wrapper for GALFIT, over the FICLOs found in
-`config.yaml`. The outputs can be found at
-`examples/single_ficlo/morphfits_root/output`.
+# Quickstart
+To quickstart MorphFITS, please follow one of the guides in [the examples
+directory](./examples/).
 
 
 # Setup
@@ -55,22 +35,16 @@ here](./data/README.md).
 |`L`|Filter|
 |`O`|Object|
 
-For a given FICLO, the program requires the following files,
+For a given FICLO, the program requires the following files.
 
-1. Simulated PSF, which can be [downloaded from STSci for a
-   filter](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124).
-2. Segmentation map, which can be [downloaded from JWST for a field and image
-   version](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
-3. Photometric catalog, which can be [downloaded from JWST for a field and image
-version](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
-4. Exposure map, which can be [downloaded from JWST for a field, image version,
-and filter](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
-5. Science frame, which can be [downloaded from JWST for a field, image version,
-and filter](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
-6. Weights map, which can be [downloaded from JWST for a field, image version,
-and filter](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html).
+1. [Simulated PSF](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
+2. [Segmentation map](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
+3. [Photometric catalog](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
+4. [Exposure map](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
+5. [Science frame](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
+6. [Weights map](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
 
-and the following input directory/filename structure,
+and the following input directory/filename structure.
 <table>
 <tr>
 <th>
@@ -111,14 +85,16 @@ input/
 </tr>
 </table>
 
-for a given filter `{F}`, image version `{I}`, and filter `{L}`, and where the
-final three files contain either the string `drc` or `drz`. Note the
-segmentation map, exposure map, science frame, and weights map are downloaded as
-`.fits.gz` files, and must be uncompressed, e.g. via `gzip -vd *` in the
-appropriate directories. MorphFITS will create product and output directories
-from the root of the input directory, so to avoid git conflicts, it is
-recommended to locate the input directory under an untracked directory, such as
-`sandbox`, or `morphfits_root`.
+for a given filter `{F}`, image version `{I}`, and filter `{L}`.
+
+Please note
+- the final three files contain either the string `drc` or `drz`
+- MorphFITS will create product and output directories from the parent of the
+  input directory
+- several files are downloaded as `.fits.gz` files
+  - it is recommended to unzip them, for example via `gzip -vd *`
+- directories named `sandbox` and `morphfits_root` are untracked by git
+  - it is recommended to use one of these directories to avoid git conflicts
 
 
 # Usage
@@ -126,22 +102,22 @@ The program can be configured in three ways. If it receives parameters from mult
 sources, it will use the values in this order.
 
 1. CLI call (see below)
-2. Configuration file [(see a sample here)](./data/galfit/sample_config.yaml)
-3. Automatic input detection
+2. Configuration file [(see a sample here)](./examples/config.yaml)
+3. Input directory crawling
 
-The program requires the following parameters to run. Note the first cannot be
-discovered, and must be declared via CLI call or configuration file. As well,
-the only available wrapper is `galwrap`.
+The program requires the following parameters to run the GALFIT wrapper,
+GalWrap. Note a path to a GALFIT binary *must* be provided.
 
-|CLI Key|File Key|Type|Description|
+|CLI Key|YAML Key|Type|Description|
 |:---|:---|:---|:---|
+|`--config-path`||`str`|Path to configuration YAML file.|
 |`--galfit-path`|`galfit_path`|`str`|Path to GALFIT binary file.|
 |`--input-root`|`input_root`|`str`|Path to input directory root.|
-|`--fields`|`fields`|`list[str]`|Fields of frames over which to fit.|
-|`--image-versions`|`image_versions`|`list[str]`|Image versions of frames over which to fit.|
-|`--catalog-versions`|`catalog_versions`|`list[str]`|Catalog versions over which to fit.|
-|`--filters`|`filters`|`list[str]`|Filters of frames over which to fit.|
-|`--objects`|`objects`|`list[int]`|Object IDs in catalog over which to fit.|
+|`--field`|`fields`|`list[str]`|Fields of frames over which to fit.|
+|`--image-version`|`image_versions`|`list[str]`|Image versions of frames over which to fit.|
+|`--catalog-version`|`catalog_versions`|`list[str]`|Catalog versions over which to fit.|
+|`--filter`|`filters`|`list[str]`|Filters of frames over which to fit.|
+|`--object`|`objects`|`list[int]`|Object IDs in catalog over which to fit.|
 
 
 ## Terminal
@@ -151,14 +127,17 @@ poetry run morphfits [wrapper] [OPTIONS]
 ```
 and use the flag `--help` for details on each option.
 
+To declare multiple fields, image versions, etc. via CLI call, list them in
+separate flags, i.e. 
+```
+poetry run morphfits [wrapper] --field=deep --field=shallow --field=north [OPTIONS]
+```
 
 ## Configuration File
 To run MorphFITS via a configuration file, run
 ```
 poetry run morphfits [wrapper] --config-path=[config_path] [OPTIONS]
 ```
-
-for the path to some configuration file.
 
 
 # Stages
@@ -188,28 +167,27 @@ other files, refer to [the data documentation](./data/README.md).
 
 |Header|Type|Description|
 |:---|:---|:---|
+|`use`|`bool`|This model is usable for scientific analysis.|
 |`field`|`str`|Field of image.|
 |`image version`|`str`|Image processing version.|
 |`catalog version`|`str`|Cataloging version.|
 |`filter`|`str`|Filter wavelength.|
 |`object`|`int`|Object ID in catalog.|
-|`use`|`bool`|Fitting successful and accurate.|
-|`status`|`int`|Fitting return code.|
-|`galfit flags`|`int`|Bit-mask of GALFIT flags.|
+|`return code`|`int`|GALFIT return code.|
+|`flags`|`int`|GALFIT flags bitmask.|
+|`convergence`|`int`|Fitting parameter convergence bitmask.|
 |`center x`|`float`|X-position of model center.|
 |`center y`|`float`|Y-position of model center.|
-|`integrated magnitude`|`float`|Total flux across image.|
+|`surface brightness`|`float`|Flux at surface of object.|
 |`effective radius`|`float`|Effective object radius.|
-|`concentration`|`float`|`n`, concentration parameter.|
+|`sersic`|`float`|`n`, concentration parameter.|
 |`axis ratio`|`float`|Ratio of model axes.|
 |`position angle`|`float`|Rotation angle of model.|
 
-The header `use` is a flag indicating the validity of a fit and whether or not
-it is recommended for usage, based on the status and flags raised, detailed
-below.
+as well as the errors on each parameter.
 
-The header `status` records the integer code returned by the fitting program,
-detailed below. Note any nonzero code represents a failure.
+
+### GALFIT Return Codes
 
 |Code|Description|
 |:---|:---|
@@ -218,8 +196,7 @@ detailed below. Note any nonzero code represents a failure.
 |`2`|Missing products.|
 |`139`|Segmentation fault.|
 
-The header `galfit flags` records the flags raised by GALFIT, detailed below.
-Note not all flags result in failed fittings.
+### GALFIT Flags Bitmask
 
 |Flag|Fails|Bit|Value|Description|
 |:---|:---:|---:|---:|:---|
@@ -243,6 +220,14 @@ Note not all flags result in failed fittings.
 |`I-4`||17|131072|Sigma image has zero or negative pixels; set to 1e10.|
 |`I-5`||18|262144|Pixel mask is not same size as data image.|
 
+### GALFIT Parameter Bitmask
+
+|Parameter|Fails|Bit|Value|
+|:---|:---|:---|:---|
+|`effective radius`|:x:|0|1|
+|`sersic`|:x:|1|2|
+|`axis ratio`|:x:|2|4|
+
 
 # Cookbook
 ## Typical Operation
@@ -253,19 +238,6 @@ poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml
 ```
 The model is visually compared in `[ficlo_output]/plots/F_I_C_L_O_products.png`, and
 stored as a FITS in `[ficlo_output]/galfit/F_I_C_L_O_galfit.fits`.
-
-
-## Selecting Objects
-To investigate objects of interest, generate stamp cutouts of each object in a
-science frame with
-```
-poetry run morphfits stamp [OPTIONS]
-```
-for the same CLI options as above. This will generate stamps of each available
-object for a given FICL, and store them in the product directory corresponding
-to either `[product_root]` or `[input_root]/../products`. It will then plot stamps,
-50 at a time, and store them in the corresponding output directory, i.e.
-`[ficl_output]/F_I_C_L_objects.png`.
 
 
 ## Regenerating Products

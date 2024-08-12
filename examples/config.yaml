@@ -1,5 +1,5 @@
-galfit_path: .../morphfits/sandbox/galfit
-input_root: .../morphfits/sandbox/galfit
+galfit_path: "[morphfits_path]/morphfits_root/galfit"
+input_root: "[morphfits_path]/morphfits_root/input"
 fields:
   - "abell2744clu"
 image_versions:

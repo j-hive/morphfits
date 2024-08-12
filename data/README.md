@@ -13,7 +13,7 @@ of a galaxy or cluster to be fitted.
 |:---|:---|:---|:---|
 |`F`|`field`|Center of field at which JWST instrument is pointed.|`abell2744clu`|
 |`I`|`image_version`|Program used to process JWST data.|`grizli-v7.2`|
-|`C`|`catalog_version`|Source of photometric catalog.|`dja`|
+|`C`|`catalog_version`|Source of photometric catalog.|`dja-v7.2`|
 |`L`|`filter`|Instrument filter(s) used.|`f200w-clear`|
 |`O`|`object`|Integer ID of galaxy or cluster in catalog.|`4215`|
 |`x`|`input_root`|Root input directory.|`morphfits_root/input`|
