@@ -140,6 +140,45 @@ poetry run morphfits [wrapper] --config-path=[config_path] [OPTIONS]
 ```
 
 
+# Cookbook
+## Download Input
+To download all the required input frames for a given FICLO, run
+```
+poetry run morphfits download --config-path=path/to/config.yaml
+```
+with a configuration file detailing FICLOs. Here's [an example of a
+configuration YAML](./examples.config.yaml). Note you are still required to
+download [the simulated PSF files from
+STSci](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
+and move them to the appropriate `input_root/psfs` directory.
+
+## Typical Operation
+A typical run of MorphFITS involves collecting and structuring the correct data,
+then running the program.
+```
+poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml
+```
+The model is visually compared in `[ficlo_output]/plots/F_I_C_L_O_products.png`, and
+stored as a FITS in `[ficlo_output]/galfit/F_I_C_L_O_galfit.fits`.
+
+
+## Regenerating Products
+Products can be recreated after adjusting some settings. The following flags can
+be used.
+|Flag|Default|Product|
+|:---|:---|:---|
+|`--regenerate-products`|`False`|All products (overrides others)|
+|`--regenerate-stamp`|`False`|Stamp cutouts|
+|`--regenerate-sigma`|`False`|Sigma maps|
+|`--regenerate-psf`|`False`|PSF crops|
+|`--regenerate-mask`|`False`|Mask cutouts|
+
+To regenerate all products for GALFIT, run
+```
+poetry run morphfits galwrap [OPTIONS] --regenerate-products
+```
+
+
 # Stages
 The program executes the following stages.
 
@@ -227,50 +266,6 @@ as well as the errors on each parameter.
 |`effective radius`|:x:|0|1|
 |`sersic`|:x:|1|2|
 |`axis ratio`|:x:|2|4|
-
-
-# Cookbook
-## Typical Operation
-A typical run of MorphFITS involves collecting and structuring the correct data,
-then running the program.
-```
-poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml
-```
-The model is visually compared in `[ficlo_output]/plots/F_I_C_L_O_products.png`, and
-stored as a FITS in `[ficlo_output]/galfit/F_I_C_L_O_galfit.fits`.
-
-
-## Regenerating Products
-Products can be recreated after adjusting some settings. The following flags can
-be used.
-|Flag|Default|Product|
-|:---|:---|:---|
-|`--regenerate-products`|`False`|All products (overrides others)|
-|`--regenerate-stamp`|`False`|Stamp cutouts|
-|`--regenerate-sigma`|`False`|Sigma maps|
-|`--regenerate-psf`|`False`|PSF crops|
-|`--regenerate-mask`|`False`|Mask cutouts|
-
-To regenerate all products for GALFIT, run
-```
-poetry run morphfits galwrap [OPTIONS] --regenerate-products
-```
-
-
-## Removing Products from GALFIT
-Generated products can be excluded from GALFIT. The following flags can be used
-to remove corresponding products from the generated feedfile. Note the feedfile
-must be regenerated.
-|Flag|Default|Product|Deactivate|
-|:---|:---|:---|:---|
-|`apply-sigma`|`True`|Sigma maps|`--no-apply-sigma`|
-|`apply-psf`|`True`|PSF crops|`--no-apply-psf`|
-|`apply-mask`|`True`|Masks|`--no-apply-mask`|
-
-To exclude all generated products from GALFTI, run
-```
-poetry run morphfits galwrap [OPTIONS] --regenerate-feedfile --no-apply-sigma --no-apply-psf --no-apply-mask
-```
 
 
 # References

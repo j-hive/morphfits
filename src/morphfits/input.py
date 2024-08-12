@@ -17,7 +17,6 @@ from urllib import request
 from pathlib import Path
 import csv
 
-import wget
 from tqdm import tqdm
 
 from morphfits import config, paths, ROOT
