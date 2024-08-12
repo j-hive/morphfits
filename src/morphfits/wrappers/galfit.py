@@ -545,7 +545,7 @@ def record_parameters(
             ### Get parameters from GALFIT log
             with open(galfit_log_path, mode="r") as log_file:
                 lines = log_file.readlines()
-                while i < len(lines):
+                while i < len(lines) - 8:
                     if (
                         ("---" in lines[i])
                         and (lines[i][0] != "#")
