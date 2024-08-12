@@ -141,9 +141,17 @@ class MorphFITSConfig(BaseModel):
     wrappers: list[str] = ["galfit"]
     galfit_path: Path = None
 
-    def get_FICLs(self) -> Generator[FICL, None, None]:
+    def get_FICLs(
+        self,
+        pre_input: bool = False,
+    ) -> Generator[FICL, None, None]:
         """Generate all FICL permutations for this configuration object, and
         return those with the necessary input files.
+
+        Parameters
+        ----------
+        pre_input : bool, optional
+            Skip file checks if this function is called prior to download.
 
         Yields
         ------
@@ -162,40 +170,45 @@ class MorphFITSConfig(BaseModel):
                 image_version=image_version,
                 filter=filter,
             )
+            if pre_input:
+                pixscale = [0.04, 0.04]
+            else:
+                pixscale = science.get_pixscale(science_path)
             ficl = FICL(
                 field=field,
                 image_version=image_version,
                 catalog_version=catalog_version,
                 filter=filter,
                 objects=self.objects,
-                pixscale=science.get_pixscale(science_path),
+                pixscale=pixscale,
             )
 
             # Skip FICL if any input missing
-            missing_input = False
-            for required_input in [
-                "original_psf",
-                "segmap",
-                "catalog",
-                "exposure",
-                "science",
-                "weights",
-            ]:
-                if not paths.get_path(
-                    name=required_input,
-                    input_root=self.input_root,
-                    field=field,
-                    image_version=image_version,
-                    catalog_version=catalog_version,
-                    filter=filter,
-                ).exists():
-                    logger.warning(
-                        f"FICL {ficl} missing {required_input} file, skipping."
-                    )
-                    missing_input = True
-                    break
-            if missing_input:
-                continue
+            if not pre_input:
+                missing_input = False
+                for required_input in [
+                    "original_psf",
+                    "segmap",
+                    "catalog",
+                    "exposure",
+                    "science",
+                    "weights",
+                ]:
+                    if not paths.get_path(
+                        name=required_input,
+                        input_root=self.input_root,
+                        field=field,
+                        image_version=image_version,
+                        catalog_version=catalog_version,
+                        filter=filter,
+                    ).exists():
+                        logger.warning(
+                            f"FICL {ficl} missing {required_input} file, skipping."
+                        )
+                        missing_input = True
+                        break
+                if missing_input:
+                    continue
 
             yield ficl
 
@@ -357,6 +370,7 @@ def create_config(
     wrappers: list[str] | None = None,
     galfit_path: str | Path | None = None,
     display_progress: bool = False,
+    setup_paths: bool = True,
 ) -> MorphFITSConfig:
     """Create a MorphFITS configuration object from hierarchically preferred
     variables, in order of values from
@@ -406,6 +420,8 @@ def create_config(
         Path to GALFIT binary file, by default None (not passed through CLI).
     display_progress : bool, optional
         Display progress via tqdm, by default False.
+    setup_paths : bool, optional
+        Create product and output directories where missing, by default True.
 
     Returns
     -------
@@ -509,7 +525,8 @@ def create_config(
         raise FileNotFoundError("GALFIT binary file not found or linked.")
 
     # Setup directories where missing
-    morphfits_config.setup_paths(display_progress=display_progress)
+    if setup_paths:
+        morphfits_config.setup_paths(display_progress=display_progress)
 
     # Return configuration object
     return morphfits_config
