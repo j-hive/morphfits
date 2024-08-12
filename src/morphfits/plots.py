@@ -362,11 +362,11 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
     run_catalog = pd.read_csv(parameters_path)
     filters = sorted(list(set(run_catalog["filter"])))
     parameters = [
-        "use",
-        "convergence",
+        "use for analysis",
+        "failed to converge",
         "surface brightness",
         "effective radius",
-        "sersic",
+        "sersic n",
         "axis ratio",
     ]
 
