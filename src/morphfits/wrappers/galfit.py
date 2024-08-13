@@ -734,11 +734,18 @@ def main(
                 display_progress=display_progress,
             )
 
-    # Plot histogram for each run
-    plots.plot_histogram(
+    # Plot histogram for each run if the run catalog exists
+    run_catalog_path = paths.get_path(
+        "parameters",
         run_root=morphfits_config.run_root,
         datetime=morphfits_config.datetime,
         run_number=morphfits_config.run_number,
     )
+    if run_catalog_path.exists():
+        plots.plot_histogram(
+            run_root=morphfits_config.run_root,
+            datetime=morphfits_config.datetime,
+            run_number=morphfits_config.run_number,
+        )
 
     logger.info("Exiting GalWrap.")

@@ -224,6 +224,11 @@ def setup_input_dirs(morphfits_config: config.MorphFITSConfig):
                     filter=ficl.filter,
                     object=object,
                 ).mkdir(parents=True, exist_ok=True)
+    # Make PSFs directory
+    paths.get_path(
+        name="input_psfs",
+        input_root=morphfits_config.input_root,
+    ).mkdir(parents=True, exist_ok=True)
 
 
 def get_files(

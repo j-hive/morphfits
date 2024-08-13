@@ -127,6 +127,7 @@ def generate_stamps(
     science_file = fits.open(science_path)
     image, header = science_file["PRIMARY"].data, science_file["PRIMARY"].header
     wcs = WCS(header)
+    zeropoint = science.get_zeropoint(image_path=science_path)
 
     # Clear file from memory
     science_file.close()
@@ -207,8 +208,10 @@ def generate_stamps(
                 )
                 total_area = ((2 + odd_flag) ** 2) * pixscale[0] * pixscale[1]
                 flux_per_pixel = total_flux / total_area
+                if "ZP" in header:
+                    zeropoint = header["ZP"]
                 stamp_headers["SURFACE_BRIGHTNESS"] = np.nan_to_num(
-                    -2.5 * np.log10(flux_per_pixel) + header["ZP"]
+                    -2.5 * np.log10(flux_per_pixel) + zeropoint
                 )
 
                 # Wrote stamp to FITS file

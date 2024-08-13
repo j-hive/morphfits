@@ -537,6 +537,13 @@ def create_config(
 
     # Setup directories where missing
     morphfits_config.setup_paths(display_progress=display_progress, pre_input=download)
+    if not download:
+        paths.get_path(
+            name="run",
+            run_root=morphfits_config.run_root,
+            datetime=morphfits_config.datetime,
+            run_number=morphfits_config.run_number,
+        ).mkdir(parents=True, exist_ok=True)
 
     # Return configuration object
     return morphfits_config

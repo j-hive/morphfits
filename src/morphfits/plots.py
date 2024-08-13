@@ -361,14 +361,14 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
     # Load catalog as data frame
     run_catalog = pd.read_csv(parameters_path)
     filters = sorted(list(set(run_catalog["filter"])))
-    parameters = [
-        "use for analysis",
-        "failed to converge",
-        "surface brightness",
-        "effective radius",
-        "sersic n",
-        "axis ratio",
-    ]
+    parameters = {
+        "use": "use for analysis",
+        "convergence": "failed to converge",
+        "surface brightness": "surface brightness",
+        "effective radius": "effective radius",
+        "sersic": "sersic n",
+        "axis ratio": "axis ratio",
+    }
 
     # Setup plot
     subplot_separation = 0.2
@@ -390,7 +390,7 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
     max_count = 0
     for filter in filters:
         quantized_use = []
-        for use in run_catalog[run_catalog["filter"] == filter][parameters[0]]:
+        for use in run_catalog[run_catalog["filter"] == filter]["use"]:
             quantized_use.append(1 if use else 0)
         count, bin_edges, patches = plt.hist(
             quantized_use,
@@ -403,7 +403,7 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
         )
         if np.max(count) > max_count:
             max_count = np.max(count)
-    plt.title(parameters[0], y=title_separation)
+    plt.title(parameters["use"], y=title_separation)
     plt.xticks(bins_0[:-1] + 0.5, labels_0)
     plt.yticks(get_y_ticks(max_count=max_count))
     reset_line_style()
@@ -415,7 +415,7 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
     max_count = 0
     for filter in filters:
         quantized_flags = []
-        for flags in run_catalog[run_catalog["filter"] == filter][parameters[1]]:
+        for flags in run_catalog[run_catalog["filter"] == filter]["convergence"]:
             for bin_1 in bins_1:
                 if flags & 2**bin_1:
                     quantized_flags.append(bin_1)
@@ -430,7 +430,7 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
         )
         if np.max(count) > max_count:
             max_count = np.max(count)
-    plt.title(parameters[1], y=title_separation)
+    plt.title(parameters["convergence"], y=title_separation)
     plt.xticks(bins_1[:-1] + 0.5, labels_1)
     plt.yticks(get_y_ticks(max_count=max_count))
     reset_line_style()
@@ -439,10 +439,12 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
     for i in range(2, len(parameters)):
         plt.subplot(2, 3, i + 1)
         max_count = 0
-        parameter_data = run_catalog[parameters[i]]
+        parameter_data = run_catalog[list(parameters.keys())[i]]
         bins = np.linspace(parameter_data.min(), parameter_data.max(), num_bins)
         for filter in filters:
-            parameter_data = run_catalog[run_catalog["filter"] == filter][parameters[i]]
+            parameter_data = run_catalog[run_catalog["filter"] == filter][
+                list(parameters.keys())[i]
+            ]
             count, bin_edges, patches = plt.hist(
                 parameter_data,
                 histtype=histogram_type,
@@ -452,9 +454,9 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
                 linestyle=next_line_style(),
                 label=filter,
             )
-            if np.max(count) > max_count:
+            if (len(count) > 0) and (np.max(count) > max_count):
                 max_count = np.max(count)
-        plt.title(parameters[i], y=title_separation)
+        plt.title(parameters[list(parameters.keys())[i]], y=title_separation)
         plt.yticks(get_y_ticks(max_count=max_count))
         reset_line_style()
     reset_line_style()
