@@ -32,6 +32,6 @@ def test_data_path(test_root: Path) -> Path:
 @pytest.fixture
 def configuration(test_data_path: Path):
     morphfits_config = config.create_config(
-        config_path=test_data_path / "config.yaml", setup_paths=False
+        config_path=test_data_path / "config.yaml", download=True
     )
     return morphfits_config

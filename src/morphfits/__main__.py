@@ -409,7 +409,7 @@ def download(
         wrappers=[""],
         galfit_path="",
         display_progress=False,
-        setup_paths=False,
+        download=True,
     )
 
     # Create program and module logger

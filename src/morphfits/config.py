@@ -212,7 +212,7 @@ class MorphFITSConfig(BaseModel):
 
             yield ficl
 
-    def setup_paths(self, display_progress: bool = False):
+    def setup_paths(self, display_progress: bool = False, pre_input: bool = False):
         """Create product and output directories for each FICLO of this
         configuration object.
 
@@ -220,12 +220,14 @@ class MorphFITSConfig(BaseModel):
         ----------
         display_progress : bool, optional
             Display setup progress via tqdm, by default False.
+        pre_input : bool, optional
+            Skip file checks if this function is called prior to download.
         """
         logger.info("Creating product and output directories where missing.")
         print("Creating product and output directories where missing.")
 
         # Iterate over each possible FICLO from configurations
-        for ficl in self.get_FICLs():
+        for ficl in self.get_FICLs(pre_input=pre_input):
             # Iterate over each object in FICL
             for object in (
                 tqdm(ficl.objects, unit="dir", leave=False)
@@ -370,7 +372,7 @@ def create_config(
     wrappers: list[str] | None = None,
     galfit_path: str | Path | None = None,
     display_progress: bool = False,
-    setup_paths: bool = True,
+    download: bool = False,
 ) -> MorphFITSConfig:
     """Create a MorphFITS configuration object from hierarchically preferred
     variables, in order of values from
@@ -420,8 +422,9 @@ def create_config(
         Path to GALFIT binary file, by default None (not passed through CLI).
     display_progress : bool, optional
         Display progress via tqdm, by default False.
-    setup_paths : bool, optional
-        Create product and output directories where missing, by default True.
+    download : bool, optional
+        Create configuration in download mode, i.e. create directory structure
+        if missing, by default False.
 
     Returns
     -------
@@ -454,14 +457,22 @@ def create_config(
         logger.error("Input root not passed, terminating.")
         raise FileNotFoundError("Input root not passed, terminating.")
     else:
-        if not Path(config_dict["input_root"]).resolve().exists():
-            logger.error(f"Input root {config_dict['input_root']} not found.")
-            raise FileNotFoundError(
-                f"Input root {config_dict['input_root']} not found."
-            )
+        input_root_dir = Path(config_dict["input_root"]).resolve()
+        if not input_root_dir.exists():
+            #### Create input root and other directories if in download mode
+            if download:
+                input_root_dir.mkdir(parents=True, exist_ok=True)
+            else:
+                logger.error(f"Input root {config_dict['input_root']} not found.")
+                raise FileNotFoundError(
+                    f"Input root {config_dict['input_root']} not found."
+                )
 
+    ### Set root directory as parent of input root if not found
     if "morphfits_root" not in config_dict:
         config_dict["morphfits_root"] = config_dict["input_root"].parent
+
+    ### Set product, output, and run directories from root directory
     for root in ["output_root", "product_root", "run_root"]:
         if root not in config_dict:
             config_dict[root] = paths.get_path(
@@ -525,8 +536,7 @@ def create_config(
         raise FileNotFoundError("GALFIT binary file not found or linked.")
 
     # Setup directories where missing
-    if setup_paths:
-        morphfits_config.setup_paths(display_progress=display_progress)
+    morphfits_config.setup_paths(display_progress=display_progress, pre_input=download)
 
     # Return configuration object
     return morphfits_config
