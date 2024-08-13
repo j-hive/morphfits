@@ -396,11 +396,7 @@ def download(
     # Create configuration object
     morphfits_config = config.create_config(
         config_path=config_path,
-        morphfits_root="",
         input_root=input_root,
-        output_root="",
-        product_root="",
-        run_root="",
         fields=fields,
         image_versions=image_versions,
         catalog_versions=catalog_versions,
