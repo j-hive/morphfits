@@ -25,9 +25,9 @@ page](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html), and
 move it to the location of your choosing. Ensure you're in the root directory, `morphfits`, and run
 
 ```
-sh ./examples/single_ficlo/setup.sh
+poetry run morphfits download --config-path=examples/single_ficlo/config.yaml
 ```
-in a bash environment to download and unzip JWST data, which will take several
+to download and unzip JWST data, which will take several
 minutes and ~`13GB`. Then, download [the simulated PSF for the filter
 here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
 and move it to `examples/single_ficlo/morphfits_root/input/psfs/`, for example via
