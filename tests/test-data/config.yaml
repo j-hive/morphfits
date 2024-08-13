@@ -1,14 +1,12 @@
-input_root: sandbox/filesys/jhive_galwrap_input
-product_root: sandbox/filesys/jhive_galwrap_products
-output_root: sandbox/filesys/jhive_galwrap_output
+galfit_path: tests/test-data/galfit
+input_root: tests/test-data/input
 fields:
   - "abell2744clu"
 image_versions:
   - "grizli-v7.2"
 catalog_versions:
-  - "DJA-v7.2"
+  - "dja-v7.2"
 filters:
-  - "F140W"
-  - "f444wclear"
+  - "f200w-clear"
 objects:
   - 1003
