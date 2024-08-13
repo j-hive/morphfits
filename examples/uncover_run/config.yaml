@@ -1,5 +1,5 @@
-galfit_path: # path to GALFIT binary
-input_root: # path to input root
+galfit_path: path/to/galfit
+input_root: ./examples/uncover_run/morphfits_root/input/
 fields:
   - "abell2744clu"
 image_versions:
@@ -9,4 +9,20 @@ catalog_versions:
 filters:
   - f150w-clear
 objects:
+  - 1003
+  - 2159
+  - 2258
+  - 3590
+  - 3613
+  - 4215
   - 10651
+  - 10654
+  - 10657
+  - 11964
+  - 11971
+  - 11982
+  - 16596
+  - 20048
+  - 25015
+  - 54788
+  - 60616
