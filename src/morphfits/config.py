@@ -4,6 +4,7 @@
 # Imports
 
 
+import gc
 import logging
 import itertools
 import shutil
@@ -11,15 +12,13 @@ from pathlib import Path
 from typing import Generator, Annotated
 from datetime import datetime as dt
 
-from numpy import sqrt
-from astropy.io import fits
 from astropy.table import Table
 import yaml
 from pydantic import BaseModel, StringConstraints
 from tqdm import tqdm
 
 from . import paths, ROOT
-from .utils import misc, science
+from .utils import logs, misc, science
 
 
 # Constants
@@ -450,8 +449,6 @@ def create_config(
     MorphFITSConfig
         A configuration object for this program execution.
     """
-    logger.info(f"Loading configuration.")
-    print("Loading configuration.")
 
     # Load config file values
     config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
@@ -474,7 +471,6 @@ def create_config(
     ## Paths
     ### Terminate if input root not found
     if "input_root" not in config_dict:
-        logger.error("Input root not passed, terminating.")
         raise FileNotFoundError("Input root not passed, terminating.")
     else:
         input_root_dir = Path(config_dict["input_root"]).resolve()
@@ -483,7 +479,6 @@ def create_config(
             if download:
                 input_root_dir.mkdir(parents=True, exist_ok=True)
             else:
-                logger.error(f"Input root {config_dict['input_root']} not found.")
                 raise FileNotFoundError(
                     f"Input root {config_dict['input_root']} not found."
                 )
@@ -514,8 +509,14 @@ def create_config(
         config_dict["wrappers"] = wrappers
 
     ## Set batch mode parameters
-    config_dict["object_first"] = object_first
-    config_dict["object_last"] = object_last
+    if "first_object" in config_dict:
+        config_dict["object_first"] = config_dict["first_object"]
+    else:
+        config_dict["object_first"] = object_first
+    if "last_object" in config_dict:
+        config_dict["object_last"] = config_dict["last_object"]
+    else:
+        config_dict["object_last"] = object_last
     config_dict["batch_n_process"] = batch_n_process
     config_dict["batch_process_id"] = batch_process_id
 
@@ -565,6 +566,8 @@ def create_config(
         catalog = Table.read(catalog_path)
         for id in catalog["id"]:
             catalog_range.append(int(id))
+        del catalog
+        gc.collect()
 
         ## Get specified object ID range from user
         if config_dict["object_first"] is None:
@@ -585,9 +588,9 @@ def create_config(
         batch_range = user_range[start_index:stop_index]
 
         ## Remove objects out of range
-        while batch_range[0] < catalog_range[0]:
+        while (len(batch_range) > 0) and (batch_range[0] < catalog_range[0]):
             batch_range.pop(0)
-        while batch_range[-1] > catalog_range[-1]:
+        while (len(batch_range) > 0) and (batch_range[-1] > catalog_range[-1]):
             batch_range.pop(-1)
 
         ## Set object ID range for this batch run
@@ -613,10 +616,6 @@ def create_config(
         (morphfits_config.galfit_path is None)
         or (not morphfits_config.galfit_path.exists())
     ):
-        logger.error(
-            "GALFIT chosen as fitter but binary file "
-            + "not found or linked, terminating."
-        )
         raise FileNotFoundError("GALFIT binary file not found or linked.")
 
     # Setup directories where missing
@@ -628,6 +627,30 @@ def create_config(
             datetime=morphfits_config.datetime,
             run_number=morphfits_config.run_number,
         ).mkdir(parents=True, exist_ok=True)
+
+    # Create logger
+    logs.create_logger(
+        filename=paths.get_path(
+            "morphfits_log",
+            run_root=morphfits_config.run_root,
+            datetime=morphfits_config.datetime,
+            run_number=morphfits_config.run_number,
+        )
+    )
+    global logger
+    logger = logging.getLogger("CONFIG")
+    main_logger = logging.getLogger("MORPHFITS")
+    main_logger.info("Starting MorphFITS.")
+
+    # Display if batch mode
+    if batch_n_process > 1:
+        logger.info(f"Running in batch mode.")
+        if len(morphfits_config.objects) > 0:
+            logger.info(
+                f"Batch object ID range: {morphfits_config.objects[0]} "
+                + f"to {morphfits_config.objects[-1]}."
+            )
+        logger.info(f"Batch process: {batch_process_id} / {batch_n_process}")
 
     # Return configuration object
     return morphfits_config
