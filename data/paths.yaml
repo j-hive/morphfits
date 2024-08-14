@@ -104,6 +104,13 @@ plots:
     - ficlo viz
     - viz
 ## Files
+morphfits_catalog:
+  file: True
+  path: "[output_root]/catalog.csv"
+  alts:
+    - output catalog
+    - all runs
+    - all fits
 ficl_objects:
   file: True
   path: "[ficl_output]/{F}_{I}_{C}_{L}_objects.png"
@@ -213,6 +220,25 @@ run:
   alts:
     - single run
 ## Files
+config:
+  file: True
+  path: "[run]/config.yaml"
+  alts:
+    - run config
+    - configuration
+files:
+  file: True
+  path: "[run]/files.csv"
+  alts:
+    - affected files
+    - created files
+    - modified files
+histogram:
+  file: True
+  path: "[run]/histogram.png"
+  alts:
+    - distribution
+    - parameter distribution
 morphfits_log:
   file: True
   path: "[run]/morphfits.log"
@@ -222,12 +248,7 @@ parameters:
   file: True
   path: "[run]/parameters.csv"
   alts:
+    - run catalog
     - fit parameters
     - success
     - failure
-config:
-  file: True
-  path: "[run]/config.yaml"
-  alts:
-    - run config
-    - configuration

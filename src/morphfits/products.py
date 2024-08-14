@@ -127,6 +127,7 @@ def generate_stamps(
     science_file = fits.open(science_path)
     image, header = science_file["PRIMARY"].data, science_file["PRIMARY"].header
     wcs = WCS(header)
+    zeropoint = science.get_zeropoint(image_path=science_path)
 
     # Clear file from memory
     science_file.close()
@@ -206,9 +207,11 @@ def generate_stamps(
                     ]
                 )
                 total_area = ((2 + odd_flag) ** 2) * pixscale[0] * pixscale[1]
-                flux_per_pixel = total_flux * BUNIT / total_area
-                stamp_headers["SURFACE_BRIGHTNESS"] = -2.5 * np.log10(
-                    flux_per_pixel / AB_ZEROPOINT
+                flux_per_pixel = total_flux / total_area
+                if "ZP" in header:
+                    zeropoint = header["ZP"]
+                stamp_headers["SURFACE_BRIGHTNESS"] = np.nan_to_num(
+                    -2.5 * np.log10(flux_per_pixel) + zeropoint
                 )
 
                 # Wrote stamp to FITS file
@@ -230,13 +233,14 @@ def generate_stamps(
                 del stamp_hdul
                 gc.collect()
             else:
-                if np.amax(stamp.data) <= 0:
-                    logger.debug(f"Skipping object {object}, missing nonzero data.")
-                else:
-                    logger.debug(
-                        f"Skipping object {object}, dimensions "
-                        + f"{stamp.data.shape} don't match expected image size {image_size}."
-                    )
+                if not display_progress:
+                    if np.amax(stamp.data) <= 0:
+                        logger.debug(f"Skipping object {object}, missing nonzero data.")
+                    else:
+                        logger.debug(
+                            f"Skipping object {object}, dimensions "
+                            + f"{stamp.data.shape} don't match expected image size {image_size}."
+                        )
                 skipped.append(object)
 
             # Clear memory

@@ -7,7 +7,7 @@
 from pathlib import Path
 import pytest
 
-from morphfits.wrappers.setup import config
+from morphfits import config
 
 
 # Fixtures
@@ -30,5 +30,8 @@ def test_data_path(test_root: Path) -> Path:
 
 
 @pytest.fixture
-def galwrap_config(test_data_path: Path):
-    return config.create_config(test_data_path / "config.yaml")
+def configuration(test_data_path: Path):
+    morphfits_config = config.create_config(
+        config_path=test_data_path / "config.yaml", download=True
+    )
+    return morphfits_config

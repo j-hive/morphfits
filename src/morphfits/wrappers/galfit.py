@@ -10,6 +10,7 @@ import shutil
 from subprocess import Popen, PIPE, STDOUT
 from pathlib import Path
 from datetime import datetime as dt
+import re
 import csv
 
 from astropy.io import fits
@@ -63,6 +64,18 @@ See Also
 --------
 README.md 
     Breakdown on binary flag values, and which flags result in failed runs. 
+"""
+
+
+GALFIT_LOG_REGEX = "[\*|\[]?\d{1,10}[\.]\d{1,2}[\*|\[]?"
+GALFIT_LOG_FLOAT_REGEX = "\d{1,10}[\.]\d{1,2}"
+"""Regex for seven .2f numbers found in GALFIT logs, which may or may not be
+enveloped by * or [] characters.
+
+See Also
+--------
+`record_parameters`
+    Function using this expression to record the fitting parameters from logs.
 """
 
 
@@ -215,7 +228,7 @@ def generate_feedfiles(
         header = stamp_file["PRIMARY"].header
         magnitude = header["SURFACE_BRIGHTNESS"]
 
-        ## Cleary memory
+        ## Clear memory
         stamp_file.close()
         del stamp_file
         del header
@@ -448,36 +461,45 @@ def record_parameters(
         List of object IDs in catalog for which to generate feedfiles.
     display_progress : bool, optional
         Display progress on terminal screen, by default False.
+    for_run : bool, optional
     """
     logger.info(
-        "Recording parameters for FICL "
+        "Recording fitting parameters in catalog for FICL "
         + f"{'_'.join([field, image_version, catalog_version, filter])}."
     )
 
     # Create CSV if missing and write headers
-    parameters_path = paths.get_path(
+    out_catalog_path = paths.get_path(
         "parameters", run_root=run_root, datetime=datetime, run_number=run_number
     )
-    if not parameters_path.exists():
-        with open(parameters_path, mode="w", newline="") as csv_file:
+    if not out_catalog_path.exists():
+        with open(out_catalog_path, mode="w", newline="") as csv_file:
             writer = csv.writer(csv_file)
             writer.writerow(
                 [
+                    "use",
                     "field",
                     "image version",
                     "catalog version",
                     "filter",
                     "object",
-                    "success",
-                    "status",
-                    "galfit flags",
+                    "return code",
+                    "flags",
+                    "convergence",
                     "center x",
                     "center y",
-                    "integrated magnitude",
+                    "surface brightness",
                     "effective radius",
-                    "concentration",
+                    "sersic",
                     "axis ratio",
                     "position angle",
+                    "center x error",
+                    "center y error",
+                    "surface brightness error",
+                    "effective radius error",
+                    "sersic error",
+                    "axis ratio error",
+                    "position angle error",
                 ]
             )
 
@@ -520,57 +542,83 @@ def record_parameters(
             del galfit_model_headers
             gc.collect()
 
-            ### Get validity ("success") from return code and flags
-            if (return_code != 0) or ((flags & FAIL) > 0):
-                success = False
-            else:
-                success = True
-
             ### Get parameters from GALFIT log
             with open(galfit_log_path, mode="r") as log_file:
                 lines = log_file.readlines()
-                while i < len(lines):
+                while i < len(lines) - 8:
                     if (
                         ("---" in lines[i])
                         and (lines[i][0] != "#")
                         and ("Input image" in lines[i + 2])
                     ):
-                        raw_parameters = lines[i + 7].split()[3:]
+                        raw_parameters = re.findall(GALFIT_LOG_REGEX, lines[i + 7])
+                        errors = re.findall(GALFIT_LOG_FLOAT_REGEX, lines[i + 8])
                         break
                     else:
                         i += 1
 
+            ### Strip parameters and append to list[str]
+            parameters = []
+            convergence = 0
+            for i in range(len(raw_parameters)):
+                parameter = raw_parameters[i]
+
+                #### Only care about convergence of size, sersic, and ratio
+                if i in [3, 4, 5]:
+                    for fail_indicator in ["[", "]", "*"]:
+                        if fail_indicator in parameter:
+                            convergence += 2 ** (i - 3)
+                            parameter = parameter.replace(fail_indicator, "")
+                parameters.append(parameter)
+
+            ### Get validity ("success") from return code, flags, and convergence
+            if (return_code != 0) or ((flags & FAIL) > 0) or (convergence > 0):
+                use = False
+            else:
+                use = True
+
             ### Write parameters and flags to CSV
             csv_row = [
+                use,
                 field,
                 image_version,
                 catalog_version,
                 filter,
                 object,
-                success,
                 return_code,
                 flags,
+                convergence,
             ]
-            for raw_parameter in raw_parameters:
-                csv_row.append(raw_parameter.replace(")", "").replace(",", ""))
-            with open(parameters_path, mode="a", newline="") as csv_file:
+            for parameter in parameters:
+                csv_row.append(parameter)
+            for error in errors:
+                csv_row.append(error)
+            with open(out_catalog_path, mode="a", newline="") as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(csv_row)
 
         ## Write empty row for failures
         else:
-            with open(parameters_path, mode="a", newline="") as csv_file:
+            with open(out_catalog_path, mode="a", newline="") as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(
                     [
+                        False,
                         field,
                         image_version,
                         catalog_version,
                         filter,
                         object,
-                        False,
                         return_code,
                         0,
+                        0,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
                         "",
                         "",
                         "",
@@ -595,7 +643,7 @@ def main(
     keep_feedfiles: bool = False,
     skip_products: bool = False,
     skip_fits: bool = False,
-    skip_plots: bool = False,
+    make_plots: bool = False,
     display_progress: bool = False,
 ):
     """Orchestrate GalWrap functions for passed configurations.
@@ -620,8 +668,8 @@ def main(
         Skip all product generation, by default False.
     skip_fits : bool, optional
         Skip all morphology fitting via GALFIT, by default False.
-    skip_plots : bool, optional
-        Skip plotting fits, by default False.
+    make_plots : bool, optional
+        Generate model plots, by default False.
     display_progress : bool, optional
         Display progress as loading bar and suppress logging, by default False.
     """
@@ -669,8 +717,10 @@ def main(
                 display_progress=display_progress,
             )
 
+    # Generate catalog from all discovered fit parameters TODO
+
     # Plot models, for each FICLO
-    if not skip_plots:
+    if make_plots:
         for ficl in morphfits_config.get_FICLs():
             plots.plot_model(
                 output_root=morphfits_config.output_root,
@@ -683,5 +733,19 @@ def main(
                 wrapper="galfit",
                 display_progress=display_progress,
             )
+
+    # Plot histogram for each run if the run catalog exists
+    run_catalog_path = paths.get_path(
+        "parameters",
+        run_root=morphfits_config.run_root,
+        datetime=morphfits_config.datetime,
+        run_number=morphfits_config.run_number,
+    )
+    if run_catalog_path.exists():
+        plots.plot_histogram(
+            run_root=morphfits_config.run_root,
+            datetime=morphfits_config.datetime,
+            run_number=morphfits_config.run_number,
+        )
 
     logger.info("Exiting GalWrap.")

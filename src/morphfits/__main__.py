@@ -11,7 +11,7 @@ from pathlib import Path
 
 import typer
 
-from . import config, paths, plots, products
+from . import config, input, paths, plots, products, ROOT
 from .wrappers import galfit
 from .utils import logs
 
@@ -108,9 +108,9 @@ def galwrap(
     fields: Annotated[
         Optional[List[str]],
         typer.Option(
-            "--fields",
+            "--field",
             "-F",
-            help="List of fields over which to run MorphFITS.",
+            help="Fields over which to run MorphFITS.",
             rich_help_panel="FICLOs",
             show_default=False,
         ),
@@ -118,9 +118,9 @@ def galwrap(
     image_versions: Annotated[
         Optional[List[str]],
         typer.Option(
-            "--image-versions",
+            "--image-version",
             "-I",
-            help="List of image versions over which to run MorphFITS.",
+            help="Image versions over which to run MorphFITS.",
             rich_help_panel="FICLOs",
             show_default=False,
         ),
@@ -128,9 +128,9 @@ def galwrap(
     catalog_versions: Annotated[
         Optional[List[str]],
         typer.Option(
-            "--catalog-versions",
+            "--catalog-version",
             "-C",
-            help="List of catalog versions over which to run MorphFITS.",
+            help="Catalog versions over which to run MorphFITS.",
             rich_help_panel="FICLOs",
             show_default=False,
         ),
@@ -138,9 +138,9 @@ def galwrap(
     filters: Annotated[
         Optional[List[str]],
         typer.Option(
-            "--filters",
+            "--filter",
             "-L",
-            help="List of filters over which to run MorphFITS.",
+            help="Filters over which to run MorphFITS.",
             rich_help_panel="FICLOs",
             show_default=False,
         ),
@@ -148,9 +148,9 @@ def galwrap(
     objects: Annotated[
         Optional[List[int]],
         typer.Option(
-            "--objects",
+            "--object",
             "-O",
-            help="List of object IDs over which to run MorphFITS.",
+            help="Object IDs over which to run MorphFITS.",
             rich_help_panel="FICLOs",
             show_default=False,
         ),
@@ -227,11 +227,11 @@ def galwrap(
             is_flag=True,
         ),
     ] = False,
-    skip_plots: Annotated[
+    make_plots: Annotated[
         bool,
         typer.Option(
-            "--skip-plots",
-            help="Skip all model plotting and visualizations.",
+            "--make-plots",
+            help="Generate model visualizations.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
@@ -287,7 +287,7 @@ def galwrap(
         keep_feedfiles=keep_feedfiles,
         skip_products=skip_products,
         skip_fits=skip_fits,
-        skip_plots=skip_plots,
+        make_plots=make_plots,
         display_progress=display_progress,
     )
 
@@ -303,17 +303,121 @@ def galwrap(
 
 @app.command()
 def imcascade():
-    """Model objects from given FICLs using imcascade. NOT IMPLEMENTED"""
+    """[NOT IMPLEMENTED] Model objects from given FICLs using imcascade."""
     raise NotImplementedError
 
 
 @app.command()
 def pysersic():
-    """Model objects from given FICLs using pysersic. NOT IMPLEMENTED"""
+    """[NOT IMPLEMENTED] Model objects from given FICLs using pysersic."""
     raise NotImplementedError
 
 
-# Other Apps
+# Other Commands
+
+
+@app.command()
+def download(
+    config_path: Annotated[
+        typer.FileText,
+        typer.Option(
+            help="Path to configuration settings YAML file.",
+            rich_help_panel="Paths",
+            exists=True,
+            dir_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    input_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root input directory. Must be set here or in --config-path.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    fields: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--field",
+            "-F",
+            help="Fields over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+    image_versions: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--image-version",
+            "-I",
+            help="Image versions over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+    catalog_versions: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--catalog-version",
+            "-C",
+            help="Catalog versions over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+    filters: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--filter",
+            "-L",
+            help="Filters over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+    objects: Annotated[
+        Optional[List[int]],
+        typer.Option(
+            "--object",
+            "-O",
+            help="Object IDs over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
+):
+    """Download and unzip input files from the DJA archive."""
+
+    # Create configuration object
+    morphfits_config = config.create_config(
+        config_path=config_path,
+        input_root=input_root,
+        fields=fields,
+        image_versions=image_versions,
+        catalog_versions=catalog_versions,
+        filters=filters,
+        objects=objects,
+        wrappers=[""],
+        galfit_path="",
+        display_progress=False,
+        download=True,
+    )
+
+    # Create program and module logger
+    logs.create_logger(filename=ROOT / "download.log")
+    logger = logging.getLogger("MORPHFITS")
+    logger.info("Starting MorphFITS.")
+
+    # Download and unzip files
+    input.main(morphfits_config=morphfits_config)
+
+    # Exit
+    logger.info("Exiting MorphFITS.")
 
 
 @app.command()

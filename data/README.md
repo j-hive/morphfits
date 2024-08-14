@@ -13,7 +13,7 @@ of a galaxy or cluster to be fitted.
 |:---|:---|:---|:---|
 |`F`|`field`|Center of field at which JWST instrument is pointed.|`abell2744clu`|
 |`I`|`image_version`|Program used to process JWST data.|`grizli-v7.2`|
-|`C`|`catalog_version`|Source of photometric catalog.|`dja`|
+|`C`|`catalog_version`|Source of photometric catalog.|`dja-v7.2`|
 |`L`|`filter`|Instrument filter(s) used.|`f200w-clear`|
 |`O`|`object`|Integer ID of galaxy or cluster in catalog.|`4215`|
 |`x`|`input_root`|Root input directory.|`morphfits_root/input`|
@@ -61,6 +61,7 @@ morphfits_root/
 │               ├── F-I-L_dr[c/z]_sci.fits
 │               └── F-I-L_dr[c/z]_wht.fits
 ├── output/
+│   ├── catalog.csv
 │   └── F/
 │       └── I/
 │           └── C/
@@ -92,9 +93,11 @@ morphfits_root/
 │                       └── F_I_C_L_O_stamp.fits
 └── runs/
     └── D.N/
+        ├── config.yaml
+        ├── files.csv
+        ├── histogram.png
         ├── morphfits.log
-        ├── parameters.csv
-        └── config.yaml
+        └── parameters.csv
 </pre>
 </td>
 
@@ -113,6 +116,7 @@ morphfits_root/
 │               ├── science
 │               └── weights
 ├── output_root/
+│   ├── morphfits_catalog
 │   └── .../
 │       └── .../
 │           └── .../
@@ -144,9 +148,11 @@ morphfits_root/
 │                       └── stamp
 └── run_root/
     └── run/
+        ├── config
+        ├── files
+        ├── histogram
         ├── morphfits_log
-        ├── parameters
-        └── config
+        └── parameters
 </pre>
 </td>
 </tr>
@@ -171,6 +177,7 @@ running `paths.get_path` for the required variables.
 |Input|`science`|`.fits`|`xFIL`|Science frame.|
 |Input|`weights`|`.fits`|`xFIL`|Weights map.|
 |Output|`output_root`|`/`|`z`|Root directory for all output files.|
+|Output|`morphfits_catalog`|`.csv`||Catalog of all fits under root.|
 |Output|`ficl_output`|`/`|`zFICLO`|Directory for all output for a FICL.|
 |Output|`ficl_objects`|`.png`|`zFICLO`|Image showing all objects in a FICL.|
 |Output|`ficlo_output`|`/`|`zFICLO`|Directory for all output for a FICLO.|
@@ -195,6 +202,8 @@ running `paths.get_path` for the required variables.
 |Product|`stamp`|`.fits`|`yFICLO`|Object cutout.|
 |Run|`run_root`|`/`|`r`|Directory for records from all runs.|
 |Run|`run`|`/`|`rDN`|Directory for records from a single run.|
+|Run|`config`|`.yaml`|`d`|Configuration settings from run.|
+|Run|`files`|`.csv`|`d`|Modified or created files from run.|
+|Run|`histogram`|`.png`|`d`|Histogram depicting parameter distribution.|
 |Run|`morphfits_log`|`.log`|`d`|MorphFITS program log from run.|
 |Run|`parameters`|`.csv`|`d`|Parameters found from run.|
-|Run|`config`|`.yaml`|`d`|Configuration settings from run.|

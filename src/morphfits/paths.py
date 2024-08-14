@@ -216,7 +216,7 @@ class MorphFITSPath(BaseModel):
                 #     f"File {resolved_path_obj} expected but not found, skipping."
                 # )
                 # raise FileNotFoundError(f"No file found at {resolved_path_obj}.")
-                pass
+                resolved_path_obj = Path(str(resolved_path_obj).replace("*", "c"))
 
         # Return resolved path
         return resolved_path_obj

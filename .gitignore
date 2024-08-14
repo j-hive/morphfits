@@ -4,6 +4,7 @@ sandbox/
 galfit.*
 !galfit.py
 morphfits_root/
+index*.csv
 
 
 # Byte-compiled / optimized / DLL files

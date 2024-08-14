@@ -1,5 +1,5 @@
-galfit_path: path/to/galfit
-input_root: ./examples/uncover_run/morphfits_root/input/
+galfit_path: "[morphfits_path]/morphfits_root/galfit"
+input_root: "[morphfits_path]/morphfits_root/input"
 fields:
   - "abell2744clu"
 image_versions:
@@ -7,7 +7,7 @@ image_versions:
 catalog_versions:
   - "dja-v7.2"
 filters:
-  - f150w-clear
+  - "f200w-clear"
 objects:
   - 1003
   - 2159

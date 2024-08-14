@@ -1,3 +1,4 @@
+galfit_path: path/to/galfit
 input_root: ./examples/single_ficlo/morphfits_root/input/
 fields:
   - "abell2744clu"
