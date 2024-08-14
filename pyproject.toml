@@ -2,7 +2,11 @@
 name = "morphfits"
 version = "0.2.0"
 description = "Get a model from a JWST galaxy or cluster by running morphological fitting wrappers."
-authors = ["Lamiya <lmowla@wellesley.edu>", "Mubdi <mubdi@sidratresearch.com>", "Hansen <hansen@sidratresearch.com>"]
+authors = [
+    "Hansen <hansen@sidratresearch.com>",
+    "Lamiya <lmowla@wellesley.edu>",
+    "Mubdi <mubdi@sidratresearch.com>",
+]
 readme = "README.md"
 
 [tool.poetry.dependencies]
