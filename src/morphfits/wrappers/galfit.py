@@ -284,6 +284,7 @@ def run_galfit(
     filter: str,
     objects: list[int],
     display_progress: bool = False,
+    refit: bool = False,
 ) -> list[str]:
     """Run GALFIT over all objects in a FICL.
 
@@ -309,6 +310,8 @@ def run_galfit(
         List of object IDs in catalog for which to generate feedfiles.
     display_progress : bool, optional
         Display progress on terminal screen, by default False.
+    refit : bool, optional
+        Rerun GALFIT on previously fitted objects, by default False.
 
     Returns
     -------
@@ -324,6 +327,24 @@ def run_galfit(
     for object in (
         tqdm(objects, unit="run", leave=False) if display_progress else objects
     ):
+        ## Get model path
+        model_path = paths.get_path(
+            "galfit_model",
+            output_root=output_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+
+        ## Skip previously fitted objects unless otherwise specified
+        if (model_path.exists()) and (not refit):
+            if not display_progress:
+                logger.debug(f"Skipping object {object}, previously fitted.")
+            return_codes.append(0)
+            continue
+
         ## Get feedfile path
         feedfile_path = paths.get_path(
             "feedfile",
@@ -641,6 +662,7 @@ def main(
     regenerate_masks: bool = False,
     regenerate_sigmas: bool = False,
     keep_feedfiles: bool = False,
+    force_refit: bool = False,
     skip_products: bool = False,
     skip_fits: bool = False,
     make_plots: bool = False,
@@ -664,6 +686,9 @@ def main(
         Regenerate sigmas, by default False.
     keep_feedfiles : bool, optional
         Reuse existing feedfiles, by default False.
+    force_refit : bool, optional
+        Run GALFIT over previously fitted objects, overwriting existing models,
+        by default False.
     skip_products : bool, optional
         Skip all product generation, by default False.
     skip_fits : bool, optional
@@ -702,6 +727,7 @@ def main(
                 filter=ficl.filter,
                 objects=ficl.objects,
                 display_progress=display_progress,
+                refit=force_refit,
             )
             record_parameters(
                 return_codes=return_codes,
@@ -716,8 +742,6 @@ def main(
                 objects=ficl.objects,
                 display_progress=display_progress,
             )
-
-    # Generate catalog from all discovered fit parameters TODO
 
     # Plot models, for each FICLO
     if make_plots:

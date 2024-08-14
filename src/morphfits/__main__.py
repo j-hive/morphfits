@@ -209,6 +209,14 @@ def galwrap(
             is_flag=True,
         ),
     ] = False,
+    force_refit:Annotated[
+        bool,typer.Option(
+            "--force-refit",
+            help="Run GALFIT over previously fitted objects and overwrite existing models.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        )
+    ]=False,
     skip_products: Annotated[
         bool,
         typer.Option(
@@ -285,6 +293,7 @@ def galwrap(
         regenerate_masks=regenerate_masks,
         regenerate_sigmas=regenerate_sigmas,
         keep_feedfiles=keep_feedfiles,
+        force_refit=force_refit,
         skip_products=skip_products,
         skip_fits=skip_fits,
         make_plots=make_plots,
