@@ -13,6 +13,7 @@ from datetime import datetime as dt
 
 from numpy import sqrt
 from astropy.io import fits
+from astropy.table import Table
 import yaml
 from pydantic import BaseModel, StringConstraints
 from tqdm import tqdm
@@ -369,6 +370,10 @@ def create_config(
     catalog_versions: list[str] | None = None,
     filters: list[str] | None = None,
     objects: list[int] | None = None,
+    object_first: int | None = None,
+    object_last: int | None = None,
+    batch_n_process: int = 1,
+    batch_process_id: int = 0,
     wrappers: list[str] | None = None,
     galfit_path: str | Path | None = None,
     display_progress: bool = False,
@@ -416,6 +421,20 @@ def create_config(
     objects : list[int] | None, optional
         List of target IDs over which to execute GALFIT, for each catalog, by
         default None (not passed through CLI).
+    object_first : int | None, optional
+        ID of first object in range of objects to run a batch over, by default
+        None (not passed through CLI, or not set).
+        Overrides object parameter.
+    object_last : int | None, optional
+        ID of last object in range of objects to run a batch over, by default
+        None (not passed through CLI, or not set).
+        Overrides object parameter.
+    batch_n_process : int, optional
+        Number of cores over which to divide this program run, in terms of
+        objects, by default 1.
+    batch_process_id : int, optional
+        Process number in batch run, i.e. which sub-range of object range over
+        which to run, by default 0.
     wrappers : list[str], optional
         List of morphology fitting algorithms to run, by default only GALFIT.
     galfit_path : str | Path | None, optional
@@ -508,6 +527,28 @@ def create_config(
             config_dict[parameter + "s"] = paths.find_parameter_from_input(
                 parameter_name=parameter, input_root=config_dict["input_root"]
             )
+
+    # Get object count from catalog
+    catalog_ranges = {}
+    for field in config_dict["fields"]:
+        catalog_ranges[field] = {}
+        for image_version in config_dict["image_versions"]:
+            catalog_ranges[field][image_version] = []
+            catalog_path = paths.get_path(
+                "catalog",
+                input_root=config_dict["input_root"],
+                field=field,
+                image_version=image_version,
+            )
+            catalog = Table.read(catalog_path)
+            for id in catalog["id"]:
+                catalog_ranges[field][image_version].append(int(id))
+
+    # If any batch mode parameters are set, rewrite objects accordingly
+    if (object_first is not None) or (object_last is not None):
+        pass
+
+    # Remove objects out of range
 
     # Set start datetime and run number
     config_dict["datetime"] = dt.now()

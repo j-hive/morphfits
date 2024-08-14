@@ -155,6 +155,42 @@ def galwrap(
             show_default=False,
         ),
     ] = None,
+    object_first: Annotated[
+        Optional[int],
+        typer.Option(
+            "--first-object",
+            help="ID of first object over which to run MorphFITS.",
+            rich_help_panel="Batch Runs",
+            show_default=False,
+        ),
+    ] = None,
+    object_last: Annotated[
+        Optional[int],
+        typer.Option(
+            "--last-object",
+            help="ID of last object over which to run MorphFITS.",
+            rich_help_panel="Batch Runs",
+            show_default=False,
+        ),
+    ] = None,
+    batch_n_process: Annotated[
+        int,
+        typer.Option(
+            "--batch-n-process",
+            help="Number of cores over which to divide a program run.",
+            rich_help_panel="Batch Runs",
+            show_default=False,
+        ),
+    ] = 1,
+    batch_process_id: Annotated[
+        int,
+        typer.Option(
+            "--batch-process-id",
+            help="Process number in batch run (out of batch_n_process).",
+            rich_help_panel="Batch Runs",
+            show_default=False,
+        ),
+    ] = 0,
     regenerate_products: Annotated[
         bool,
         typer.Option(
@@ -269,6 +305,10 @@ def galwrap(
         catalog_versions=catalog_versions,
         filters=filters,
         objects=objects,
+        object_first=object_first,
+        object_last=object_last,
+        batch_n_process=batch_n_process,
+        batch_process_id=batch_process_id,
         galfit_path=galfit_path,
         display_progress=display_progress,
     )
