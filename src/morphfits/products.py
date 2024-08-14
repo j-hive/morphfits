@@ -787,12 +787,7 @@ def generate_products(
             filter=ficl.filter,
             objects=ficl.objects,
             pixscale=ficl.pixscale,
-            regenerate=regenerate_products
-            or regenerate_stamps
-            or regenerate_sigmas
-            or regenerate_psfs
-            or regenerate_masks
-            or not keep_feedfiles,
+            regenerate=regenerate_products or regenerate_stamps,
             display_progress=display_progress,
         )
 

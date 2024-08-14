@@ -4,6 +4,7 @@
 # Imports
 
 
+import gc
 import logging
 import itertools
 import shutil
@@ -11,14 +12,13 @@ from pathlib import Path
 from typing import Generator, Annotated
 from datetime import datetime as dt
 
-from numpy import sqrt
-from astropy.io import fits
+from astropy.table import Table
 import yaml
 from pydantic import BaseModel, StringConstraints
 from tqdm import tqdm
 
 from . import paths, ROOT
-from .utils import science
+from .utils import logs, misc, science
 
 
 # Constants
@@ -163,16 +163,16 @@ class MorphFITSConfig(BaseModel):
             self.fields, self.image_versions, self.catalog_versions, self.filters
         ):
             # Create FICL for iteration, with every object, and set pixscales
-            science_path = paths.get_path(
-                "science",
-                input_root=self.input_root,
-                field=field,
-                image_version=image_version,
-                filter=filter,
-            )
             if pre_input:
                 pixscale = [0.04, 0.04]
             else:
+                science_path = paths.get_path(
+                    "science",
+                    input_root=self.input_root,
+                    field=field,
+                    image_version=image_version,
+                    filter=filter,
+                )
                 pixscale = science.get_pixscale(science_path)
             ficl = FICL(
                 field=field,
@@ -223,40 +223,68 @@ class MorphFITSConfig(BaseModel):
         pre_input : bool, optional
             Skip file checks if this function is called prior to download.
         """
-        logger.info("Creating product and output directories where missing.")
         print("Creating product and output directories where missing.")
 
-        # Iterate over each possible FICLO from configurations
-        for ficl in self.get_FICLs(pre_input=pre_input):
-            # Iterate over each object in FICL
-            for object in (
-                tqdm(ficl.objects, unit="dir", leave=False)
-                if display_progress
-                else ficl.objects
-            ):
-                # Make leaf FICLO directories
-                for path_name in [
-                    "run",
-                    "ficlo_products",
-                    "logs",
-                    "models",
-                    "plots",
-                ]:
+        # Create run directory for both download and fitting runs
+        paths.get_path(
+            name="run",
+            run_root=self.run_root,
+            datetime=self.datetime,
+            run_number=self.run_number,
+        ).mkdir(parents=True, exist_ok=True)
+
+        # Only create input and run directories for download run
+        if pre_input:
+            # Iterate over each possible FICL from configurations
+            for ficl in self.get_FICLs(pre_input=pre_input):
+                # Iterate over each required input directory
+                for path_name in ["input_data", "input_images"]:
                     # Create directory if it does not exist
                     paths.get_path(
                         name=path_name,
-                        morphfits_root=self.morphfits_root,
-                        output_root=self.output_root,
-                        product_root=self.product_root,
-                        run_root=self.run_root,
+                        input_root=self.input_root,
                         field=ficl.field,
                         image_version=ficl.image_version,
-                        catalog_version=ficl.catalog_version,
                         filter=ficl.filter,
-                        object=object,
-                        datetime=self.datetime,
-                        run_number=self.run_number,
                     ).mkdir(parents=True, exist_ok=True)
+
+            # Make PSFs directory
+            paths.get_path(
+                name="input_psfs",
+                input_root=self.input_root,
+            ).mkdir(parents=True, exist_ok=True)
+
+        else:
+            # Iterate over each possible FICLO from configurations
+            for ficl in self.get_FICLs(pre_input=pre_input):
+                # Iterate over each object in FICL
+                for object in (
+                    tqdm(ficl.objects, unit="dir", leave=False)
+                    if display_progress
+                    else ficl.objects
+                ):
+                    # Make leaf FICLO directories
+                    for path_name in [
+                        "ficlo_products",
+                        "logs",
+                        "models",
+                        "plots",
+                    ]:
+                        # Create directory if it does not exist
+                        paths.get_path(
+                            name=path_name,
+                            morphfits_root=self.morphfits_root,
+                            output_root=self.output_root,
+                            product_root=self.product_root,
+                            run_root=self.run_root,
+                            field=ficl.field,
+                            image_version=ficl.image_version,
+                            catalog_version=ficl.catalog_version,
+                            filter=ficl.filter,
+                            object=object,
+                            datetime=self.datetime,
+                            run_number=self.run_number,
+                        ).mkdir(parents=True, exist_ok=True)
 
     def clean_paths(self, display_progress: bool = False):
         """Remove product and output directories for skipped FICLOs of this
@@ -369,6 +397,10 @@ def create_config(
     catalog_versions: list[str] | None = None,
     filters: list[str] | None = None,
     objects: list[int] | None = None,
+    object_first: int | None = None,
+    object_last: int | None = None,
+    batch_n_process: int = 1,
+    batch_process_id: int = 0,
     wrappers: list[str] | None = None,
     galfit_path: str | Path | None = None,
     display_progress: bool = False,
@@ -416,6 +448,20 @@ def create_config(
     objects : list[int] | None, optional
         List of target IDs over which to execute GALFIT, for each catalog, by
         default None (not passed through CLI).
+    object_first : int | None, optional
+        ID of first object in range of objects to run a batch over, by default
+        None (not passed through CLI, or not set).
+        Overrides object parameter.
+    object_last : int | None, optional
+        ID of last object in range of objects to run a batch over, by default
+        None (not passed through CLI, or not set).
+        Overrides object parameter.
+    batch_n_process : int, optional
+        Number of cores over which to divide this program run, in terms of
+        objects, by default 1.
+    batch_process_id : int, optional
+        Process number in batch run, i.e. which sub-range of object range over
+        which to run, by default 0.
     wrappers : list[str], optional
         List of morphology fitting algorithms to run, by default only GALFIT.
     galfit_path : str | Path | None, optional
@@ -431,11 +477,11 @@ def create_config(
     MorphFITSConfig
         A configuration object for this program execution.
     """
-    logger.info(f"Loading configuration.")
     print("Loading configuration.")
 
     # Load config file values
     config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
+
     ## Cast and resolve paths
     for root_key in [
         "morphfits_root",
@@ -454,7 +500,6 @@ def create_config(
     ## Paths
     ### Terminate if input root not found
     if "input_root" not in config_dict:
-        logger.error("Input root not passed, terminating.")
         raise FileNotFoundError("Input root not passed, terminating.")
     else:
         input_root_dir = Path(config_dict["input_root"]).resolve()
@@ -463,7 +508,6 @@ def create_config(
             if download:
                 input_root_dir.mkdir(parents=True, exist_ok=True)
             else:
-                logger.error(f"Input root {config_dict['input_root']} not found.")
                 raise FileNotFoundError(
                     f"Input root {config_dict['input_root']} not found."
                 )
@@ -495,6 +539,8 @@ def create_config(
 
     # If parameters are still unset, assume program execution over all
     # discovered values in input directory
+    if download:
+        config_dict["objects"] = []
     for parameter in [
         "field",
         "image_version",
@@ -505,9 +551,85 @@ def create_config(
         if (parameter + "s" not in config_dict) or (
             config_dict[parameter + "s"] is None
         ):
-            config_dict[parameter + "s"] = paths.find_parameter_from_input(
-                parameter_name=parameter, input_root=config_dict["input_root"]
+            if download:
+                raise ValueError(f"Parameter '{parameter}' must be provided.")
+            else:
+                config_dict[parameter + "s"] = paths.find_parameter_from_input(
+                    parameter_name=parameter, input_root=config_dict["input_root"]
+                )
+
+    # Set batch mode parameters
+    if "first_object" in config_dict:
+        config_dict["object_first"] = config_dict["first_object"]
+    else:
+        config_dict["object_first"] = object_first
+    if "last_object" in config_dict:
+        config_dict["object_last"] = config_dict["last_object"]
+    else:
+        config_dict["object_last"] = object_last
+    config_dict["batch_n_process"] = batch_n_process
+    config_dict["batch_process_id"] = batch_process_id
+
+    # If in batch mode or object range defined, reset objects accordingly
+    if (
+        (batch_n_process > 1)
+        or (config_dict["object_first"] is not None)
+        or (config_dict["object_last"] is not None)
+    ):
+        ## Terminate if more than one catalog specified for batch mode
+        if (batch_n_process) and (
+            (len(config_dict["fields"]) > 1) or (len(config_dict["image_versions"]) > 1)
+        ):
+            raise ValueError(
+                "Cannot set ranges for multiple catalog versions, "
+                + "as their ID ranges differ."
             )
+
+        ## Get total object ID range from catalog
+        catalog_range = []
+        catalog_path = paths.get_path(
+            "catalog",
+            input_root=config_dict["input_root"],
+            field=config_dict["fields"][0],
+            image_version=config_dict["image_versions"][0],
+        )
+        catalog = Table.read(catalog_path)
+        for id in catalog["id"]:
+            catalog_range.append(int(id))
+        del catalog
+        gc.collect()
+
+        ## Set objects to all if range not specified
+        if (config_dict["object_first"] is None) and (
+            config_dict["object_last"] is None
+        ):
+            user_range = catalog_range
+        ## Get specified object ID range from user
+        elif config_dict["object_first"] is None:
+            user_range = list(range(catalog_range[0], config_dict["object_last"]))
+        elif config_dict["object_last"] is None:
+            user_range = list(range(config_dict["object_first"], catalog_range[-1]))
+        else:
+            user_range = list(
+                range(config_dict["object_first"], config_dict["object_last"])
+            )
+
+        ## Get batch object ID range from user parameters
+        start_index, stop_index = misc.get_unique_batch_limits(
+            process_id=batch_process_id,
+            n_process=batch_n_process,
+            n_items=len(user_range),
+        )
+        batch_range = user_range[start_index:stop_index]
+
+        ## Remove objects out of range
+        while (len(batch_range) > 0) and (batch_range[0] < catalog_range[0]):
+            batch_range.pop(0)
+        while (len(batch_range) > 0) and (batch_range[-1] > catalog_range[-1]):
+            batch_range.pop(-1)
+
+        ## Set object ID range for this batch run
+        config_dict["objects"] = batch_range
 
     # Set start datetime and run number
     config_dict["datetime"] = dt.now()
@@ -529,21 +651,34 @@ def create_config(
         (morphfits_config.galfit_path is None)
         or (not morphfits_config.galfit_path.exists())
     ):
-        logger.error(
-            "GALFIT chosen as fitter but binary file "
-            + "not found or linked, terminating."
-        )
         raise FileNotFoundError("GALFIT binary file not found or linked.")
 
     # Setup directories where missing
-    morphfits_config.setup_paths(display_progress=display_progress, pre_input=download)
-    if not download:
-        paths.get_path(
-            name="run",
+    morphfits_config.setup_paths(display_progress=True, pre_input=download)
+
+    # Create logger
+    logs.create_logger(
+        filename=paths.get_path(
+            "morphfits_log",
             run_root=morphfits_config.run_root,
             datetime=morphfits_config.datetime,
             run_number=morphfits_config.run_number,
-        ).mkdir(parents=True, exist_ok=True)
+        )
+    )
+    global logger
+    logger = logging.getLogger("CONFIG")
+    main_logger = logging.getLogger("MORPHFITS")
+    main_logger.info("Starting MorphFITS.")
+
+    # Display if batch mode
+    if batch_n_process > 1:
+        logger.info(f"Running in batch mode.")
+        if len(morphfits_config.objects) > 0:
+            logger.info(
+                f"Batch object ID range: {morphfits_config.objects[0]} "
+                + f"to {morphfits_config.objects[-1]}."
+            )
+        logger.info(f"Batch process: {batch_process_id} / {batch_n_process-1}")
 
     # Return configuration object
     return morphfits_config

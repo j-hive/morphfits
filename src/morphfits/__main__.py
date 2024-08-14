@@ -155,6 +155,42 @@ def galwrap(
             show_default=False,
         ),
     ] = None,
+    object_first: Annotated[
+        Optional[int],
+        typer.Option(
+            "--first-object",
+            help="ID of first object over which to run MorphFITS.",
+            rich_help_panel="Batch Runs",
+            show_default=False,
+        ),
+    ] = None,
+    object_last: Annotated[
+        Optional[int],
+        typer.Option(
+            "--last-object",
+            help="ID of last object over which to run MorphFITS.",
+            rich_help_panel="Batch Runs",
+            show_default=False,
+        ),
+    ] = None,
+    batch_n_process: Annotated[
+        int,
+        typer.Option(
+            "--batch-n-process",
+            help="Number of cores over which to divide a program run.",
+            rich_help_panel="Batch Runs",
+            show_default=False,
+        ),
+    ] = 1,
+    batch_process_id: Annotated[
+        int,
+        typer.Option(
+            "--batch-process-id",
+            help="Process number in batch run (out of batch_n_process).",
+            rich_help_panel="Batch Runs",
+            show_default=False,
+        ),
+    ] = 0,
     regenerate_products: Annotated[
         bool,
         typer.Option(
@@ -209,6 +245,15 @@ def galwrap(
             is_flag=True,
         ),
     ] = False,
+    force_refit: Annotated[
+        bool,
+        typer.Option(
+            "--force-refit",
+            help="Run GALFIT over previously fitted objects and overwrite existing models.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
     skip_products: Annotated[
         bool,
         typer.Option(
@@ -260,21 +305,16 @@ def galwrap(
         catalog_versions=catalog_versions,
         filters=filters,
         objects=objects,
+        object_first=object_first,
+        object_last=object_last,
+        batch_n_process=batch_n_process,
+        batch_process_id=batch_process_id,
         galfit_path=galfit_path,
         display_progress=display_progress,
     )
 
-    # Create program and module logger
-    logs.create_logger(
-        filename=paths.get_path(
-            "morphfits_log",
-            run_root=morphfits_config.run_root,
-            datetime=morphfits_config.datetime,
-            run_number=morphfits_config.run_number,
-        )
-    )
+    # Display status
     logger = logging.getLogger("MORPHFITS")
-    logger.info("Starting MorphFITS.")
 
     # Call wrapper
     galfit.main(
@@ -285,6 +325,7 @@ def galwrap(
         regenerate_masks=regenerate_masks,
         regenerate_sigmas=regenerate_sigmas,
         keep_feedfiles=keep_feedfiles,
+        force_refit=force_refit,
         skip_products=skip_products,
         skip_fits=skip_fits,
         make_plots=make_plots,
@@ -334,7 +375,6 @@ def download(
         typer.Option(
             help="Path to root input directory. Must be set here or in --config-path.",
             rich_help_panel="Paths",
-            exists=True,
             file_okay=False,
             show_default=False,
             resolve_path=True,
@@ -360,16 +400,6 @@ def download(
             show_default=False,
         ),
     ] = None,
-    catalog_versions: Annotated[
-        Optional[List[str]],
-        typer.Option(
-            "--catalog-version",
-            "-C",
-            help="Catalog versions over which to run MorphFITS.",
-            rich_help_panel="FICLOs",
-            show_default=False,
-        ),
-    ] = None,
     filters: Annotated[
         Optional[List[str]],
         typer.Option(
@@ -380,16 +410,33 @@ def download(
             show_default=False,
         ),
     ] = None,
-    objects: Annotated[
-        Optional[List[int]],
+    skip_download: Annotated[
+        bool,
         typer.Option(
-            "--object",
-            "-O",
-            help="Object IDs over which to run MorphFITS.",
-            rich_help_panel="FICLOs",
+            "--skip-download",
+            help="Skip downloading files (only unzip existing files).",
+            rich_help_panel="Stages",
             show_default=False,
         ),
-    ] = None,
+    ] = False,
+    skip_unzip: Annotated[
+        bool,
+        typer.Option(
+            "--skip-unzip",
+            help="Skip unzipping files (only download files).",
+            rich_help_panel="Stages",
+            show_default=False,
+        ),
+    ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite",
+            help="Overwrite existing downloads.",
+            rich_help_panel="Stages",
+            show_default=False,
+        ),
+    ] = False,
 ):
     """Download and unzip input files from the DJA archive."""
 
@@ -399,9 +446,7 @@ def download(
         input_root=input_root,
         fields=fields,
         image_versions=image_versions,
-        catalog_versions=catalog_versions,
         filters=filters,
-        objects=objects,
         wrappers=[""],
         galfit_path="",
         display_progress=False,
@@ -409,12 +454,15 @@ def download(
     )
 
     # Create program and module logger
-    logs.create_logger(filename=ROOT / "download.log")
     logger = logging.getLogger("MORPHFITS")
-    logger.info("Starting MorphFITS.")
 
     # Download and unzip files
-    input.main(morphfits_config=morphfits_config)
+    input.main(
+        morphfits_config=morphfits_config,
+        skip_download=skip_download,
+        skip_unzip=skip_unzip,
+        overwrite=overwrite,
+    )
 
     # Exit
     logger.info("Exiting MorphFITS.")

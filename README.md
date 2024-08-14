@@ -171,10 +171,35 @@ with a configuration file detailing FICLOs. Here's [an example of a
 configuration YAML](./examples.config.yaml). Note you are still required to
 download [the simulated PSF files from
 STSci](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
-and move them to the appropriate `input_root/psfs` directory.
+and move them to the appropriate `input_root/psfs` directory. For more details,
+run
+```
+poetry run morphfits download --help
+```
 
 
-## Typical Operation
+## Batch Mode
+To run MorphFITS over large ranges and multiple cores, it is recommended to run
+it via batch mode. This mode is activated by using the following arguments.
+
+|Argument|Type|Default|Description|
+|:---|:---|---:|:---|
+|`--first-object`|`int`|`None`|ID of first object in range.|
+|`--last-object`|`int`|`None`|ID of last object in range.|
+|`--batch-n-process`|`int`|`1`|Total number of batch processes.|
+|`--batch-process-id`|`int`|`0`|Process ID of current run.|
+
+To run over all available objects in a catalog, don't provide arguments for
+`--object`, `first-object`, or `last-object`. 
+
+For example, to run over objects `10000` through `19999` in 5 processes, running
+the first process would be via
+```
+poetry run morphfits galwrap --input-root path/to/input --galfit-path path/to/galfit --first-object 10000 --last-object 20000 --batch-n-process 5 --batch-process-id 0
+```
+
+
+## Single Operation
 A typical run of MorphFITS involves collecting and structuring the correct data,
 then running the program.
 ```
