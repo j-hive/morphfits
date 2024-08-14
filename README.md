@@ -171,7 +171,11 @@ with a configuration file detailing FICLOs. Here's [an example of a
 configuration YAML](./examples.config.yaml). Note you are still required to
 download [the simulated PSF files from
 STSci](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
-and move them to the appropriate `input_root/psfs` directory.
+and move them to the appropriate `input_root/psfs` directory. For more details,
+run
+```
+poetry run morphfits download --help
+```
 
 
 ## Batch Mode

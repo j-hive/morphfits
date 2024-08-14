@@ -400,16 +400,6 @@ def download(
             show_default=False,
         ),
     ] = None,
-    catalog_versions: Annotated[
-        Optional[List[str]],
-        typer.Option(
-            "--catalog-version",
-            "-C",
-            help="Catalog versions over which to run MorphFITS.",
-            rich_help_panel="FICLOs",
-            show_default=False,
-        ),
-    ] = None,
     filters: Annotated[
         Optional[List[str]],
         typer.Option(
@@ -420,16 +410,33 @@ def download(
             show_default=False,
         ),
     ] = None,
-    objects: Annotated[
-        Optional[List[int]],
+    skip_download: Annotated[
+        bool,
         typer.Option(
-            "--object",
-            "-O",
-            help="Object IDs over which to run MorphFITS.",
-            rich_help_panel="FICLOs",
+            "--skip-download",
+            help="Skip downloading files (only unzip existing files).",
+            rich_help_panel="Stages",
             show_default=False,
         ),
-    ] = None,
+    ] = False,
+    skip_unzip: Annotated[
+        bool,
+        typer.Option(
+            "--skip-unzip",
+            help="Skip unzipping files (only download files).",
+            rich_help_panel="Stages",
+            show_default=False,
+        ),
+    ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite",
+            help="Overwrite existing downloads.",
+            rich_help_panel="Stages",
+            show_default=False,
+        ),
+    ] = False,
 ):
     """Download and unzip input files from the DJA archive."""
 
@@ -439,9 +446,7 @@ def download(
         input_root=input_root,
         fields=fields,
         image_versions=image_versions,
-        catalog_versions=catalog_versions,
         filters=filters,
-        objects=objects,
         wrappers=[""],
         galfit_path="",
         display_progress=False,
@@ -452,7 +457,12 @@ def download(
     logger = logging.getLogger("MORPHFITS")
 
     # Download and unzip files
-    input.main(morphfits_config=morphfits_config)
+    input.main(
+        morphfits_config=morphfits_config,
+        skip_download=skip_download,
+        skip_unzip=skip_unzip,
+        overwrite=overwrite,
+    )
 
     # Exit
     logger.info("Exiting MorphFITS.")
