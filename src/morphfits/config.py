@@ -19,7 +19,7 @@ from pydantic import BaseModel, StringConstraints
 from tqdm import tqdm
 
 from . import paths, ROOT
-from .utils import science
+from .utils import misc, science
 
 
 # Constants
@@ -455,6 +455,7 @@ def create_config(
 
     # Load config file values
     config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
+
     ## Cast and resolve paths
     for root_key in [
         "morphfits_root",
@@ -512,6 +513,12 @@ def create_config(
     if wrappers is not None:
         config_dict["wrappers"] = wrappers
 
+    ## Set batch mode parameters
+    config_dict["object_first"] = object_first
+    config_dict["object_last"] = object_last
+    config_dict["batch_n_process"] = batch_n_process
+    config_dict["batch_process_id"] = batch_process_id
+
     # If parameters are still unset, assume program execution over all
     # discovered values in input directory
     for parameter in [
@@ -528,27 +535,63 @@ def create_config(
                 parameter_name=parameter, input_root=config_dict["input_root"]
             )
 
-    # Get object count from catalog
-    catalog_ranges = {}
-    for field in config_dict["fields"]:
-        catalog_ranges[field] = {}
-        for image_version in config_dict["image_versions"]:
-            catalog_ranges[field][image_version] = []
-            catalog_path = paths.get_path(
-                "catalog",
-                input_root=config_dict["input_root"],
-                field=field,
-                image_version=image_version,
+    # If any batch mode parameters are set, reset objects accordingly
+    if (
+        (config_dict["object_first"] is not None)
+        or (config_dict["object_last"] is not None)
+        or (batch_n_process > 1)
+    ):
+        ## Terminate if more than one catalog specified
+        if (len(config_dict["fields"]) > 1) or (len(config_dict["image_versions"]) > 1):
+            raise ValueError(
+                "Cannot set ranges for multiple catalog versions, "
+                + "as their ID ranges differ."
             )
-            catalog = Table.read(catalog_path)
-            for id in catalog["id"]:
-                catalog_ranges[field][image_version].append(int(id))
 
-    # If any batch mode parameters are set, rewrite objects accordingly
-    if (object_first is not None) or (object_last is not None):
-        pass
+        ## Terminate if no range set in batch mode
+        if (config_dict["object_first"] is None) and (
+            config_dict["object_last"] is None
+        ):
+            raise ValueError("Must set object ID range for batch mode.")
 
-    # Remove objects out of range
+        ## Get total object ID range from catalog
+        catalog_range = []
+        catalog_path = paths.get_path(
+            "catalog",
+            input_root=config_dict["input_root"],
+            field=config_dict["fields"][0],
+            image_version=config_dict["image_versions"][0],
+        )
+        catalog = Table.read(catalog_path)
+        for id in catalog["id"]:
+            catalog_range.append(int(id))
+
+        ## Get specified object ID range from user
+        if config_dict["object_first"] is None:
+            user_range = list(range(catalog_range[0], config_dict["object_last"]))
+        elif config_dict["object_last"] is None:
+            user_range = list(range(config_dict["object_first"], catalog_range[-1]))
+        else:
+            user_range = list(
+                range(config_dict["object_first"], config_dict["object_last"])
+            )
+
+        ## Get batch object ID range from user parameters
+        start_index, stop_index = misc.get_unique_batch_limits(
+            process_id=batch_process_id,
+            n_process=batch_n_process,
+            n_items=len(user_range),
+        )
+        batch_range = user_range[start_index:stop_index]
+
+        ## Remove objects out of range
+        while batch_range[0] < catalog_range[0]:
+            batch_range.pop(0)
+        while batch_range[-1] > catalog_range[-1]:
+            batch_range.pop(-1)
+
+        ## Set object ID range for this batch run
+        config_dict["objects"] = batch_range
 
     # Set start datetime and run number
     config_dict["datetime"] = dt.now()
