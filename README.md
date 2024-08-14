@@ -13,11 +13,32 @@ cd morphfits
 poetry install
 ```
 
-Then, download the GALFIT binary corresponding to your system [here](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html).
+**This step is mandatory.** Download the GALFIT binary corresponding to your system [here](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html), and move it to the location of your choosing (e.g., your data directory, if it exists).
 
 
 # Quickstart
-To quickstart MorphFITS, please follow one of the guides in [the examples
+To quickstart MorphFITS without data, run
+```
+poetry run morphfits download --input-root [INPUT_ROOT] -F abell2744clu -I grizli-v7.2 -L f200w-clear
+```
+for an `INPUT_ROOT` of your choosing, e.g. `morphfits_root`, which is untracked.
+The program will download the necessary `.fits` files from the DJA archive.
+Then, download [the simulated PSF corresponding to the filter
+here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
+and move it to the `psfs` directory under the input root, i.e. 
+```
+mv [DOWNLOADS]/PSF_NIRCam_in_flight_opd_filter_F200W.fits [INPUT_ROOT]/psfs
+```
+Now, with the input state ready for the pipeline, run
+```
+poetry run morphfits galwrap --input-root [INPUT_ROOT] --galfit-path [GALFIT_PATH] -O 4215
+```
+where the input root and path to the GALFIT binary *must* be provided. This fits
+the object indexed as `4215` by the UNCOVER catalog. To run over all 65k+ objects,
+simply exclude the `-O 4215` option. To run over more than one field, image
+version, etc., it is recommended to use a configuration file instead.
+
+For other examples, please follow one of the guides in [the examples
 directory](./examples/).
 
 
@@ -152,6 +173,7 @@ download [the simulated PSF files from
 STSci](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
 and move them to the appropriate `input_root/psfs` directory.
 
+
 ## Typical Operation
 A typical run of MorphFITS involves collecting and structuring the correct data,
 then running the program.
@@ -176,6 +198,16 @@ be used.
 To regenerate all products for GALFIT, run
 ```
 poetry run morphfits galwrap [OPTIONS] --regenerate-products
+```
+
+
+## Make Plots
+Plots depicting model fidelity, along with the generated products, for each
+object can be generated with the flag `--make-plots`. By default, plots are not
+generated. To generate plots without running the fitting algorithms again, use
+the flags `--skip-products` and `--skip-fits`, i.e.
+```
+poetry run morphfits galwrap [OPTIONS] --skip-products --skip-fits --make-plots
 ```
 
 
