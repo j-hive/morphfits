@@ -375,7 +375,6 @@ def download(
         typer.Option(
             help="Path to root input directory. Must be set here or in --config-path.",
             rich_help_panel="Paths",
-            exists=True,
             file_okay=False,
             show_default=False,
             resolve_path=True,

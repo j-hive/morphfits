@@ -551,9 +551,12 @@ def create_config(
         if (parameter + "s" not in config_dict) or (
             config_dict[parameter + "s"] is None
         ):
-            config_dict[parameter + "s"] = paths.find_parameter_from_input(
-                parameter_name=parameter, input_root=config_dict["input_root"]
-            )
+            if download:
+                raise ValueError(f"Parameter '{parameter}' must be provided.")
+            else:
+                config_dict[parameter + "s"] = paths.find_parameter_from_input(
+                    parameter_name=parameter, input_root=config_dict["input_root"]
+                )
 
     # Set batch mode parameters
     if "first_object" in config_dict:
