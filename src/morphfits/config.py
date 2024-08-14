@@ -223,7 +223,6 @@ class MorphFITSConfig(BaseModel):
         pre_input : bool, optional
             Skip file checks if this function is called prior to download.
         """
-        logger.info("Creating product and output directories where missing.")
         print("Creating product and output directories where missing.")
 
         # Iterate over each possible FICLO from configurations
@@ -449,6 +448,7 @@ def create_config(
     MorphFITSConfig
         A configuration object for this program execution.
     """
+    print("Loading configuration.")
 
     # Load config file values
     config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
@@ -508,18 +508,6 @@ def create_config(
     if wrappers is not None:
         config_dict["wrappers"] = wrappers
 
-    ## Set batch mode parameters
-    if "first_object" in config_dict:
-        config_dict["object_first"] = config_dict["first_object"]
-    else:
-        config_dict["object_first"] = object_first
-    if "last_object" in config_dict:
-        config_dict["object_last"] = config_dict["last_object"]
-    else:
-        config_dict["object_last"] = object_last
-    config_dict["batch_n_process"] = batch_n_process
-    config_dict["batch_process_id"] = batch_process_id
-
     # If parameters are still unset, assume program execution over all
     # discovered values in input directory
     for parameter in [
@@ -536,24 +524,26 @@ def create_config(
                 parameter_name=parameter, input_root=config_dict["input_root"]
             )
 
-    # If any batch mode parameters are set, reset objects accordingly
-    if (
-        (config_dict["object_first"] is not None)
-        or (config_dict["object_last"] is not None)
-        or (batch_n_process > 1)
-    ):
+    # Set batch mode parameters
+    if "first_object" in config_dict:
+        config_dict["object_first"] = config_dict["first_object"]
+    else:
+        config_dict["object_first"] = object_first
+    if "last_object" in config_dict:
+        config_dict["object_last"] = config_dict["last_object"]
+    else:
+        config_dict["object_last"] = object_last
+    config_dict["batch_n_process"] = batch_n_process
+    config_dict["batch_process_id"] = batch_process_id
+
+    # If in batch mode, reset objects accordingly
+    if batch_n_process > 1:
         ## Terminate if more than one catalog specified
         if (len(config_dict["fields"]) > 1) or (len(config_dict["image_versions"]) > 1):
             raise ValueError(
                 "Cannot set ranges for multiple catalog versions, "
                 + "as their ID ranges differ."
             )
-
-        ## Terminate if no range set in batch mode
-        if (config_dict["object_first"] is None) and (
-            config_dict["object_last"] is None
-        ):
-            raise ValueError("Must set object ID range for batch mode.")
 
         ## Get total object ID range from catalog
         catalog_range = []
@@ -569,8 +559,13 @@ def create_config(
         del catalog
         gc.collect()
 
+        ## Set objects to all if range not specified
+        if (config_dict["object_first"] is None) and (
+            config_dict["object_last"] is None
+        ):
+            user_range = catalog_range
         ## Get specified object ID range from user
-        if config_dict["object_first"] is None:
+        elif config_dict["object_first"] is None:
             user_range = list(range(catalog_range[0], config_dict["object_last"]))
         elif config_dict["object_last"] is None:
             user_range = list(range(config_dict["object_first"], catalog_range[-1]))
@@ -619,7 +614,7 @@ def create_config(
         raise FileNotFoundError("GALFIT binary file not found or linked.")
 
     # Setup directories where missing
-    morphfits_config.setup_paths(display_progress=display_progress, pre_input=download)
+    morphfits_config.setup_paths(display_progress=True, pre_input=download)
     if not download:
         paths.get_path(
             name="run",
@@ -650,7 +645,7 @@ def create_config(
                 f"Batch object ID range: {morphfits_config.objects[0]} "
                 + f"to {morphfits_config.objects[-1]}."
             )
-        logger.info(f"Batch process: {batch_process_id} / {batch_n_process}")
+        logger.info(f"Batch process: {batch_process_id} / {batch_n_process-1}")
 
     # Return configuration object
     return morphfits_config
