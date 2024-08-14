@@ -395,7 +395,12 @@ def run_galfit(
             galfit_lines.append(line.rstrip().decode("utf-8"))
         process.stdout.close()
         process.wait()
-        return_codes.append(process.returncode)
+        return_code = process.returncode
+        return_codes.append(return_code)
+        if return_code != 0:
+            logger.error(
+                f"GALFIT did not run successfully and returned with code {return_code}."
+            )
 
         ## Write captured output to GALFIT log file
         galfit_log_path = paths.get_path(
