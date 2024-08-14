@@ -209,14 +209,15 @@ def galwrap(
             is_flag=True,
         ),
     ] = False,
-    force_refit:Annotated[
-        bool,typer.Option(
+    force_refit: Annotated[
+        bool,
+        typer.Option(
             "--force-refit",
             help="Run GALFIT over previously fitted objects and overwrite existing models.",
             rich_help_panel="Stages",
             is_flag=True,
-        )
-    ]=False,
+        ),
+    ] = False,
     skip_products: Annotated[
         bool,
         typer.Option(
