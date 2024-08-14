@@ -570,10 +570,16 @@ def create_config(
     config_dict["batch_n_process"] = batch_n_process
     config_dict["batch_process_id"] = batch_process_id
 
-    # If in batch mode, reset objects accordingly
-    if batch_n_process > 1:
-        ## Terminate if more than one catalog specified
-        if (len(config_dict["fields"]) > 1) or (len(config_dict["image_versions"]) > 1):
+    # If in batch mode or object range defined, reset objects accordingly
+    if (
+        (batch_n_process > 1)
+        or (config_dict["object_first"] is not None)
+        or (config_dict["object_last"] is not None)
+    ):
+        ## Terminate if more than one catalog specified for batch mode
+        if (batch_n_process) and (
+            (len(config_dict["fields"]) > 1) or (len(config_dict["image_versions"]) > 1)
+        ):
             raise ValueError(
                 "Cannot set ranges for multiple catalog versions, "
                 + "as their ID ranges differ."
