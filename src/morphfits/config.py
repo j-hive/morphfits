@@ -163,16 +163,16 @@ class MorphFITSConfig(BaseModel):
             self.fields, self.image_versions, self.catalog_versions, self.filters
         ):
             # Create FICL for iteration, with every object, and set pixscales
-            science_path = paths.get_path(
-                "science",
-                input_root=self.input_root,
-                field=field,
-                image_version=image_version,
-                filter=filter,
-            )
             if pre_input:
                 pixscale = [0.04, 0.04]
             else:
+                science_path = paths.get_path(
+                    "science",
+                    input_root=self.input_root,
+                    field=field,
+                    image_version=image_version,
+                    filter=filter,
+                )
                 pixscale = science.get_pixscale(science_path)
             ficl = FICL(
                 field=field,
@@ -225,37 +225,66 @@ class MorphFITSConfig(BaseModel):
         """
         print("Creating product and output directories where missing.")
 
-        # Iterate over each possible FICLO from configurations
-        for ficl in self.get_FICLs(pre_input=pre_input):
-            # Iterate over each object in FICL
-            for object in (
-                tqdm(ficl.objects, unit="dir", leave=False)
-                if display_progress
-                else ficl.objects
-            ):
-                # Make leaf FICLO directories
-                for path_name in [
-                    "run",
-                    "ficlo_products",
-                    "logs",
-                    "models",
-                    "plots",
-                ]:
+        # Create run directory for both download and fitting runs
+        paths.get_path(
+            name="run",
+            run_root=self.run_root,
+            datetime=self.datetime,
+            run_number=self.run_number,
+        ).mkdir(parents=True, exist_ok=True)
+
+        # Only create input and run directories for download run
+        if pre_input:
+            # Iterate over each possible FICL from configurations
+            for ficl in self.get_FICLs(pre_input=pre_input):
+                # Iterate over each required input directory
+                for path_name in ["input_data", "input_images"]:
                     # Create directory if it does not exist
                     paths.get_path(
                         name=path_name,
-                        morphfits_root=self.morphfits_root,
-                        output_root=self.output_root,
-                        product_root=self.product_root,
-                        run_root=self.run_root,
+                        input_root=self.input_root,
                         field=ficl.field,
                         image_version=ficl.image_version,
-                        catalog_version=ficl.catalog_version,
                         filter=ficl.filter,
-                        object=object,
-                        datetime=self.datetime,
-                        run_number=self.run_number,
                     ).mkdir(parents=True, exist_ok=True)
+
+            # Make PSFs directory
+            paths.get_path(
+                name="input_psfs",
+                input_root=self.input_root,
+            ).mkdir(parents=True, exist_ok=True)
+
+        else:
+            # Iterate over each possible FICLO from configurations
+            for ficl in self.get_FICLs(pre_input=pre_input):
+                # Iterate over each object in FICL
+                for object in (
+                    tqdm(ficl.objects, unit="dir", leave=False)
+                    if display_progress
+                    else ficl.objects
+                ):
+                    # Make leaf FICLO directories
+                    for path_name in [
+                        "ficlo_products",
+                        "logs",
+                        "models",
+                        "plots",
+                    ]:
+                        # Create directory if it does not exist
+                        paths.get_path(
+                            name=path_name,
+                            morphfits_root=self.morphfits_root,
+                            output_root=self.output_root,
+                            product_root=self.product_root,
+                            run_root=self.run_root,
+                            field=ficl.field,
+                            image_version=ficl.image_version,
+                            catalog_version=ficl.catalog_version,
+                            filter=ficl.filter,
+                            object=object,
+                            datetime=self.datetime,
+                            run_number=self.run_number,
+                        ).mkdir(parents=True, exist_ok=True)
 
     def clean_paths(self, display_progress: bool = False):
         """Remove product and output directories for skipped FICLOs of this
@@ -510,6 +539,8 @@ def create_config(
 
     # If parameters are still unset, assume program execution over all
     # discovered values in input directory
+    if download:
+        config_dict["objects"] = []
     for parameter in [
         "field",
         "image_version",
@@ -615,13 +646,6 @@ def create_config(
 
     # Setup directories where missing
     morphfits_config.setup_paths(display_progress=True, pre_input=download)
-    if not download:
-        paths.get_path(
-            name="run",
-            run_root=morphfits_config.run_root,
-            datetime=morphfits_config.datetime,
-            run_number=morphfits_config.run_number,
-        ).mkdir(parents=True, exist_ok=True)
 
     # Create logger
     logs.create_logger(

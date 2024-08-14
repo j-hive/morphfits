@@ -450,9 +450,7 @@ def download(
     )
 
     # Create program and module logger
-    logs.create_logger(filename=ROOT / "download.log")
     logger = logging.getLogger("MORPHFITS")
-    logger.info("Starting MorphFITS.")
 
     # Download and unzip files
     input.main(morphfits_config=morphfits_config)

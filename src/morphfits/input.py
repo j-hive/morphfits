@@ -198,39 +198,6 @@ def get_src_dest(
     return filenames
 
 
-def setup_input_dirs(morphfits_config: config.MorphFITSConfig):
-    """Create input directories where missing.
-
-    Parameters
-    ----------
-    morphfits_config : config.MorphFITSConfig
-        Configuration object for this program run.
-    """
-
-    # Iterate over each possible FICLO from configurations
-    logger.info("Creating input directories where missing.")
-    for ficl in morphfits_config.get_FICLs(pre_input=True):
-        # Iterate over each object in FICL
-        for object in tqdm(ficl.objects, unit="dir", leave=False):
-            # Make leaf FICLO directories
-            for path_name in ["input_data", "input_images"]:
-                # Create directory if it does not exist
-                paths.get_path(
-                    name=path_name,
-                    input_root=morphfits_config.input_root,
-                    field=ficl.field,
-                    image_version=ficl.image_version,
-                    catalog_version=ficl.catalog_version,
-                    filter=ficl.filter,
-                    object=object,
-                ).mkdir(parents=True, exist_ok=True)
-    # Make PSFs directory
-    paths.get_path(
-        name="input_psfs",
-        input_root=morphfits_config.input_root,
-    ).mkdir(parents=True, exist_ok=True)
-
-
 def get_files(
     src_dest: list[tuple[str, str]],
     file_list: dict[str, dict],
@@ -259,7 +226,7 @@ def get_files(
     logger.info(f"Downloading {len(src_dest)} files ({file_size}).")
 
     # Download files
-    for url, out in src_dest:
+    for url, out in tqdm(src_dest, unit="file", leave=False):
         with DownloadProgressBar(
             unit="B",
             unit_scale=True,
@@ -332,6 +299,5 @@ def main(morphfits_config: config.MorphFITSConfig):
     """
     file_list = get_file_list()
     src_dest = get_src_dest(morphfits_config=morphfits_config, file_list=file_list)
-    setup_input_dirs(morphfits_config=morphfits_config)
     get_files(src_dest=src_dest, file_list=file_list)
     unzip_files(src_dest=src_dest, file_list=file_list)
