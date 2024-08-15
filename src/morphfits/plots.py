@@ -349,6 +349,9 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
     run_number : int
         Number of run if there are multiple of the same datetime.
     """
+    logger.info(
+        f"Plotting histogram for run {datetime.strftime('%Y%m%dT%H%M%S')}.{str(run_number).rjust(2,'0')}."
+    )
 
     # Get paths
     parameters_path = paths.get_path(
@@ -440,9 +443,16 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
         plt.subplot(2, 3, i + 1)
         max_count = 0
         parameter_data = run_catalog[list(parameters.keys())[i]]
+        numerical_data = []
+        for datum in parameter_data:
+            try:
+                numerical_datum = float(datum)
+                numerical_data.append(numerical_datum)
+            except:
+                continue
         bins = np.linspace(
-            parameter_data.min(numeric_only=True),
-            parameter_data.max(numeric_only=True),
+            np.min(numerical_data),
+            np.max(numerical_data),
             num_bins,
         )
         for filter in filters:
