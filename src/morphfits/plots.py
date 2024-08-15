@@ -440,7 +440,11 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
         plt.subplot(2, 3, i + 1)
         max_count = 0
         parameter_data = run_catalog[list(parameters.keys())[i]]
-        bins = np.linspace(parameter_data.min(), parameter_data.max(), num_bins)
+        bins = np.linspace(
+            parameter_data.min(numeric_only=True),
+            parameter_data.max(numeric_only=True),
+            num_bins,
+        )
         for filter in filters:
             parameter_data = run_catalog[run_catalog["filter"] == filter][
                 list(parameters.keys())[i]
