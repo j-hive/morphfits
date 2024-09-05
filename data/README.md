@@ -66,6 +66,7 @@ morphfits_root/
 │       └── I/
 │           └── C/
 │               └── L/
+│                   ├── F_I_C_L_histogram.png
 │                   ├── F_I_C_L_objects.png
 │                   └── O/
 │                       ├── logs/
@@ -121,6 +122,7 @@ morphfits_root/
 │       └── .../
 │           └── .../
 │               └── ficl_output/
+│                   ├── ficl_histogram
 │                   ├── ficl_objects
 │                   └── ficlo_output/
 │                       ├── logs/
@@ -178,8 +180,9 @@ running `paths.get_path` for the required variables.
 |Input|`weights`|`.fits`|`xFIL`|Weights map.|
 |Output|`output_root`|`/`|`z`|Root directory for all output files.|
 |Output|`morphfits_catalog`|`.csv`||Catalog of all fits under root.|
-|Output|`ficl_output`|`/`|`zFICLO`|Directory for all output for a FICL.|
-|Output|`ficl_objects`|`.png`|`zFICLO`|Image showing all objects in a FICL.|
+|Output|`ficl_output`|`/`|`zFICL`|Directory for all output for a FICL.|
+|Output|`ficl_histogram`|`.png`|`zFICL`|Histogram of fitting parameter distributions.|
+|Output|`ficl_objects`|`.png`|`zFICL`|Image showing all objects in a FICL.|
 |Output|`ficlo_output`|`/`|`zFICLO`|Directory for all output for a FICLO.|
 |Output|`logs`|`/`|`zFICLO`|Directory for logs from fit executions.|
 |Output|`galfit_log`|`.log`|`zFICLO`|GALFIT parameters fit log.|

@@ -111,6 +111,13 @@ morphfits_catalog:
     - output catalog
     - all runs
     - all fits
+ficl_histogram:
+  file: True
+  path: "[ficl_output]/{F}_{I}_{C}_{L}_histogram.png"
+  alts:
+    - history histogram
+    - updated histogram
+    - entire histogram
 ficl_objects:
   file: True
   path: "[ficl_output]/{F}_{I}_{C}_{L}_objects.png"
@@ -239,6 +246,7 @@ histogram:
   alts:
     - distribution
     - parameter distribution
+    - run histogram
 morphfits_log:
   file: True
   path: "[run]/morphfits.log"

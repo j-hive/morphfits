@@ -13,6 +13,7 @@ from datetime import datetime as dt
 import re
 import csv
 
+import pandas as pd
 from astropy.io import fits
 from astropy.table import Table
 from jinja2 import Template
@@ -76,6 +77,35 @@ See Also
 --------
 `record_parameters`
     Function using this expression to record the fitting parameters from logs.
+"""
+
+
+CATALOG_HEADERS = [
+    "use",
+    "field",
+    "image version",
+    "catalog version",
+    "filter",
+    "object",
+    "return code",
+    "flags",
+    "convergence",
+    "center x",
+    "center y",
+    "surface brightness",
+    "effective radius",
+    "sersic",
+    "axis ratio",
+    "position angle",
+    "center x error",
+    "center y error",
+    "surface brightness error",
+    "effective radius error",
+    "sersic error",
+    "axis ratio error",
+    "position angle error",
+]
+"""Headers for the MorphFITS catalog CSV.
 """
 
 
@@ -490,44 +520,25 @@ def record_parameters(
     for_run : bool, optional
     """
     logger.info(
-        "Recording fitting parameters in catalog for FICL "
+        "Recording fitting parameters in catalogs for FICL "
         + f"{'_'.join([field, image_version, catalog_version, filter])}."
     )
 
     # Create CSV if missing and write headers
-    out_catalog_path = paths.get_path(
+    path_catalog_run = paths.get_path(
         "parameters", run_root=run_root, datetime=datetime, run_number=run_number
     )
-    if not out_catalog_path.exists():
-        with open(out_catalog_path, mode="w", newline="") as csv_file:
+    path_catalog_morphfits = paths.get_path(
+        "morphfits_catalog", output_root=output_root
+    )
+    if not path_catalog_run.exists():
+        with open(path_catalog_run, mode="w", newline="") as csv_file:
             writer = csv.writer(csv_file)
-            writer.writerow(
-                [
-                    "use",
-                    "field",
-                    "image version",
-                    "catalog version",
-                    "filter",
-                    "object",
-                    "return code",
-                    "flags",
-                    "convergence",
-                    "center x",
-                    "center y",
-                    "surface brightness",
-                    "effective radius",
-                    "sersic",
-                    "axis ratio",
-                    "position angle",
-                    "center x error",
-                    "center y error",
-                    "surface brightness error",
-                    "effective radius error",
-                    "sersic error",
-                    "axis ratio error",
-                    "position angle error",
-                ]
-            )
+            writer.writerow(CATALOG_HEADERS)
+    if not path_catalog_morphfits.exists():
+        with open(path_catalog_morphfits, mode="w", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(CATALOG_HEADERS[1:])
 
     # Iterate over each object in FICL
     for i in (
@@ -619,13 +630,13 @@ def record_parameters(
                 csv_row.append(parameter)
             for error in errors:
                 csv_row.append(error)
-            with open(out_catalog_path, mode="a", newline="") as csv_file:
+            with open(path_catalog_run, mode="a", newline="") as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(csv_row)
 
         ## Write empty row for failures
         else:
-            with open(out_catalog_path, mode="a", newline="") as csv_file:
+            with open(path_catalog_run, mode="a", newline="") as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(
                     [
