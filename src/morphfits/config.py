@@ -537,8 +537,8 @@ def create_config(
     if wrappers is not None:
         config_dict["wrappers"] = wrappers
 
-    # If parameters are still unset, assume program execution over all
-    # discovered values in input directory
+    ## If parameters are still unset, assume program execution over all
+    ## discovered values in input directory
     if download:
         config_dict["objects"] = []
     for parameter in [
@@ -557,6 +557,47 @@ def create_config(
                 config_dict[parameter + "s"] = paths.find_parameter_from_input(
                     parameter_name=parameter, input_root=config_dict["input_root"]
                 )
+
+    ## Update filter if input files are named in the format of `f150w-clear` and
+    ## filter specified is 'f150w'
+    for field in config_dict["fields"]:
+        for image_version in config_dict["image_versions"]:
+            for i in range(len(config_dict["filters"])):
+                filter = config_dict["filters"][i]
+                science_path = paths.get_path(
+                    name="science",
+                    input_root=config_dict["input_root"],
+                    field=field,
+                    image_version=image_version,
+                    filter=filter,
+                )
+
+                # If input files using filter not found, but input files using
+                # other known filter names found, replace filter with other
+                # filter name
+                if not science_path.exists():
+                    possible_filters = [
+                        f"{filter}-clear",
+                        f"clear-{filter}",
+                        f"{filter}-clearp",
+                        f"clearp-{filter}",
+                    ]
+                    for possible_filter in possible_filters:
+                        possible_science_path = paths.get_path(
+                            name="science",
+                            input_root=config_dict["input_root"],
+                            field=field,
+                            image_version=image_version,
+                            filter=possible_filter,
+                        )
+                        if possible_science_path.exists():
+                            print(
+                                f"Input data for filter '{filter}' "
+                                + f"not found, replacing with '{possible_filter}'."
+                            )
+                            config_dict["filters"].pop(i)
+                            config_dict["filters"].insert(i, possible_filter)
+                            break
 
     # Set batch mode parameters
     if "first_object" in config_dict:

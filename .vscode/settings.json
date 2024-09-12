@@ -52,6 +52,7 @@
         "bsize",
         "canucs",
         "catvers",
+        "clearp",
         "cmap",
         "colours",
         "delaxes",
