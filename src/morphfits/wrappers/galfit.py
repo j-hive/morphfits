@@ -409,7 +409,7 @@ def run_galfit(
 
         ## Run subprocess and pipe output
         if not display_progress:
-            logger.info(f"Running GALFIT for object {object}.")
+            logger.info(f"Running GALFIT for object {object} in filter '{filter}'.")
         process = Popen(
             f"cd {str(ficlo_products_path)} && ./galfit {feedfile_path.name}",
             stdout=PIPE,
