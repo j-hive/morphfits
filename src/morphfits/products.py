@@ -552,7 +552,7 @@ def generate_psfs(
     original_psf_headers = original_psf_file["PRIMARY"].header
     psf_pixscale = original_psf_headers["PIXELSCL"]
     psf_length = original_psf_headers["NAXIS1"]
-    original_psf_file.close
+    original_psf_file.close()
     del original_psf_file
     del original_psf_headers
     gc.collect()
@@ -617,6 +617,7 @@ def generate_masks(
     objects: list[int],
     positions: list[SkyCoord],
     image_sizes: list[int],
+    pixscale: tuple[float, float],
     regenerate: bool = False,
     display_progress: bool = False,
 ):
@@ -642,6 +643,8 @@ def generate_masks(
         List of positions of objects in the sky, from catalog.
     image_sizes : list[int]
         List of image sizes corresponding to each object's stamp.
+    pixscale : tuple[float, float]
+        Pixel scale along x and y axes, in arcseconds per pixel.
     regenerate : bool, optional
         Regenerate existing masks, by default False.
     display_progress : bool, optional
@@ -660,6 +663,10 @@ def generate_masks(
     segmap_file = fits.open(segmap_path)
     segmap_data = segmap_file["PRIMARY"].data
     segmap_wcs = WCS(segmap_file["PRIMARY"].header)
+
+    # Set flag to expand data if pixscales are not equal
+    segmap_pixscale = science.get_pixscale(science_path=segmap_path)
+    expand_segmap = max(segmap_pixscale) / max(pixscale) == 2
 
     # Close and clear files from memory
     segmap_file.close()
@@ -711,6 +718,14 @@ def generate_masks(
             sky_location = np.where(segmap_cutout.data == 0)
             mask[object_location] = 0
             mask[sky_location] = 0
+
+            # Expand (re-bin) data if incorrect pixscale
+            if expand_segmap:
+                zeroes = np.zeros(shape=(image_size, image_size))
+                quarter_size = int(image_size / 4)
+                mask_cutout = mask[quarter_size:3*quarter_size, quarter_size:3*quarter_size]
+                zeroes[1::2, 1::2] += mask_cutout
+                mask = ndimage.maximum_filter(input=zeroes, size=2)
 
             # Write to disk
             mask_hdul = fits.PrimaryHDU(data=mask, header=segmap_cutout.wcs.to_header())
@@ -832,6 +847,7 @@ def generate_products(
             objects=objects,
             positions=positions,
             image_sizes=image_sizes,
+            pixscale=ficl.pixscale,
             regenerate=regenerate_products or regenerate_masks,
             display_progress=display_progress,
         )
