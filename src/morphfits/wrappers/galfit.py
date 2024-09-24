@@ -271,7 +271,7 @@ def generate_feedfiles(
             "sigma_path": path_str(product_paths["sigma"].name),
             "psf_path": path_str(product_paths["psf"].name),
             "mask_path": path_str(product_paths["mask"].name),
-            "constraints_path": path_str(".constraints"),
+            "constraints_path": path_str(constraints_path),
             "image_size": str(image_size),
             "zeropoint": float_str(zeropoint),
             "pixscale_x": float_str(pixscale[0]),
@@ -394,7 +394,7 @@ def run_galfit(
             continue
 
         ## Copy GALFIT and constraints to FICLO product directory
-        constraints_path = GALFIT_DATA_ROOT / "default.constraints"
+        # constraints_path = GALFIT_DATA_ROOT / "default.constraints"
         ficlo_products_path = paths.get_path(
             "ficlo_products",
             product_root=product_root,
@@ -405,7 +405,7 @@ def run_galfit(
             object=object,
         )
         shutil.copy(galfit_path, ficlo_products_path / "galfit")
-        shutil.copy(constraints_path, ficlo_products_path / ".constraints")
+        # shutil.copy(constraints_path, ficlo_products_path / ".constraints")
 
         ## Run subprocess and pipe output
         if not display_progress:
