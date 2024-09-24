@@ -316,6 +316,9 @@ def galwrap(
     # Display status
     logger = logging.getLogger("MORPHFITS")
 
+    # Unzip zipped files
+    input.unzip_files(morphfits_config=morphfits_config)
+
     # Call wrapper
     galfit.main(
         morphfits_config=morphfits_config,
