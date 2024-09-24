@@ -173,7 +173,18 @@ class MorphFITSConfig(BaseModel):
                     image_version=image_version,
                     filter=filter,
                 )
+
+                # Skip this FICL if science frame missing
+                if not science_path.exists():
+                    logger.warning(
+                        f"FICL {'_'.join([field, image_version,catalog_version,filter])} "
+                        + "science frame not found, skipping."
+                    )
+                    continue
+
                 pixscale = science.get_pixscale(science_path)
+
+            # Create FICL object to yield
             ficl = FICL(
                 field=field,
                 image_version=image_version,

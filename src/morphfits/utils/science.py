@@ -107,8 +107,8 @@ def get_pixscale(science_path: Path):
         ]
     ):
         raise KeyError(
-            f"Science frame for FICL {self} missing "
-            + "coordinate transformation matrix element header."
+            f"Science frame for science frame {science_path.name} "
+            + "missing coordinate transformation matrix element header."
         )
 
     # Calculate and set pixel scales
