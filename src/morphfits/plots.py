@@ -249,17 +249,27 @@ def plot_model(
         mask = mask_file["PRIMARY"].data
         model = model_file[2].data
 
+        # Mask data
+        mask_value = np.min(stamp)
+        masked_stamp = np.where(1 - mask, stamp, np.mean(stamp))
+        masked_sigma = np.where(1 - mask, sigma, np.mean(sigma))
+        masked_model = np.where(1 - mask, model, np.mean(model))
+
         # Normalize model to stamp
-        stamp_min, stamp_max = np.min(stamp), np.max(stamp)
+        stamp_min, stamp_max = np.min(masked_stamp), np.max(masked_stamp)
         if len(model_file) > 2:
-            residual = model_file[3].data
+            masked_residual = np.where(
+                1 - mask, model_file[3].data, np.mean(model_file[3].data)
+            )
         else:
-            norm_model = np.copy(model)
-            norm_model -= np.min(model)
-            norm_model /= np.max(model)
+            norm_model = np.copy(masked_model)
+            norm_model -= np.min(masked_model)
+            norm_model /= np.max(masked_model)
             norm_model *= stamp_max - stamp_min
             norm_model += stamp_min
-            residual = norm_model - stamp
+            masked_residual = np.where(
+                1 - mask, norm_model - stamp, np.mean(norm_model - stamp)
+            )
             del norm_model
 
         # Clear memory
@@ -285,13 +295,13 @@ def plot_model(
         )
 
         plt.subplot(2, 3, 1)
-        plt.imshow(stamp, cmap=JHIVE_CMAP)
-        plt.title("stamp", y=0)
+        plt.imshow(masked_stamp, cmap=JHIVE_CMAP)
+        plt.title("masked stamp", y=0)
         plt.axis("off")
 
         plt.subplot(2, 3, 2)
         plt.imshow(sigma, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
-        plt.title("sigma", y=0)
+        plt.title("sigma map", y=0)
         plt.axis("off")
 
         plt.subplot(2, 3, 3)
@@ -300,23 +310,18 @@ def plot_model(
         plt.axis("off")
 
         plt.subplot(2, 3, 4)
-        plt.imshow(
-            model,
-            cmap=JHIVE_CMAP,
-            vmin=stamp_min,
-            vmax=stamp_max,
-        )
+        plt.imshow(model, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
         plt.title(wrapper + " model", y=0)
         plt.axis("off")
 
         plt.subplot(2, 3, 5)
-        plt.imshow(residual, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
-        plt.title("residuals", y=0)
+        plt.imshow(masked_residual, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
+        plt.title("masked residuals", y=0)
         plt.axis("off")
 
         plt.subplot(2, 3, 6)
         plt.imshow(psf, cmap=JHIVE_CMAP)
-        plt.title("psf", y=0)
+        plt.title("cropped psf", y=0)
         plt.axis("off")
 
         # Save plot
@@ -327,12 +332,11 @@ def plot_model(
         del object_paths
         del stamp
         del sigma
+        del model
         del psf
         del mask
-        del model
         del stamp_min
         del stamp_max
-        del residual
         gc.collect()
 
 
