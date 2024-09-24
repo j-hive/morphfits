@@ -722,9 +722,12 @@ def generate_masks(
             # Expand (re-bin) data if incorrect pixscale
             if expand_segmap:
                 zeroes = np.zeros(shape=(image_size, image_size))
-                quarter_size = int(image_size / 4)
-                mask_cutout = mask[quarter_size:3*quarter_size, quarter_size:3*quarter_size]
-                zeroes[1::2, 1::2] += mask_cutout
+                i_start = int(image_size / 4)
+                mask_length = int(np.ceil(image_size / 2))
+                mask_cutout = mask[
+                    i_start : i_start + mask_length, i_start : i_start + mask_length
+                ]
+                zeroes[::2, ::2] += mask_cutout
                 mask = ndimage.maximum_filter(input=zeroes, size=2)
 
             # Write to disk
