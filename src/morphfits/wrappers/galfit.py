@@ -526,7 +526,11 @@ def record_parameters(
 
     # Create CSV if missing and write headers
     path_catalog_run = paths.get_path(
-        "parameters", run_root=run_root, datetime=datetime, run_number=run_number
+        "parameters",
+        run_root=run_root,
+        field=field,
+        datetime=datetime,
+        run_number=run_number,
     )
     path_catalog_morphfits = paths.get_path(
         "morphfits_catalog", output_root=output_root
@@ -778,12 +782,14 @@ def main(
     run_catalog_path = paths.get_path(
         "parameters",
         run_root=morphfits_config.run_root,
+        field=morphfits_config.fields[0],
         datetime=morphfits_config.datetime,
         run_number=morphfits_config.run_number,
     )
     if run_catalog_path.exists():
         plots.plot_histogram(
             run_root=morphfits_config.run_root,
+            field=morphfits_config.fields[0],
             datetime=morphfits_config.datetime,
             run_number=morphfits_config.run_number,
         )

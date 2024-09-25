@@ -223,7 +223,7 @@ run_root:
     - runs
 run:
   file: False
-  path: "[run_root]/{D}.{N}"
+  path: "[run_root]/{F}.{D}.{N}"
   alts:
     - single run
 ## Files

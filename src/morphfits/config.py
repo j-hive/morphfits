@@ -240,6 +240,7 @@ class MorphFITSConfig(BaseModel):
         paths.get_path(
             name="run",
             run_root=self.run_root,
+            field=self.fields[0],
             datetime=self.datetime,
             run_number=self.run_number,
         ).mkdir(parents=True, exist_ok=True)
@@ -385,6 +386,7 @@ class MorphFITSConfig(BaseModel):
                 paths.get_path(
                     "config",
                     run_root=self.run_root,
+                    field=self.fields[0],
                     datetime=self.datetime,
                     run_number=self.run_number,
                 ),
@@ -689,6 +691,7 @@ def create_config(
     while paths.get_path(
         "run",
         run_root=config_dict["run_root"],
+        field=config_dict["fields"][0],
         datetime=config_dict["datetime"],
         run_number=run_number,
     ).exists():
@@ -713,6 +716,7 @@ def create_config(
         filename=paths.get_path(
             "morphfits_log",
             run_root=morphfits_config.run_root,
+            field=morphfits_config.fields[0],
             datetime=morphfits_config.datetime,
             run_number=morphfits_config.run_number,
         )

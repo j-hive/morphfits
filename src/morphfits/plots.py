@@ -340,7 +340,7 @@ def plot_model(
         gc.collect()
 
 
-def plot_histogram(run_root: Path, datetime: dt, run_number: int):
+def plot_histogram(run_root: Path, field: str, datetime: dt, run_number: int):
     """Plot a histogram for each important fitting parameter, across filters,
     for a given run.
 
@@ -348,6 +348,8 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
     ----------
     run_root : Path
         Path to root directory of runs.
+    field : str
+        Field of run.
     datetime : dt
         Datetime of run, in 'yyyymmddThhMMss' format.
     run_number : int
@@ -359,10 +361,18 @@ def plot_histogram(run_root: Path, datetime: dt, run_number: int):
 
     # Get paths
     parameters_path = paths.get_path(
-        "parameters", run_root=run_root, datetime=datetime, run_number=run_number
+        "parameters",
+        run_root=run_root,
+        field=field,
+        datetime=datetime,
+        run_number=run_number,
     )
     histogram_path = paths.get_path(
-        "histogram", run_root=run_root, datetime=datetime, run_number=run_number
+        "histogram",
+        run_root=run_root,
+        field=field,
+        datetime=datetime,
+        run_number=run_number,
     )
 
     # Load catalog as data frame

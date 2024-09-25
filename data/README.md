@@ -93,7 +93,7 @@ morphfits_root/
 │                       ├── F_I_C_L_O_sigma.fits
 │                       └── F_I_C_L_O_stamp.fits
 └── runs/
-    └── D.N/
+    └── F.D.N/
         ├── config.yaml
         ├── files.csv
         ├── histogram.png
@@ -204,7 +204,7 @@ running `paths.get_path` for the required variables.
 |Product|`sigma`|`.fits`|`yFICLO`|Sigma map.|
 |Product|`stamp`|`.fits`|`yFICLO`|Object cutout.|
 |Run|`run_root`|`/`|`r`|Directory for records from all runs.|
-|Run|`run`|`/`|`rDN`|Directory for records from a single run.|
+|Run|`run`|`/`|`rFDN`|Directory for records from a single run.|
 |Run|`config`|`.yaml`|`d`|Configuration settings from run.|
 |Run|`files`|`.csv`|`d`|Modified or created files from run.|
 |Run|`histogram`|`.png`|`d`|Histogram depicting parameter distribution.|
