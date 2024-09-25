@@ -314,10 +314,17 @@ def unzip_files(morphfits_config: config.MorphFITSConfig):
     morphfits_config : MorphFITSConfig
         Configuration object for this program run.
     """
+    # Get list of paths to zipped files
     logger.info("Getting list of files to unzip.")
     list_zip = get_zip_list(node=morphfits_config.input_root)
 
+    # Get list of zipped files to unzip and return if there are none
     n_zip = len(list_zip)
+    if n_zip == 0:
+        logger.info("No zipped files to unzip.")
+        return
+
+    # Iterate over each zipped file
     total_original, total_new = 0, 0
     logger.info(f"Unzipping {n_zip} file(s).")
     for zip_path in tqdm(list_zip, unit="file", leave=False):
@@ -342,6 +349,7 @@ def unzip_files(morphfits_config: config.MorphFITSConfig):
         str_new = get_size_str(size_file=size_new)
         logger.info(f"Unzipped '{unzip_path.name}' ({str_original} -> {str_new}).")
 
+    # Display total decompression size difference
     str_total_original = get_size_str(size_file=total_original)
     str_total_new = get_size_str(size_file=total_new)
     logger.info(f"Unzipped {n_zip} files ({str_total_original} -> {str_total_new}).")

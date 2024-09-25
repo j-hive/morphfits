@@ -356,7 +356,9 @@ def plot_histogram(run_root: Path, field: str, datetime: dt, run_number: int):
         Number of run if there are multiple of the same datetime.
     """
     logger.info(
-        f"Plotting histogram for run {datetime.strftime('%Y%m%dT%H%M%S')}.{str(run_number).rjust(2,'0')}."
+        f"Plotting histogram for run {field}."
+        + f"{datetime.strftime('%Y%m%dT%H%M%S')}."
+        + f"{str(run_number).rjust(2,'0')}."
     )
 
     # Get paths
