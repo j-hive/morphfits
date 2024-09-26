@@ -451,7 +451,7 @@ def write_catalog(
     """
     # Create CSV if missing and write headers
     path_catalog_run = paths.get_path(
-        "parameters",
+        "run_catalog",
         run_root=run_root,
         field=field,
         datetime=datetime,
@@ -687,12 +687,13 @@ def main(
 
     # Plot histogram for each run if the run catalog exists
     run_catalog_path = paths.get_path(
-        "parameters",
+        "run_catalog",
         run_root=morphfits_config.run_root,
         field=morphfits_config.fields[0],
         datetime=morphfits_config.datetime,
         run_number=morphfits_config.run_number,
     )
+    return
     if run_catalog_path.exists():
         plots.plot_histogram(
             run_root=morphfits_config.run_root,

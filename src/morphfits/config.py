@@ -276,12 +276,7 @@ class MorphFITSConfig(BaseModel):
                     else ficl.objects
                 ):
                     # Make leaf FICLO directories
-                    for path_name in [
-                        "product_ficlo",
-                        "logs",
-                        "models",
-                        "plots",
-                    ]:
+                    for path_name in ["product_ficlo", "output_ficlo"]:
                         # Create directory if it does not exist
                         paths.get_path(
                             name=path_name,
@@ -346,7 +341,7 @@ class MorphFITSConfig(BaseModel):
                 for wrapper in self.wrappers:
                     # Remove FICLO outputs directory if any models missing
                     if not paths.get_path(
-                        name=f"{wrapper}_model",
+                        name=f"model_{wrapper}",
                         output_root=self.output_root,
                         field=ficl.field,
                         image_version=ficl.image_version,

@@ -1,4 +1,10 @@
-"""Miscellaneous Utilities"""
+"""Miscellaneous utility functions.
+"""
+
+# Imports
+
+
+# Functions
 
 
 def get_unique_batch_limits(
@@ -43,3 +49,19 @@ def get_unique_batch_limits(
     stop_index = start_index + n_items_process
 
     return start_index, stop_index
+
+
+def get_unique(items: list) -> list:
+    """Get the unique elements in a list of elements, as a sorted list.
+
+    Parameters
+    ----------
+    items : list
+        List of elements to be sorted.
+
+    Returns
+    -------
+    list
+        Sorted list of unique elements.
+    """
+    return sorted(set(list(items)))

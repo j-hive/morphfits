@@ -15,12 +15,18 @@ from astropy.io import fits
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 from matplotlib import colors as mplc
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 from tqdm import tqdm
 
 from . import paths
+from .utils import misc
 
 
 # Constants
+
+
+## Logging
 
 
 logger = logging.getLogger("PLOTS")
@@ -31,6 +37,9 @@ logger = logging.getLogger("PLOTS")
 logging.getLogger("matplotlib").setLevel(100)
 logging.getLogger("PIL").setLevel(100)
 """Ignore matplotlib and PIL logs."""
+
+
+## Plotting
 
 
 pos = [0.0, 0.008, 0.3, 0.5, 0.7, 1.0]
@@ -107,7 +116,25 @@ current_line_style = 0
 """
 
 
-# Utility Functions
+## Module
+
+
+PARAMETER_LABELS = {
+    "use": "use for analysis",
+    "convergence": "failed to converge",
+    "surface brightness": "surface brightness",
+    "effective radius": "effective radius",
+    "sersic": "sersic n",
+    "axis ratio": "axis ratio",
+}
+"""Mapping for parameters from catalog headers to plot labels.
+"""
+
+
+# Functions
+
+
+## Utility
 
 
 def next_line_style() -> tuple:
@@ -155,7 +182,122 @@ def get_y_ticks(max_count: int | float, num_ticks: int = 6) -> list[int]:
     return [0] + list(range(tick_interval, max_count, tick_interval)) + [max_count]
 
 
-# Plotting Functions
+## Sub-plotting
+
+
+def setup_histogram(histogram_path: Path, type: str) -> tuple[Figure, np.ndarray[Axes]]:
+    # Clean and create plot
+    plt.clf()
+    fig, axs = plt.subplots(2, 3)
+
+    # Setup figure options
+    subplot_separation = 0.2
+    plt.subplots_adjust(hspace=subplot_separation, wspace=subplot_separation)
+
+    # Setup figure title
+    if type == "main":
+        title = "MorphFITS Catalog Histogram"
+    elif type == "ficl":
+        name = "_".join(
+            [
+                histogram_path.parent.parent.parent.parent.name,
+                histogram_path.parent.parent.parent.name,
+                histogram_path.parent.parent.name,
+                histogram_path.parent.name,
+            ]
+        )
+        title = f"MorphFITS Catalog Histogram - {name}"
+    else:
+        name = histogram_path.parent.name
+        title = f"Run Catalog Histogram - {name}"
+    fig.suptitle(title)
+
+    # Return figure and axes
+    return fig, axs
+
+
+def subplot_histogram(catalog: pd.DataFrame, ax: Axes, parameter: str):
+    # Subplot settings, change these values to change how the plot looks
+    title_separation = -0.175
+    histogram_type = "step"
+    alpha = 0.5
+    num_bins = min(int(np.sqrt(len(catalog))), 50)
+
+    # Get list of filters in catalog and set the ytick count to zero
+    filters = misc.get_unique(catalog["filter"])
+    max_count = 0
+
+    # Set the bins for this histogram
+    ## There are two bins for the 'use' histogram, 'yes' and 'no'
+    if parameter == "use":
+        bins = np.arange(3)
+    ## There are three bins for the 'convergence' histogram, one for each important parameter
+    elif parameter == "convergence":
+        bins = np.arange(4)
+    ## The range for each parameter histogram should be the range over all filters
+    else:
+        values = []
+        for datum in catalog[parameter]:
+            try:
+                values.append(float(datum))
+            except:
+                continue
+        bins = np.linspace(np.min(values), np.max(values), num_bins)
+
+    # Plot the histogram
+    ## Plot a histogram line for each filter for this parameter in the same subplot
+    for filter in filters:
+        ### Set the data for the first two histograms, which are word counts
+        if (parameter == "use") or (parameter == "convergence"):
+            data = []
+            for datum in catalog[catalog["filter"] == filter][parameter]:
+                #### The first histogram range is boolean
+                if parameter == "use":
+                    data.append(1 if datum else 0)
+                #### The second histogram range is three important parameters
+                else:
+                    for bin in bins:
+                        if datum & 2**bin:
+                            data.append(bin)
+        ### Set the data for the other histograms, which are float distributions
+        else:
+            data = catalog[catalog["filter"] == filter][parameter]
+
+        ### Plot the histogram using the bins and data set above
+        ### Note this is only the histogram for one filter
+        count, bin_edges, patches = ax.hist(
+            data,
+            histtype=histogram_type,
+            alpha=alpha,
+            bins=bins,
+            edgecolor=TEXT_COLOR,
+            linestyle=next_line_style(),
+            label=filter,
+        )
+
+        ### Increase the ytick count if the max frequency increased
+        if (len(count) > 0) and (np.max(count) > max_count):
+            max_count = np.max(count)
+
+    # Set the subplot ticks and labels
+    ## NOTE legend currently not implemented, seems more distracting than informative
+    # if len(filters) > 1:
+    #     ax.legend()
+    if parameter == "use":
+        ax.set_xticks(bins[:-1] + 0.5, ["no", "yes"])
+    elif parameter == "convergence":
+        ax.set_xticks(bins[:-1] + 0.5, ["effective radius", "sersic", "axis ratio"])
+    ax.set_yticks(get_y_ticks(max_count=max_count))
+    ax.set_title(PARAMETER_LABELS[parameter], y=title_separation)
+    reset_line_style()
+
+
+def save_histogram(histogram_path: Path, fig: Figure, axs: np.ndarray[Axes]):
+    fig.savefig(histogram_path)
+    fig.clear()
+
+
+## Plotting
 
 
 def plot_model(
@@ -206,8 +348,8 @@ def plot_model(
             "sigma",
             "psf",
             "mask",
-            wrapper + "_model",
-            wrapper + "_plot",
+            f"model_{wrapper}",
+            f"plot_{wrapper}",
         ]
         object_paths = {
             name: paths.get_path(
@@ -242,7 +384,7 @@ def plot_model(
         sigma_file = fits.open(object_paths["sigma"])
         psf_file = fits.open(object_paths["psf"])
         mask_file = fits.open(object_paths["mask"])
-        model_file = fits.open(object_paths[wrapper + "_model"])
+        model_file = fits.open(object_paths[f"model_{wrapper}"])
         stamp = stamp_file["PRIMARY"].data
         sigma = sigma_file["PRIMARY"].data
         psf = psf_file["PRIMARY"].data
@@ -325,7 +467,7 @@ def plot_model(
         plt.axis("off")
 
         # Save plot
-        plt.savefig(object_paths[wrapper + "_plot"])
+        plt.savefig(object_paths[f"plot_{wrapper}"])
         plt.close()
 
         # Clear memory
@@ -340,12 +482,47 @@ def plot_model(
         gc.collect()
 
 
-def plot_histogram(run_root: Path, field: str, datetime: dt, run_number: int):
-    """Plot a histogram for each important fitting parameter, across filters,
-    for a given run.
+def plot_histogram(catalog: pd.DataFrame, histogram_path: Path, type: str):
+    """Plot a MorphFITS histogram representing aggregate model fitting
+    usability, convergence, and parameter values.
 
     Parameters
     ----------
+    catalog : DataFrame
+        DataFrame representing all catalog fitting data to be plotted, i.e.
+        filtered catalog data.
+    histogram_path : Path
+        Path to which to write histogram PNG.
+    type : str
+        Source of histogram catalog, one of 'main', 'ficl', or 'run'.
+    """
+    # Setup plot
+    fig, axs = setup_histogram(histogram_path=histogram_path, type=type)
+
+    # Plot each subplot
+    parameters = list(PARAMETER_LABELS.keys())
+    for i in range(len(parameters)):
+        row, col = int(i / 3), i % 3
+        subplot_histogram(catalog=catalog, ax=axs[row][col], parameter=parameters[i])
+
+    # Save and clear plot
+    save_histogram(histogram_path=histogram_path, fig=fig, axs=axs)
+
+
+def plot_histograms(
+    output_root: Path,
+    run_root: Path,
+    field: str,
+    datetime: dt,
+    run_number: int,
+):
+    """Plot histograms representing fitting parameter distributions for the main
+    MorphFITS catalog, each FICL, and the run catalog.
+
+    Parameters
+    ----------
+    output_root : Path
+        Path to root directory of output.
     run_root : Path
         Path to root directory of runs.
     field : str
@@ -355,149 +532,55 @@ def plot_histogram(run_root: Path, field: str, datetime: dt, run_number: int):
     run_number : int
         Number of run if there are multiple of the same datetime.
     """
-    logger.info(
-        f"Plotting histogram for run {field}."
-        + f"{datetime.strftime('%Y%m%dT%H%M%S')}."
-        + f"{str(run_number).rjust(2,'0')}."
-    )
-
-    # Get paths
-    parameters_path = paths.get_path(
-        "parameters",
+    # Plot run histogram
+    path_catalog_run = paths.get_path(
+        "run_catalog",
         run_root=run_root,
         field=field,
         datetime=datetime,
         run_number=run_number,
     )
-    histogram_path = paths.get_path(
-        "histogram",
+    path_histogram_run = paths.get_path(
+        "run_histogram",
         run_root=run_root,
         field=field,
         datetime=datetime,
         run_number=run_number,
     )
+    catalog_run = pd.read_csv(path_catalog_run)
+    plot_histogram(catalog=catalog_run, histogram_path=path_histogram_run, type="run")
 
-    # Load catalog as data frame
-    run_catalog = pd.read_csv(parameters_path)
-    filters = sorted(list(set(run_catalog["filter"])))
-    parameters = {
-        "use": "use for analysis",
-        "convergence": "failed to converge",
-        "surface brightness": "surface brightness",
-        "effective radius": "effective radius",
-        "sersic": "sersic n",
-        "axis ratio": "axis ratio",
-    }
+    # Plot main histogram
+    path_catalog = paths.get_path("catalog", output_root=output_root)
+    path_histogram = paths.get_path("histogram", output_root=output_root)
+    catalog = pd.read_csv(path_catalog)
+    plot_histogram(catalog=catalog, histogram_path=path_histogram, type="main")
 
-    # Setup plot
-    subplot_separation = 0.2
-    title_separation = -0.175
-    histogram_type = "step"
-    alpha = 0.5
-    num_bins = min(int(np.sqrt(len(run_catalog))), 50)
-    plt.subplots(2, 3)
-    plt.subplots_adjust(hspace=subplot_separation, wspace=subplot_separation)
-    plt.suptitle(
-        f"catalog from {datetime.strftime('%Y-%m-%dT%H:%M:%S')}.{str(run_number).rjust(2,'0')}",
-    )
+    # Plot FICL histogram for each FICL found in catalog
+    for cF in misc.get_unique(catalog["field"]):
+        catalog_F = catalog[catalog["field"] == cF]
+        for cI in misc.get_unique(catalog_F["image version"]):
+            catalog_FI = catalog_F[catalog_F["image version"] == cI]
+            for cC in misc.get_unique(catalog_FI["catalog version"]):
+                catalog_FIC = catalog_FI[catalog_FI["catalog version"] == cC]
+                for cL in misc.get_unique(catalog_FIC["filter"]):
+                    catalog_FICL = catalog_FIC[catalog_FIC["filter"] == cL]
+                    path_histogram_ficl = paths.get_path(
+                        "ficl_histogram",
+                        output_root=output_root,
+                        field=cF,
+                        image_version=cI,
+                        catalog_version=cC,
+                        filter=cL,
+                    )
+                    plot_histogram(
+                        catalog=catalog_FICL,
+                        histogram_path=path_histogram_ficl,
+                        type="ficl",
+                    )
 
-    # Plot histograms on each parameter per filter
-    ## Plot histogram for usability
-    plt.subplot(2, 3, 1)
-    labels_0 = ["no", "yes"]
-    bins_0 = np.arange(3)
-    max_count = 0
-    for filter in filters:
-        quantized_use = []
-        for use in run_catalog[run_catalog["filter"] == filter]["use"]:
-            quantized_use.append(1 if use else 0)
-        count, bin_edges, patches = plt.hist(
-            quantized_use,
-            histtype=histogram_type,
-            alpha=alpha,
-            bins=bins_0,
-            edgecolor=TEXT_COLOR,
-            linestyle=next_line_style(),
-            label=filter,
-        )
-        if np.max(count) > max_count:
-            max_count = np.max(count)
-    plt.title(parameters["use"], y=title_separation)
-    plt.xticks(bins_0[:-1] + 0.5, labels_0)
-    plt.yticks(get_y_ticks(max_count=max_count))
-    reset_line_style()
 
-    ## Plot histogram for parameter convergence
-    plt.subplot(2, 3, 2)
-    labels_1 = ["effective radius", "sersic", "axis ratio"]
-    bins_1 = np.arange(4)
-    max_count = 0
-    for filter in filters:
-        quantized_flags = []
-        for flags in run_catalog[run_catalog["filter"] == filter]["convergence"]:
-            for bin_1 in bins_1:
-                if flags & 2**bin_1:
-                    quantized_flags.append(bin_1)
-        count, bin_edges, patches = plt.hist(
-            quantized_flags,
-            histtype=histogram_type,
-            alpha=alpha,
-            bins=bins_1,
-            edgecolor=TEXT_COLOR,
-            linestyle=next_line_style(),
-            label=filter,
-        )
-        if np.max(count) > max_count:
-            max_count = np.max(count)
-    plt.title(parameters["convergence"], y=title_separation)
-    plt.xticks(bins_1[:-1] + 0.5, labels_1)
-    plt.yticks(get_y_ticks(max_count=max_count))
-    reset_line_style()
-
-    ## Plot histogram for parameter values
-    for i in range(2, len(parameters)):
-        plt.subplot(2, 3, i + 1)
-        max_count = 0
-        parameter_data = run_catalog[list(parameters.keys())[i]]
-        numerical_data = []
-        for datum in parameter_data:
-            try:
-                numerical_datum = float(datum)
-                numerical_data.append(numerical_datum)
-            except:
-                continue
-        bins = np.linspace(
-            np.min(numerical_data),
-            np.max(numerical_data),
-            num_bins,
-        )
-        for filter in filters:
-            parameter_data = run_catalog[run_catalog["filter"] == filter][
-                list(parameters.keys())[i]
-            ]
-            count, bin_edges, patches = plt.hist(
-                parameter_data,
-                histtype=histogram_type,
-                alpha=alpha,
-                bins=bins,
-                edgecolor=TEXT_COLOR,
-                linestyle=next_line_style(),
-                label=filter,
-            )
-            if (len(count) > 0) and (np.max(count) > max_count):
-                max_count = np.max(count)
-        plt.title(parameters[list(parameters.keys())[i]], y=title_separation)
-        plt.yticks(get_y_ticks(max_count=max_count))
-        reset_line_style()
-    reset_line_style()
-
-    # Save plot
-    plt.savefig(histogram_path)
-    plt.close()
-
-    # Clear memory
-    del run_catalog
-    gc.collect()
+## In Development
 
 
 def plot_objects(
