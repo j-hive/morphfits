@@ -658,7 +658,7 @@ def stamp(
     # Create program and module logger
     logs.create_logger(
         filename=paths.get_path(
-            "morphfits_log",
+            "run_log",
             run_root=morphfits_config.run_root,
             datetime=morphfits_config.datetime,
             run_number=morphfits_config.run_number,

@@ -28,24 +28,26 @@ input_images:
   alts:
     - images
 ## Files
-original_psf:
+input_psf:
   file: True
   path: "[input_psfs]/PSF_NIRCam_in_flight_opd_filter_{L}.fits"
   alts:
+    - original_psf
+    - original psf
     - old psf
     - raw psf
-    - input psf
-segmap:
+input_segmap:
   file: True
   path: "[input_data]/{F}-{I}-ir_seg.fits"
   alts:
+    - segmap
     - segmentation map
     - seg map
-catalog:
+input_catalog:
   file: True
   path: "[input_data]/{F}-{I}-fix_phot_apcorr.fits"
   alts:
-    - input catalog
+    - original catalog
     - photometric catalog
     - phot
     - table
@@ -75,103 +77,88 @@ output_root:
   path: "[morphfits_root]/output"
   alts:
     - outputs
-ficl_output:
+output_ficl:
   file: False
   path: "[output_root]/{F}/{I}/{C}/{L}"
   alts:
-    - output ficl
-ficlo_output:
+    - ficl_output
+    - ficl output
+output_ficlo:
   file: False
-  path: "[ficl_output]/{O}"
+  path: "[output_ficl]/{O}"
   alts:
-    - output ficlo
-logs:
-  file: False
-  path: "[ficlo_output]/logs"
-  alts:
-    - ficlo logs
-models:
-  file: False
-  path: "[ficlo_output]/models"
-  alts:
-    - ficlo models
-plots:
-  file: False
-  path: "[ficlo_output]/plots"
-  alts:
-    - plots
-    - ficlo plots
-    - ficlo viz
-    - viz
+    - ficlo_output
+    - ficlo output
 ## Files
-morphfits_catalog:
+catalog:
   file: True
   path: "[output_root]/catalog.csv"
   alts:
     - output catalog
-    - all runs
-    - all fits
+    - parameters
+histogram:
+  file: True
+  path: "[output_root]/histogram.csv"
+  alts:
+    - output histogram
+    - distribution
 ficl_histogram:
   file: True
-  path: "[ficl_output]/{F}_{I}_{C}_{L}_histogram.png"
+  path: "[output_ficl]/{F}_{I}_{C}_{L}_histogram.png"
   alts:
     - history histogram
     - updated histogram
-    - entire histogram
 ficl_objects:
   file: True
-  path: "[ficl_output]/{F}_{I}_{C}_{L}_objects.png"
+  path: "[output_ficl]/{F}_{I}_{C}_{L}_objects.png"
   alts:
     - objects
     - all objects
     - object viz
     - object display
-galfit_log:
+log_galfit:
   file: True
-  path: "[logs]/{F}_{I}_{C}_{L}_{O}_galfit.log"
+  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_galfit.log"
   alts:
     - galfit log
     - fit log
-galfit_model:
+model_galfit:
   file: True
-  path: "[models]/{F}_{I}_{C}_{L}_{O}_galfit.fits"
+  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_galfit.fits"
   alts:
     - galfit fit
-imcascade_model:
+model_imcascade:
   file: True
-  path: "[models]/{F}_{I}_{C}_{L}_{O}_imcascade.fits"
+  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_imcascade.fits"
   alts:
     - imcascade fit
-pysersic_model:
+model_pysersic:
   file: True
-  path: "[models]/{F}_{I}_{C}_{L}_{O}_pysersic.fits"
+  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_pysersic.fits"
   alts:
     - pysersic fit
-galfit_plot:
+plot_galfit:
   file: True
-  path: "[plots]/{F}_{I}_{C}_{L}_{O}_galfit.png"
+  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_galfit.png"
   alts:
     - galfit viz
-imcascade_plot:
+plot_imcascade:
   file: True
-  path: "[plots]/{F}_{I}_{C}_{L}_{O}_imcascade.png"
+  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_imcascade.png"
   alts:
     - imcascade viz
-pysersic_plot:
+plot_pysersic:
   file: True
-  path: "[plots]/{F}_{I}_{C}_{L}_{O}_pysersic.png"
+  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_pysersic.png"
   alts:
     - pysersic viz
-products_plot:
+plot_comparison:
   file: True
-  path: "[plots]/{F}_{I}_{C}_{L}_{O}_products.png"
+  path: "[output_ficlo]/{F}_{I}_{C}_{L}_{O}_comparison.png"
   alts:
-    - product viz
-wrapper_comparison:
-  file: True
-  path: "[plots]/{F}_{I}_{C}_{L}_{O}_wrappers.png"
-  alts:
-    - wrapper viz
+    - plot_wrappers
+    - plot wrappers
+    - wrappers
 
 # Products
 ## Directories
@@ -180,39 +167,40 @@ product_root:
   path: "[morphfits_root]/products"
   alts:
     - products
-ficlo_products:
+product_ficlo:
   file: False
   path: "[product_root]/{F}/{I}/{C}/{L}/{O}"
   alts:
-    - product ficlo
+    - ficlo_products
+    - ficlo products
 ## Files
-feedfile:
-  file: True
-  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}.feedfile"
-  alts:
-    - feedme
 mask:
   file: True
-  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}_mask.fits"
+  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}_mask.fits"
   alts:
     - segmap cutout
 psf:
   file: True
-  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}_psf.fits"
+  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}_psf.fits"
   alts:
     - psf product
     - cropped psf
 sigma:
   file: True
-  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}_sigma.fits"
+  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}_sigma.fits"
   alts:
     - rms
     - variance
 stamp:
   file: True
-  path: "[ficlo_products]/{F}_{I}_{C}_{L}_{O}_stamp.fits"
+  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}_stamp.fits"
   alts:
     - cutout
+feedfile:
+  file: True
+  path: "[product_ficlo]/{F}_{I}_{C}_{L}_{O}.feedfile"
+  alts:
+    - feedme
 
 # Runs
 ## Directories
@@ -221,42 +209,39 @@ run_root:
   path: "[morphfits_root]/runs"
   alts:
     - runs
+    - all runs
 run:
   file: False
   path: "[run_root]/{F}.{D}.{N}"
   alts:
-    - single run
+    - iteration
 ## Files
-config:
+run_config:
   file: True
   path: "[run]/config.yaml"
   alts:
-    - run config
     - configuration
-files:
+    - settings
+    - run settings
+run_files:
   file: True
   path: "[run]/files.csv"
   alts:
     - affected files
     - created files
     - modified files
-histogram:
+run_histogram:
   file: True
   path: "[run]/histogram.png"
   alts:
-    - distribution
-    - parameter distribution
-    - run histogram
-morphfits_log:
+    - run distribution
+run_log:
   file: True
   path: "[run]/morphfits.log"
   alts:
     - program log
-parameters:
+run_catalog:
   file: True
-  path: "[run]/parameters.csv"
+  path: "[run]/catalog.csv"
   alts:
-    - run catalog
-    - fit parameters
-    - success
-    - failure
+    - run parameters

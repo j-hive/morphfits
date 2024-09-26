@@ -198,9 +198,9 @@ class MorphFITSConfig(BaseModel):
             if not pre_input:
                 missing_input = False
                 for required_input in [
-                    "original_psf",
-                    "segmap",
-                    "catalog",
+                    "input_psf",
+                    "input_segmap",
+                    "input_catalog",
                     "exposure",
                     "science",
                     "weights",
@@ -277,7 +277,7 @@ class MorphFITSConfig(BaseModel):
                 ):
                     # Make leaf FICLO directories
                     for path_name in [
-                        "ficlo_products",
+                        "product_ficlo",
                         "logs",
                         "models",
                         "plots",
@@ -331,7 +331,7 @@ class MorphFITSConfig(BaseModel):
                     ).exists():
                         shutil.rmtree(
                             paths.get_path(
-                                name="ficlo_products",
+                                name="product_ficlo",
                                 product_root=self.product_root,
                                 field=ficl.field,
                                 image_version=ficl.image_version,
@@ -356,7 +356,7 @@ class MorphFITSConfig(BaseModel):
                     ).exists():
                         shutil.rmtree(
                             paths.get_path(
-                                name="ficlo_output",
+                                name="output_ficlo",
                                 output_root=self.output_root,
                                 field=ficl.field,
                                 image_version=ficl.image_version,
@@ -384,7 +384,7 @@ class MorphFITSConfig(BaseModel):
             write_config,
             open(
                 paths.get_path(
-                    "config",
+                    "run_config",
                     run_root=self.run_root,
                     field=self.fields[0],
                     datetime=self.datetime,
@@ -640,16 +640,16 @@ def create_config(
             )
 
         ## Get total object ID range from catalog
-        catalog_range = []
-        catalog_path = paths.get_path(
-            "catalog",
+        input_catalog_range = []
+        input_catalog_path = paths.get_path(
+            "input_catalog",
             input_root=config_dict["input_root"],
             field=config_dict["fields"][0],
             image_version=config_dict["image_versions"][0],
         )
-        catalog = Table.read(catalog_path)
+        catalog = Table.read(input_catalog_path)
         for id in catalog["id"]:
-            catalog_range.append(int(id))
+            input_catalog_range.append(int(id))
         del catalog
         gc.collect()
 
@@ -657,12 +657,14 @@ def create_config(
         if (config_dict["object_first"] is None) and (
             config_dict["object_last"] is None
         ):
-            user_range = catalog_range
+            user_range = input_catalog_range
         ## Get specified object ID range from user
         elif config_dict["object_first"] is None:
-            user_range = list(range(catalog_range[0], config_dict["object_last"]))
+            user_range = list(range(input_catalog_range[0], config_dict["object_last"]))
         elif config_dict["object_last"] is None:
-            user_range = list(range(config_dict["object_first"], catalog_range[-1]))
+            user_range = list(
+                range(config_dict["object_first"], input_catalog_range[-1])
+            )
         else:
             user_range = list(
                 range(config_dict["object_first"], config_dict["object_last"])
@@ -677,9 +679,9 @@ def create_config(
         batch_range = user_range[start_index:stop_index]
 
         ## Remove objects out of range
-        while (len(batch_range) > 0) and (batch_range[0] < catalog_range[0]):
+        while (len(batch_range) > 0) and (batch_range[0] < input_catalog_range[0]):
             batch_range.pop(0)
-        while (len(batch_range) > 0) and (batch_range[-1] > catalog_range[-1]):
+        while (len(batch_range) > 0) and (batch_range[-1] > input_catalog_range[-1]):
             batch_range.pop(-1)
 
         ## Set object ID range for this batch run
@@ -714,7 +716,7 @@ def create_config(
     # Create logger
     logs.create_logger(
         filename=paths.get_path(
-            "morphfits_log",
+            "run_log",
             run_root=morphfits_config.run_root,
             field=morphfits_config.fields[0],
             datetime=morphfits_config.datetime,

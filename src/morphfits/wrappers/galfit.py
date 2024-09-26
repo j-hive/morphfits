@@ -99,16 +99,16 @@ def generate_feedfiles(
     float_str = lambda x: str(x).ljust(float_length)[:float_length]
 
     # Define paths to get for later
-    product_path_names = ["galfit_model", "stamp", "sigma", "psf", "mask"]
+    product_path_names = ["model_galfit", "stamp", "sigma", "psf", "mask"]
 
     # Load in catalog
-    catalog_path = paths.get_path(
-        "catalog",
+    input_catalog_path = paths.get_path(
+        "input_catalog",
         input_root=input_root,
         field=field,
         image_version=image_version,
     )
-    catalog = Table.read(catalog_path)
+    input_catalog = Table.read(input_catalog_path)
 
     # Get zeropoint
     science_path = paths.get_path(
@@ -121,7 +121,7 @@ def generate_feedfiles(
     zeropoint = science.get_zeropoint(image_path=science_path)
 
     # Clear memory
-    del catalog_path
+    del input_catalog_path
     del science_path
     gc.collect()
 
@@ -171,8 +171,8 @@ def generate_feedfiles(
 
         # Get constants from catalog
         # magnitude = catalog[object]["mag_auto"]
-        half_light_radius = catalog[object]["a_image"]
-        axis_ratio = catalog[object]["b_image"] / catalog[object]["a_image"]
+        half_light_radius = input_catalog[object]["a_image"]
+        axis_ratio = input_catalog[object]["b_image"] / input_catalog[object]["a_image"]
 
         # Get constant from stamp
         stamp_file = fits.open(product_paths["stamp"])
@@ -188,7 +188,7 @@ def generate_feedfiles(
         # Note paths are all relative to ficlo_products
         feedfile_dict = {
             "stamp_path": path_str(product_paths["stamp"].name),
-            "output_galfit_path": path_str(product_paths["galfit_model"].name),
+            "output_galfit_path": path_str(product_paths["model_galfit"].name),
             "sigma_path": path_str(product_paths["sigma"].name),
             "psf_path": path_str(product_paths["psf"].name),
             "mask_path": path_str(product_paths["mask"].name),
@@ -283,7 +283,7 @@ def run_galfit(
     ):
         ## Get model path
         model_path = paths.get_path(
-            "galfit_model",
+            "model_galfit",
             output_root=output_root,
             field=field,
             image_version=image_version,
@@ -317,7 +317,7 @@ def run_galfit(
 
         ## Copy GALFIT and constraints to FICLO product directory
         ficlo_products_path = paths.get_path(
-            "ficlo_products",
+            "product_ficlo",
             product_root=product_root,
             field=field,
             image_version=image_version,
@@ -355,7 +355,7 @@ def run_galfit(
 
         ## Write captured output to GALFIT log file
         galfit_log_path = paths.get_path(
-            "galfit_log",
+            "log_galfit",
             output_root=output_root,
             field=field,
             image_version=image_version,
@@ -373,7 +373,7 @@ def run_galfit(
             if "galfit.fits" in path.name:
                 path.rename(
                     paths.get_path(
-                        "galfit_model",
+                        "model_galfit",
                         output_root=output_root,
                         field=field,
                         image_version=image_version,
@@ -457,9 +457,7 @@ def write_catalog(
         datetime=datetime,
         run_number=run_number,
     )
-    path_catalog_morphfits = paths.get_path(
-        "morphfits_catalog", output_root=output_root
-    )
+    path_catalog_morphfits = paths.get_path("catalog", output_root=output_root)
     if not path_catalog_run.exists():
         with open(path_catalog_run, mode="w", newline="") as csv_file:
             writer = csv.writer(csv_file)
@@ -471,7 +469,7 @@ def write_catalog(
 
     # Copy fit parameters from GALFIT log for successful runs
     galfit_log_path = paths.get_path(
-        "galfit_log",
+        "log_galfit",
         output_root=output_root,
         field=field,
         image_version=image_version,
@@ -480,7 +478,7 @@ def write_catalog(
         object=object,
     )
     galfit_model_path = paths.get_path(
-        "galfit_model",
+        "model_galfit",
         output_root=output_root,
         field=field,
         image_version=image_version,

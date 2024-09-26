@@ -62,6 +62,7 @@ morphfits_root/
 │               └── F-I-L_dr[c/z]_wht.fits
 ├── output/
 │   ├── catalog.csv
+│   ├── histogram.png
 │   └── F/
 │       └── I/
 │           └── C/
@@ -69,36 +70,32 @@ morphfits_root/
 │                   ├── F_I_C_L_histogram.png
 │                   ├── F_I_C_L_objects.png
 │                   └── O/
-│                       ├── logs/
-│                       │   └── F_I_C_L_O_galfit.log
-│                       ├── models/
-│                       │   ├── F_I_C_L_O_galfit.fits
-│                       │   ├── F_I_C_L_O_imcascade.fits
-│                       │   └── F_I_C_L_O_pysersic.fits
-│                       └── plots/
-│                           ├── F_I_C_L_O_galfit.png
-│                           ├── F_I_C_L_O_imcascade.png
-│                           ├── F_I_C_L_O_products.png
-│                           ├── F_I_C_L_O_pysersic.png
-│                           └── F_I_C_L_O_wrappers.png
+│                       ├── F_I_C_L_O_galfit.log
+│                       ├── F_I_C_L_O_galfit.fits
+│                       ├── F_I_C_L_O_galfit.png
+│                       ├── F_I_C_L_O_imcascade.fits
+│                       ├── F_I_C_L_O_imcascade.png
+│                       ├── F_I_C_L_O_pysersic.fits
+│                       ├── F_I_C_L_O_pysersic.png
+│                       └── F_I_C_L_O_comparison.png
 ├── products/
 │   └── F/
 │       └── I/
 │           └── C/
 │               └── L/
 │                   └── O/
-│                       ├── F_I_C_L_O.feedfile
 │                       ├── F_I_C_L_O_mask.fits
 │                       ├── F_I_C_L_O_psf.fits
 │                       ├── F_I_C_L_O_sigma.fits
-│                       └── F_I_C_L_O_stamp.fits
+│                       ├── F_I_C_L_O_stamp.fits
+│                       └── F_I_C_L_O.feedfile
 └── runs/
     └── F.D.N/
         ├── config.yaml
         ├── files.csv
         ├── histogram.png
         ├── morphfits.log
-        └── parameters.csv
+        └── catalog.csv
 </pre>
 </td>
 
@@ -107,54 +104,51 @@ morphfits_root/
 morphfits_root/
 ├── input_root/
 │   ├── input_psfs/
-│   │   └── original_psf
+│   │   └── input_psf
 │   └── .../
 │       └── input_data/
-│           ├── segmap
-│           ├── catalog
+│           ├── input_segmap
+│           ├── input_catalog
 │           └── input_images/
 │               ├── exposure
 │               ├── science
 │               └── weights
 ├── output_root/
-│   ├── morphfits_catalog
+│   ├── catalog
+│   ├── histogram
 │   └── .../
 │       └── .../
 │           └── .../
-│               └── ficl_output/
+│               └── output_ficl/
 │                   ├── ficl_histogram
 │                   ├── ficl_objects
-│                   └── ficlo_output/
-│                       ├── logs/
-│                       │   └── galfit_log
-│                       ├── models/
-│                       │   ├── galfit_model
-│                       │   ├── imcascade_model
-│                       │   └── pysersic_model
-│                       └── plots/
-│                           ├── galfit_plot
-│                           ├── imcascade_plot
-│                           ├── products_plot
-│                           ├── pysersic_plot
-│                           └── wrapper_comparison
+│                   └── output_ficlo/
+│                       ├── log_galfit
+│                       ├── model_galfit
+│                       ├── plot_galfit
+│                       ├── model_imcascade
+│                       ├── plot_imcascade
+│                       ├── model_pysersic
+│                       ├── plot_pysersic
+│                       └── plot_comparison
 ├── product_root/
 │   └── .../
 │       └── .../
 │           └── .../
 │               └── .../
-│                   └── ficlo_products/
-│                       ├── feedfile
+│                   └── product_ficlo/
 │                       ├── mask
 │                       ├── psf
 │                       ├── sigma
-│                       └── stamp
+│                       ├── stamp
+│                       └── feedfile
 └── run_root/
     └── run/
-        ├── config
-        ├── files
-        ├── histogram
-        ├── morphfits_log
-        └── parameters
+        ├── run_config
+        ├── run_files
+        ├── run_histogram
+        ├── run_log
+        └── run_catalog
 </pre>
 </td>
 </tr>
@@ -170,43 +164,40 @@ running `paths.get_path` for the required variables.
 |Input|`morphfits_root`|`/`||Root directory for all MorphFITS files.|
 |Input|`input_root`|`/`|`x`|Root directory for all input files.|
 |Input|`input_psfs`|`/`|`x`|Directory for simulated PSFs.|
-|Input|`original_psf`|`/`|`xL`|Simulated NIRCAM PSF.|
+|Input|`input_psf`|`.fits`|`xL`|Simulated NIRCAM PSF.|
 |Input|`input_data`|`/`|`xFI`|Directory for all input but PSFs.|
-|Input|`segmap`|`.fits`|`xFI`|Segmentation map.|
-|Input|`catalog`|`.fits`|`xFI`|Photometry catalog table.|
+|Input|`input_segmap`|`.fits`|`xFI`|Segmentation map.|
+|Input|`input_catalog`|`.fits`|`xFI`|Photometry catalog table.|
 |Input|`input_images`|`/`|`xFIL`|Directory for input images.|
 |Input|`exposure`|`.fits`|`xFIL`|Exposure map.|
 |Input|`science`|`.fits`|`xFIL`|Science frame.|
 |Input|`weights`|`.fits`|`xFIL`|Weights map.|
 |Output|`output_root`|`/`|`z`|Root directory for all output files.|
-|Output|`morphfits_catalog`|`.csv`||Catalog of all fits under root.|
-|Output|`ficl_output`|`/`|`zFICL`|Directory for all output for a FICL.|
-|Output|`ficl_histogram`|`.png`|`zFICL`|Histogram of fitting parameter distributions.|
+|Output|`catalog`|`.csv`|`z`|Catalog of all fits under root.|
+|Output|`histogram`|`.png`|`z`|Histogram of all fits under root.|
+|Output|`output_ficl`|`/`|`zFICL`|Directory for all output for a FICL.|
+|Output|`ficl_histogram`|`.png`|`zFICL`|Histogram of fits for a FICL.|
 |Output|`ficl_objects`|`.png`|`zFICL`|Image showing all objects in a FICL.|
-|Output|`ficlo_output`|`/`|`zFICLO`|Directory for all output for a FICLO.|
-|Output|`logs`|`/`|`zFICLO`|Directory for logs from fit executions.|
-|Output|`galfit_log`|`.log`|`zFICLO`|GALFIT parameters fit log.|
-|Output|`models`|`/`|`zFICLO`|Directory for fit models.|
-|Output|`galfit_model`|`.fits`|`zFICLO`|GALFIT fit model.|
-|Output|`imcascade_model`|`.fits`|`zFICLO`|Imcascade fit model.|
-|Output|`pysersic_model`|`.fits`|`zFICLO`|Pysersic fit model.|
-|Output|`plots`|`/`|`zFICLO`|Directory for plots.|
-|Output|`galfit_plot`|`.png`|`zFICLO`|GALFIT model fidelity visualization.|
-|Output|`imcascade_plot`|`.png`|`zFICLO`|Imcascade model fidelity visualization.|
-|Output|`products_plot`|`.png`|`zFICLO`|Display of all products.|
-|Output|`pysersic_plot`|`.png`|`zFICLO`|Pysersic model fidelity visualization.|
-|Output|`wrapper_comparison`|`.png`|`zFICLO`|Comparison of models.|
+|Output|`output_ficlo`|`/`|`zFICLO`|Directory for all output for a FICLO.|
+|Output|`log_galfit`|`.log`|`zFICLO`|GALFIT parameters fit log.|
+|Output|`model_galfit`|`.fits`|`zFICLO`|GALFIT fit model.|
+|Output|`plot_galfit`|`.png`|`zFICLO`|GALFIT model fidelity visualization.|
+|Output|`model_imcascade`|`.fits`|`zFICLO`|Imcascade fit model.|
+|Output|`plot_imcascade`|`.png`|`zFICLO`|Imcascade model fidelity visualization.|
+|Output|`model_pysersic`|`.fits`|`zFICLO`|Pysersic fit model.|
+|Output|`plot_pysersic`|`.png`|`zFICLO`|Pysersic model fidelity visualization.|
+|Output|`plot_comparison`|`.png`|`zFICLO`|Comparison of models.|
 |Product|`product_root`|`/`|`y`|Root directory for all products.|
-|Product|`ficlo_products`|`/`|`yFICLO`|Directory for all products for a FICLO.|
-|Product|`feedfile`|`.feedfile`|`yFICLO`|GALFIT configurations.|
+|Product|`product_ficlo`|`/`|`yFICLO`|Directory for all products for a FICLO.|
 |Product|`mask`|`.fits`|`yFICLO`|Object mask.|
 |Product|`psf`|`.fits`|`yFICLO`|PSF with same size as object.|
 |Product|`sigma`|`.fits`|`yFICLO`|Sigma map.|
 |Product|`stamp`|`.fits`|`yFICLO`|Object cutout.|
+|Product|`feedfile`|`.feedfile`|`yFICLO`|GALFIT configurations.|
 |Run|`run_root`|`/`|`r`|Directory for records from all runs.|
 |Run|`run`|`/`|`rFDN`|Directory for records from a single run.|
-|Run|`config`|`.yaml`|`d`|Configuration settings from run.|
-|Run|`files`|`.csv`|`d`|Modified or created files from run.|
-|Run|`histogram`|`.png`|`d`|Histogram depicting parameter distribution.|
-|Run|`morphfits_log`|`.log`|`d`|MorphFITS program log from run.|
-|Run|`parameters`|`.csv`|`d`|Parameters found from run.|
+|Run|`run_config`|`.yaml`|`rFDN`|Configuration settings used in run.|
+|Run|`run_files`|`.csv`|`rFDN`|List of files created or modified by run.|
+|Run|`run_histogram`|`.png`|`rFDN`|Histogram depicting parameter distribution.|
+|Run|`run_log`|`.log`|`rFDN`|MorphFITS program log from run.|
+|Run|`run_catalog`|`.csv`|`rFDN`|Parameters fitted by run.|

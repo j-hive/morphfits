@@ -371,14 +371,14 @@ def find_parameter_from_input(
         ## Include every object from every catalog
         case "object":
             ### Find all catalogs
-            catalog_paths = []
+            input_catalog_paths = []
             for field_dir in get_directories(input_root):
                 if field_dir.name == "psfs":
                     continue
                 for image_dir in get_directories(field_dir):
-                    catalog_paths.append(
+                    input_catalog_paths.append(
                         get_path(
-                            "catalog",
+                            "input_catalog",
                             input_root=input_root,
                             field=field_dir.name,
                             image_version=image_dir.name,
@@ -386,11 +386,11 @@ def find_parameter_from_input(
                     )
 
             ### Read all catalogs for all objects
-            for catalog_path in catalog_paths:
-                catalog = Table.read(catalog_path)
-                for object in catalog["id"]:
+            for input_catalog_path in input_catalog_paths:
+                input_catalog = Table.read(input_catalog_path)
+                for object in input_catalog["id"]:
                     discovered.append(int(object) - 1)
-                del catalog
+                del input_catalog
                 gc.collect()
         ## Only FIL supported
         case _:

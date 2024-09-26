@@ -129,7 +129,7 @@ def get_galfit_flags(
     """
     # Get headers from model FITS file
     model_path = paths.get_path(
-        "galfit_model",
+        "model_galfit",
         output_root=output_root,
         field=field,
         image_version=image_version,
@@ -184,7 +184,7 @@ def get_galfit_parameters(
     """
     # Open log as text file
     log_path = paths.get_path(
-        "galfit_log",
+        "log_galfit",
         output_root=output_root,
         field=field,
         image_version=image_version,

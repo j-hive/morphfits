@@ -121,13 +121,13 @@ def get_download_list(
         # Get required destination paths for FICL
         required_paths: list[Path] = [
             paths.get_path(
-                "segmap",
+                "input_segmap",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
                 image_version=ficl.image_version,
             ),
             paths.get_path(
-                "catalog",
+                "input_catalog",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
                 image_version=ficl.image_version,

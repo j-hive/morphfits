@@ -111,10 +111,10 @@ def generate_stamps(
     logger.info("Generating stamps.")
 
     # Load in catalog
-    catalog_path = paths.get_path(
-        "catalog", input_root=input_root, field=field, image_version=image_version
+    input_catalog_path = paths.get_path(
+        "input_catalog", input_root=input_root, field=field, image_version=image_version
     )
-    catalog = Table.read(catalog_path)
+    input_catalog = Table.read(input_catalog_path)
 
     # Load in image and header data
     science_path = paths.get_path(
@@ -133,7 +133,7 @@ def generate_stamps(
     science_file.close()
     del science_file
     del science_path
-    del catalog_path
+    del input_catalog_path
     gc.collect()
 
     # Iterate over each object
@@ -143,14 +143,14 @@ def generate_stamps(
     ):
         # Record object position from catalog
         position = SkyCoord(
-            ra=catalog[object]["ra"], dec=catalog[object]["dec"], unit="deg"
+            ra=input_catalog[object]["ra"], dec=input_catalog[object]["dec"], unit="deg"
         )
 
         # Determine image size
-        kron_radius = catalog[object][
+        kron_radius = input_catalog[object][
             (
                 "kron_radius_circ"
-                if "kron_radius_circ" in catalog.keys()
+                if "kron_radius_circ" in input_catalog.keys()
                 else "kron_radius"
             )
         ]
@@ -542,19 +542,19 @@ def generate_psfs(
     logger.info("Generating PSF crops.")
 
     # Load in PSF and clear memory
-    original_psf_path = paths.get_path(
-        "original_psf",
+    input_psf_path = paths.get_path(
+        "input_psf",
         input_root=input_root,
         filter=filter,
     )
-    original_psf_file = fits.open(original_psf_path)
-    original_psf_data = original_psf_file["PRIMARY"].data
-    original_psf_headers = original_psf_file["PRIMARY"].header
-    psf_pixscale = original_psf_headers["PIXELSCL"]
-    psf_length = original_psf_headers["NAXIS1"]
-    original_psf_file.close()
-    del original_psf_file
-    del original_psf_headers
+    input_psf_file = fits.open(input_psf_path)
+    input_psf_data = input_psf_file["PRIMARY"].data
+    input_psf_headers = input_psf_file["PRIMARY"].header
+    psf_pixscale = input_psf_headers["PIXELSCL"]
+    psf_length = input_psf_headers["NAXIS1"]
+    input_psf_file.close()
+    del input_psf_file
+    del input_psf_headers
     gc.collect()
 
     # Iterate over each object
@@ -588,7 +588,7 @@ def generate_psfs(
         try:
             # Cutout square of calculated size, centered at PSF center
             psf = Cutout2D(
-                data=original_psf_data, position=(center, center), size=psf_image_size
+                data=input_psf_data, position=(center, center), size=psf_image_size
             )
 
             # Write to file
@@ -654,7 +654,7 @@ def generate_masks(
 
     # Load in segmentation map
     segmap_path = paths.get_path(
-        "segmap",
+        "input_segmap",
         input_root=input_root,
         field=field,
         image_version=image_version,
