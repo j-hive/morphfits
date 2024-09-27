@@ -242,26 +242,33 @@ def subplot_histogram(catalog: pd.DataFrame, ax: Axes, parameter: str):
                 values.append(float(datum))
             except:
                 continue
-        bins = np.linspace(np.min(values), np.max(values), num_bins)
+        min_value, max_value = np.min(values), np.max(values)
+        if min_value == max_value:
+            min_value -= 1
+            max_value += 1
+        bins = np.linspace(min_value, max_value, num_bins)
 
     # Plot the histogram
     ## Plot a histogram line for each filter for this parameter in the same subplot
     for filter in filters:
         ### Set the data for the first two histograms, which are word counts
-        if (parameter == "use") or (parameter == "convergence"):
-            data = []
-            for datum in catalog[catalog["filter"] == filter][parameter]:
-                #### The first histogram range is boolean
-                if parameter == "use":
-                    data.append(1 if datum else 0)
-                #### The second histogram range is three important parameters
-                else:
-                    for bin in bins:
-                        if datum & 2**bin:
-                            data.append(bin)
-        ### Set the data for the other histograms, which are float distributions
-        else:
-            data = catalog[catalog["filter"] == filter][parameter]
+        data = []
+        for datum in catalog[catalog["filter"] == filter][parameter]:
+            #### The first histogram range is boolean
+            if parameter == "use":
+                data.append(1 if datum else 0)
+            #### The second histogram range is three important parameters
+            elif parameter == "convergence":
+                for bin in bins:
+                    if datum & 2**bin:
+                        data.append(bin)
+            #### The other histograms are float distributions
+            else:
+                ##### Skip NaNs
+                try:
+                    data.append(float(datum))
+                except:
+                    continue
 
         ### Plot the histogram using the bins and data set above
         ### Note this is only the histogram for one filter
@@ -292,7 +299,7 @@ def subplot_histogram(catalog: pd.DataFrame, ax: Axes, parameter: str):
     reset_line_style()
 
 
-def save_histogram(histogram_path: Path, fig: Figure, axs: np.ndarray[Axes]):
+def save_histogram(histogram_path: Path, fig: Figure):
     fig.savefig(histogram_path)
     fig.clear()
 
@@ -506,7 +513,7 @@ def plot_histogram(catalog: pd.DataFrame, histogram_path: Path, type: str):
         subplot_histogram(catalog=catalog, ax=axs[row][col], parameter=parameters[i])
 
     # Save and clear plot
-    save_histogram(histogram_path=histogram_path, fig=fig, axs=axs)
+    save_histogram(histogram_path=histogram_path, fig=fig)
 
 
 def plot_histograms(
@@ -532,7 +539,9 @@ def plot_histograms(
     run_number : int
         Number of run if there are multiple of the same datetime.
     """
-    # Plot run histogram
+    logger.info("Plotting fitted parameter distribution histograms.")
+
+    # Plot run histogram if run catalog exists
     path_catalog_run = paths.get_path(
         "run_catalog",
         run_root=run_root,
@@ -547,13 +556,18 @@ def plot_histograms(
         datetime=datetime,
         run_number=run_number,
     )
-    catalog_run = pd.read_csv(path_catalog_run)
-    plot_histogram(catalog=catalog_run, histogram_path=path_histogram_run, type="run")
+    if path_catalog_run.exists():
+        catalog_run = pd.read_csv(path_catalog_run)
+        logger.info("Plotting parameter histogram for run.")
+        plot_histogram(
+            catalog=catalog_run, histogram_path=path_histogram_run, type="run"
+        )
 
     # Plot main histogram
     path_catalog = paths.get_path("catalog", output_root=output_root)
     path_histogram = paths.get_path("histogram", output_root=output_root)
     catalog = pd.read_csv(path_catalog)
+    logger.info("Updating main catalog parameter histogram.")
     plot_histogram(catalog=catalog, histogram_path=path_histogram, type="main")
 
     # Plot FICL histogram for each FICL found in catalog
@@ -573,11 +587,21 @@ def plot_histograms(
                         catalog_version=cC,
                         filter=cL,
                     )
-                    plot_histogram(
-                        catalog=catalog_FICL,
-                        histogram_path=path_histogram_ficl,
-                        type="ficl",
-                    )
+                    if path_histogram_ficl.parent.exists():
+                        logger.info(
+                            "Plotting parameter histogram for FICL "
+                            + f"{'_'.join([cF,cI,cC,cL])}."
+                        )
+                        plot_histogram(
+                            catalog=catalog_FICL,
+                            histogram_path=path_histogram_ficl,
+                            type="ficl",
+                        )
+                    else:
+                        logger.warning(
+                            f"Directory {path_histogram_ficl.parent} "
+                            + "not found, skipping histogram."
+                        )
 
 
 ## In Development

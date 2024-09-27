@@ -98,7 +98,7 @@ catalog:
     - parameters
 histogram:
   file: True
-  path: "[output_root]/histogram.csv"
+  path: "[output_root]/histogram.png"
   alts:
     - output histogram
     - distribution
