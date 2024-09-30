@@ -4,8 +4,11 @@
 # Imports
 
 
-from pathlib import Path
+import logging
 import re
+import csv
+from datetime import datetime as dt
+from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
@@ -14,6 +17,11 @@ from .. import paths
 
 
 # Constants
+
+
+logger = logging.getLogger("CATALOG")
+"""Logger object for this module.
+"""
 
 
 HEADERS = [
@@ -347,3 +355,190 @@ def get_csv_row(
         for error in errors:
             csv_row.append(error)
         return csv_row
+
+
+## Main
+
+
+def write(
+    output_root: Path,
+    run_root: Path,
+    datetime: dt,
+    run_number: int,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str,
+    object: int,
+    return_code: int,
+):
+    """Append to the run catalog and update the main catalog after each FICLO
+    fitting.
+
+    Parameters
+    ----------
+    output_root : Path
+        Path to root MorphFITS output directory.
+    run_root : Path
+        Path to root MorphFITS runs directory.
+    datetime : datetime
+        Datetime of start of run.
+    run_number : int
+        Number of run in runs directory when other runs have the same datetime.
+    field : str
+        Field of observation.
+    image_version : str
+        Version of image processing used for observation.
+    catalog_version : str
+        Version of cataloging used for observation.
+    filter : str
+        Filter used for observation.
+    object : int
+        Integer ID of object in catalog for observation.
+    return_code : int
+        Integer return code of GALFIT when run in a subprocess.
+    """
+    # Create CSV if missing and write headers
+    path_catalog_run = paths.get_path(
+        "run_catalog",
+        run_root=run_root,
+        field=field,
+        datetime=datetime,
+        run_number=run_number,
+    )
+    path_catalog_morphfits = paths.get_path("catalog", output_root=output_root)
+    if not path_catalog_run.exists():
+        with open(path_catalog_run, mode="w", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(HEADERS)
+    if not path_catalog_morphfits.exists():
+        with open(path_catalog_morphfits, mode="w", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(HEADERS)
+
+    # Copy fit parameters from GALFIT log for successful runs
+    galfit_log_path = paths.get_path(
+        "log_galfit",
+        output_root=output_root,
+        field=field,
+        image_version=image_version,
+        catalog_version=catalog_version,
+        filter=filter,
+        object=object,
+    )
+    galfit_model_path = paths.get_path(
+        "model_galfit",
+        output_root=output_root,
+        field=field,
+        image_version=image_version,
+        catalog_version=catalog_version,
+        filter=filter,
+        object=object,
+    )
+
+    ## Write parameters from GALFIT log for successful runs
+    if (galfit_model_path.exists()) and (galfit_log_path.exists()):
+        ### Get flags from model
+        flags = get_galfit_flags(
+            output_root=output_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+
+        ### Get parameters from GALFIT log
+        convergence, parameters, errors = get_galfit_parameters(
+            output_root=output_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+        )
+
+        ### Get validity ("success") from return code, flags, and convergence
+        use = get_usability(
+            return_code=return_code, flags=flags, convergence=convergence
+        )
+
+        ### Get data as a CSV row of strings
+        csv_row = get_csv_row(
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+            return_code=return_code,
+            use=use,
+            flags=flags,
+            convergence=convergence,
+            parameters=parameters,
+            errors=errors,
+        )
+
+        ### Write row to run catalog
+        with open(path_catalog_run, mode="a", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(csv_row)
+
+        ### Read main catalog
+        rewrite = False
+        main_catalog = []
+        with open(path_catalog_morphfits, mode="r", newline="") as csv_file:
+            reader = csv.reader(csv_file)
+            reading_headers = True
+            for in_row in reader:
+                #### Skip headers
+                if reading_headers:
+                    reading_headers = False
+                    continue
+
+                #### Skip rows with invalid information
+                if len(in_row) < 6:
+                    logger.warning(
+                        f"MorphFITS catalog row {in_row} improperly formatted, removing."
+                    )
+                    continue
+
+                #### Update row with same FICLO
+                if (
+                    (field == in_row[1])
+                    and (image_version == in_row[2])
+                    and (catalog_version == in_row[3])
+                    and (filter == in_row[4])
+                    and (str(object) == in_row[5])
+                ):
+                    main_catalog.append(csv_row)
+                    rewrite = True
+                #### Nothing else changes
+                else:
+                    main_catalog.append(in_row)
+            #### If row not yet added, FICLO not yet in catalog, thus add
+            if not rewrite:
+                main_catalog.append(csv_row)
+
+        ### Rewrite main catalog
+        with open(path_catalog_morphfits, mode="w", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(HEADERS)
+            for out_row in main_catalog:
+                writer.writerow(out_row)
+
+    ## Write empty row for failures
+    else:
+        ### Get data as a CSV row of strings
+        csv_row = get_csv_row(
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+            object=object,
+            return_code=return_code,
+        )
+
+        ### Write row to run catalog
+        with open(path_catalog_run, mode="a", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(csv_row)
