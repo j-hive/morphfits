@@ -256,12 +256,20 @@ def subplot_histogram(catalog: pd.DataFrame, ax: Axes, parameter: str):
         for datum in catalog[catalog["filter"] == filter][parameter]:
             #### The first histogram range is boolean
             if parameter == "use":
-                data.append(1 if datum else 0)
-            #### The second histogram range is three important parameters
+                ##### Skip invalid booleans
+                try:
+                    data.append(1 if bool(datum) else 0)
+                except:
+                    continue
+            #### The second histogram range is three important fitting parameters
             elif parameter == "convergence":
+                ##### Skip invalid integers
                 for bin in bins:
-                    if datum & 2**bin:
-                        data.append(bin)
+                    try:
+                        if int(datum) & 2**bin:
+                            data.append(bin)
+                    except:
+                        continue
             #### The other histograms are float distributions
             else:
                 ##### Skip NaNs

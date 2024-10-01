@@ -34,6 +34,17 @@ LowerStr = Annotated[str, StringConstraints(to_lower=True)]
 """
 
 
+DEFAULT_CATVER = "dja-v7.2"
+"""Default catalog version, v7.2 of the DJA catalogue.
+"""
+
+
+REQUIRED_FIC_INPUTS = ["input_segmap", "input_catalog"]
+REQUIRED_FICL_INPUTS = ["input_psf", "exposure", "science", "weights"]
+"""Required input files to fit a FICL observation, in the format of their path names.
+"""
+
+
 # Classes
 
 
@@ -60,8 +71,7 @@ class FICL(BaseModel):
     filter : str
         Observational filter band, e.g. "f140w".
     objects : list[int]
-        Integer IDs of galaxies or cluster targets in catalog, e.g. `[1003,
-        6371]`.
+        Integer IDs of galaxies or cluster targets in catalog.
     pixscale : tuple[float, float]
         Pixel scale along x and y axes, in arcseconds per pixel.
 
@@ -111,19 +121,22 @@ class MorphFITSConfig(BaseModel):
         List of image versions over which to fit.
     filters : list[str]
         List of filters over which to fit.
+    wrappers : list[str], optional
+        List of morphology fitting algorithms to run, by default only GALFIT.
+    morphfits_root : Path, optional
+        Path to root directory containing all of input, product, and output
+        directories, by default the repository root.
+    galfit_path : Path
+        Path to GALFIT binary, by default None.
     catalog_versions : list[str], optional
         List of catalog versions over which to fit, by default only the v7.2 DJA
         catalog.
     objects : list[int], optional
         List of object IDs within the catalog over which to fit, by default
         empty (all items in catalog).
-    morphfits_root : Path, optional
-        Path to root directory containing all of input, product, and output
-        directories, by default the repository root.
-    wrappers : list[str], optional
-        List of morphology fitting algorithms to run, by default only GALFIT.
-    galfit_path : Path
-        Path to GALFIT binary, by default None.
+    ficls : list[FICL], optional
+        List of FICLs with the requisite input files, generated from this
+        program run's FICLs, by default empty (not yet set).
     """
 
     input_root: Path
@@ -135,106 +148,33 @@ class MorphFITSConfig(BaseModel):
     fields: list[str]
     image_versions: list[str]
     filters: list[str]
-    catalog_versions: list[str] = ["dja-v7.2"]
-    objects: list[int] = []
-    morphfits_root: Path = ROOT
     wrappers: list[str] = ["galfit"]
+    morphfits_root: Path = ROOT
     galfit_path: Path = None
+    catalog_versions: list[str] = [DEFAULT_CATVER]
+    objects: list[int] = []
+    ficls: list[FICL] = []
 
-    def get_FICLs(
+    def setup_paths(
         self,
-        pre_input: bool = False,
-    ) -> Generator[FICL, None, None]:
-        """Generate all FICL permutations for this configuration object, and
-        return those with the necessary input files.
-
-        Parameters
-        ----------
-        pre_input : bool, optional
-            Skip file checks if this function is called prior to download.
-
-        Yields
-        ------
-        FICL
-            FICL permutation with existing input files.
-        """
-        # Iterate over each FICL in config object
-        for field, image_version, catalog_version, filter in itertools.product(
-            self.fields, self.image_versions, self.catalog_versions, self.filters
-        ):
-            # Create FICL for iteration, with every object, and set pixscales
-            if pre_input:
-                pixscale = [0.04, 0.04]
-            else:
-                science_path = paths.get_path(
-                    "science",
-                    input_root=self.input_root,
-                    field=field,
-                    image_version=image_version,
-                    filter=filter,
-                )
-
-                # Skip this FICL if science frame missing
-                if not science_path.exists():
-                    logger.warning(
-                        f"FICL {'_'.join([field, image_version,catalog_version,filter])} "
-                        + "science frame not found, skipping."
-                    )
-                    continue
-
-                pixscale = science.get_pixscale(science_path)
-
-            # Create FICL object to yield
-            ficl = FICL(
-                field=field,
-                image_version=image_version,
-                catalog_version=catalog_version,
-                filter=filter,
-                objects=self.objects,
-                pixscale=pixscale,
-            )
-
-            # Skip FICL if any input missing
-            if not pre_input:
-                missing_input = False
-                for required_input in [
-                    "input_psf",
-                    "input_segmap",
-                    "input_catalog",
-                    "exposure",
-                    "science",
-                    "weights",
-                ]:
-                    if not paths.get_path(
-                        name=required_input,
-                        input_root=self.input_root,
-                        field=field,
-                        image_version=image_version,
-                        catalog_version=catalog_version,
-                        filter=filter,
-                    ).exists():
-                        logger.warning(
-                            f"FICL {ficl} missing {required_input} file, skipping."
-                        )
-                        missing_input = True
-                        break
-                if missing_input:
-                    continue
-
-            yield ficl
-
-    def setup_paths(self, display_progress: bool = False, pre_input: bool = False):
+        pre_logger: logging.Logger,
+        display_progress: bool = False,
+        download_mode: bool = False,
+    ):
         """Create product and output directories for each FICLO of this
         configuration object.
 
         Parameters
         ----------
+        pre_logger : Logger
+            Logging object for this module, prior to the creation of the run
+            directory.
         display_progress : bool, optional
             Display setup progress via tqdm, by default False.
-        pre_input : bool, optional
-            Skip file checks if this function is called prior to download.
+        download_mode : bool, optional
+            Whether this program run is in download mode, by default False.
         """
-        print("Creating product and output directories where missing.")
+        pre_logger.info("Creating product and output directories where missing.")
 
         # Create run directory for both download and fitting runs
         paths.get_path(
@@ -246,9 +186,9 @@ class MorphFITSConfig(BaseModel):
         ).mkdir(parents=True, exist_ok=True)
 
         # Only create input and run directories for download run
-        if pre_input:
+        if download_mode:
             # Iterate over each possible FICL from configurations
-            for ficl in self.get_FICLs(pre_input=pre_input):
+            for ficl in self.ficls:
                 # Iterate over each required input directory
                 for path_name in ["input_data", "input_images"]:
                     # Create directory if it does not exist
@@ -266,9 +206,10 @@ class MorphFITSConfig(BaseModel):
                 input_root=self.input_root,
             ).mkdir(parents=True, exist_ok=True)
 
+        # Only create product and output directories for fitting run
         else:
             # Iterate over each possible FICLO from configurations
-            for ficl in self.get_FICLs(pre_input=pre_input):
+            for ficl in self.ficls:
                 # Iterate over each object in FICL
                 for object in (
                     tqdm(ficl.objects, unit="dir", leave=False)
@@ -280,17 +221,13 @@ class MorphFITSConfig(BaseModel):
                         # Create directory if it does not exist
                         paths.get_path(
                             name=path_name,
-                            morphfits_root=self.morphfits_root,
                             output_root=self.output_root,
                             product_root=self.product_root,
-                            run_root=self.run_root,
                             field=ficl.field,
                             image_version=ficl.image_version,
                             catalog_version=ficl.catalog_version,
                             filter=ficl.filter,
                             object=object,
-                            datetime=self.datetime,
-                            run_number=self.run_number,
                         ).mkdir(parents=True, exist_ok=True)
 
     def clean_paths(self, display_progress: bool = False):
@@ -305,7 +242,7 @@ class MorphFITSConfig(BaseModel):
         logger.info("Cleaning product and output directories where skipped.")
 
         # Iterate over each possible FICLO from configurations
-        for ficl in self.get_FICLs():
+        for ficl in self.ficls:
             # Iterate over each object in FICL
             for object in (
                 tqdm(ficl.objects, unit="dir", leave=False)
@@ -374,6 +311,11 @@ class MorphFITSConfig(BaseModel):
             if isinstance(write_config[key], Path):
                 write_config[key] = str(write_config[key])
 
+        # Convert FICL objects to dicts
+        write_config["ficls"] = []
+        for ficl in self.ficls:
+            write_config["ficls"].append(ficl.__dict__)
+
         # Write config to file
         yaml.safe_dump(
             write_config,
@@ -391,6 +333,551 @@ class MorphFITSConfig(BaseModel):
 
 
 # Functions
+
+
+## Utility
+
+
+def ficl_is_unset(config_dict: dict, key: str) -> bool:
+    """Evaluate whether a FICL setting is not yet configured in a configuration
+    dictionary.
+
+    A setting is validly configured if its key name is in the dictionary, and
+    its value is a non-empty list.
+
+    Parameters
+    ----------
+    key : str
+        Name of the FICL setting key.
+    config_dict : dict
+        Dictionary representing configuration settings.
+
+    Returns
+    -------
+    bool
+        Whether the passed FICL attribute is incorrectly configured in the
+        dictionary.
+    """
+    return (
+        (key not in config_dict)
+        or (not isinstance(config_dict[key], list))
+        or (len(config_dict[key]) < 1)
+    )
+
+
+def ficl_is_missing_input(
+    config_dict: dict, field: str, image_version: str, filter: str, fic: bool = False
+) -> bool:
+    required_inputs = REQUIRED_FIC_INPUTS if fic else REQUIRED_FICL_INPUTS
+
+    # Iterate over each required input path name
+    for required_input in required_inputs:
+        ## Get path to required input
+        path_input = paths.get_path(
+            required_input,
+            input_root=config_dict["input_root"],
+            field=field,
+            image_version=image_version,
+            filter=filter,
+        )
+
+        ## If path doesn't point to an input file, FICL is missing an input file
+        if not path_input.exists():
+            return True
+
+    # If all paths point to files, FICL has all input files
+    return False
+
+
+def get_all_objects(
+    input_root: Path, field: str, image_version: str, catalog_version: str
+) -> list[int]:
+    # Read input catalog
+    path_input_catalog = paths.get_path(
+        "input_catalog",
+        input_root=input_root,
+        field=field,
+        image_version=image_version,
+        catalog_version=catalog_version,
+    )
+    input_catalog = Table.read(path_input_catalog)
+
+    # Return list of IDs as integers
+    return [int(id_object) - 1 for id_object in input_catalog["id"]]
+
+
+def get_objects(
+    config_dict: dict,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+) -> list[int]:
+    # Set objects prior to any batch mode alterations
+    ## Set object list as entire catalog range if not yet set or in batch mode
+    if (
+        (ficl_is_unset(config_dict=config_dict, key="objects"))
+        or (config_dict["object_first"] is not None)
+        or (config_dict["object_last"] is not None)
+        or (config_dict["batch_n_process"] > 1)
+    ):
+        objects = get_all_objects(
+            input_root=config_dict["input_root"],
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+        )
+        first_possible_object = objects[0]
+        last_possible_object = objects[-1]
+
+    ## Set object list as set via CLI or YAML if set
+    else:
+        objects = config_dict["objects"]
+
+    # Set objects as range if first or last object are provided
+    ## Remove all objects before first object
+    if config_dict["object_first"] is not None:
+        while objects[0] < config_dict["object_first"]:
+            objects.pop(0)
+
+    ## Remove all objects after last object
+    if config_dict["object_last"] is not None:
+        while objects[-1] > config_dict["object_last"]:
+            objects.pop(-1)
+
+    # Set objects as sub-range of current range if in batch mode
+    if config_dict["batch_n_process"] > 1:
+        ## Get sub-range indices and values from batch settings
+        start_index, stop_index = misc.get_unique_batch_limits(
+            process_id=config_dict["batch_process_id"],
+            n_process=config_dict["batch_n_process"],
+            n_items=len(objects),
+        )
+        objects = objects[start_index:stop_index]
+
+        ## Remove objects out of range
+        while (len(objects) > 0) and (objects[0] < first_possible_object):
+            objects.pop(0)
+        while (len(objects) > 0) and (objects[-1] > last_possible_object):
+            objects.pop(-1)
+
+    # Return object list
+    return objects
+
+
+def get_loggers(
+    morphfits_config: MorphFITSConfig, pre_logger: logging.Logger, pre_logger_path: Path
+) -> tuple[logging.Logger, logging.Logger]:
+    # Remove pre-program logger
+    pre_logger_path.unlink()
+    del pre_logger
+    gc.collect()
+
+    # Create program loggers
+    logs.create_logger(
+        filename=paths.get_path(
+            "run_log",
+            run_root=morphfits_config.run_root,
+            field=morphfits_config.fields[0],
+            datetime=morphfits_config.datetime,
+            run_number=morphfits_config.run_number,
+        )
+    )
+    global logger
+    logger = logging.getLogger("CONFIG")
+    main_logger = logging.getLogger("MORPHFITS")
+
+    # Return program loggers
+    return logger, main_logger
+
+
+## Validate and Configure Settings
+
+
+def set_paths(
+    config_dict: dict,
+    cli_settings: dict,
+    download_mode: bool,
+    pre_logger: logging.Logger,
+    pre_logger_path: Path,
+) -> dict:
+    pre_logger.info("Configuring paths.")
+
+    # Cast any path settings to Path objects
+    for path_key in [
+        "morphfits_root",
+        "input_root",
+        "output_root",
+        "product_root",
+        "run_root",
+        "galfit_path",
+    ]:
+        if path_key in config_dict:
+            config_dict[path_key] = paths.get_path_obj(config_dict[path_key])
+        if cli_settings[path_key] is not None:
+            config_dict[path_key] = paths.get_path_obj(cli_settings[path_key])
+
+    # Set input root directory
+    ## Terminate if input root not set
+    if "input_root" not in config_dict:
+        pre_logger_path.unlink()
+        raise ValueError("Input root not configured, terminating.")
+
+    ## Terminate if input root not found, AND not in download mode
+    elif (not config_dict["input_root"].exists()) and (not download_mode):
+        pre_logger_path.unlink()
+        raise FileNotFoundError(f"Input root {config_dict['input_root']} not found.")
+
+    ## Create input root if not found, and in download mode
+    elif (not config_dict["input_root"].exists()) and (download_mode):
+        config_dict["input_root"].mkdir(parents=True, exist_ok=True)
+
+    # Set root directory, if not found, as parent of input root
+    if "morphfits_root" not in config_dict:
+        config_dict["morphfits_root"] = config_dict["input_root"].parent
+
+    # Set product, output, and run directories from root directory
+    for root_key in ["output_root", "product_root", "run_root"]:
+        if root_key not in config_dict:
+            config_dict[root_key] = paths.get_path(
+                root_key, morphfits_root=config_dict["morphfits_root"]
+            )
+
+    # Return config dict with set paths
+    return config_dict
+
+
+def set_ficl_settings(
+    config_dict: dict, cli_settings: dict, pre_logger: logging.Logger
+) -> dict:
+    pre_logger.info("Configuring FICLs.")
+
+    # Set FICLO settings from CLI if passed, i.e. override config file with CLI
+    for ficlo_key in [
+        "fields",
+        "image_versions",
+        "catalog_versions",
+        "filters",
+        "objects",
+        "wrappers",
+    ]:
+        if cli_settings[ficlo_key] is not None:
+            config_dict[ficlo_key] = cli_settings[ficlo_key]
+
+    # Set FICL settings from input root directories if still unset at this point
+    input_root: Path = config_dict["input_root"]
+
+    # Set fields to input root subdirectories, if unset
+    if ficl_is_unset(config_dict=config_dict, key="fields"):
+        config_dict["fields"] = paths.get_directories(path=input_root)
+
+        ## Remove PSFs directory, as it is also an input root subdirectory
+        for field in config_dict["fields"]:
+            if field.name == "psfs":
+                config_dict["fields"].remove(field)
+                break
+
+    # Set image versions to field subdirectories, if unset
+    if ficl_is_unset(config_dict=config_dict, key="image_versions"):
+        config_dict["image_versions"] = []
+        for field in config_dict["fields"]:
+            for image_version in paths.get_directories(path=(input_root / field)):
+                config_dict["image_versions"].append(image_version)
+
+    # Set catalog versions to default catalogue versions, if unset
+    if ficl_is_unset(config_dict=config_dict, key="catalog_versions"):
+        config_dict["catalog_versions"] = [DEFAULT_CATVER]
+
+    # Set filters to image version subdirectories, if unset
+    if ficl_is_unset(config_dict=config_dict, key="filters"):
+        config_dict["filters"] = []
+        for field in config_dict["fields"]:
+            for image_version in config_dict["image_versions"]:
+                path_input_data = input_root / field / image_version
+                for filter in paths.get_directories(path=path_input_data):
+                    config_dict["filters"].append(filter)
+
+    # Return config dict with configured FICL settings
+    return config_dict
+
+
+def clean_filters(config_dict: dict, pre_logger: logging.Logger) -> dict:
+    pre_logger.info("Cleaning filters.")
+
+    # Iterate over each FICL in config dict
+    for field in config_dict["fields"]:
+        for image_version in config_dict["image_versions"]:
+            for filter in config_dict["filters"]:
+                ## Get path to input science frame from FIL
+                science_path = paths.get_path(
+                    name="science",
+                    input_root=config_dict["input_root"],
+                    field=field,
+                    image_version=image_version,
+                    filter=filter,
+                )
+
+                ## Skip filters with valid science paths
+                if science_path.exists():
+                    continue
+
+                ## Retry getting science frame path using other formats, if failed
+                ### All known clear filter arrangements
+                possible_filters = [
+                    f"{filter}-clear",
+                    f"clear-{filter}",
+                    f"{filter}-clearp",
+                    f"clearp-{filter}",
+                ]
+
+                ### Iterate over each clear filter arrangement
+                filter_found = False
+                for possible_filter in possible_filters:
+                    #### Get path to input science frame using new filter name
+                    possible_science_path = paths.get_path(
+                        name="science",
+                        input_root=config_dict["input_root"],
+                        field=field,
+                        image_version=image_version,
+                        filter=possible_filter,
+                    )
+                    if possible_science_path.exists():
+                        pre_logger.warning(
+                            f"Input data for filter '{filter}' "
+                            + f"not found, replacing with '{possible_filter}'."
+                        )
+                        config_dict["filters"].remove(filter)
+                        config_dict["filters"].append(possible_filter)
+                        filter_found = True
+                        break
+
+                ### If valid filter name hasn't been found, remove filter
+                if not filter_found:
+                    pre_logger.warning(f"Filter '{filter}' not found, removing.")
+                    config_dict["filters"].remove(filter)
+
+    # Return config dict with valid filter names
+    return config_dict
+
+
+def set_batch_settings(
+    config_dict: dict,
+    object_first: int | None,
+    object_last: int | None,
+    batch_n_process: int,
+    batch_process_id: int,
+    pre_logger: logging.Logger,
+) -> dict:
+    # Set first object
+    if object_first is None:
+        ## Set to YAML value if CLI value not provided
+        if "first_object" in config_dict:
+            ### Set to None if YAML value is not an integer
+            try:
+                config_dict["object_first"] = int(config_dict["first_object"])
+            except:
+                pre_logger.warning(
+                    f"first_object '{config_dict['first_object']}' "
+                    + "set in configuration file invalid, ignoring."
+                )
+                config_dict["object_first"] = None
+        ## Set to None if neither CLI nor YAML provided
+        else:
+            config_dict["object_first"] = None
+    ## Set to CLI value if provided
+    else:
+        config_dict["object_first"] = object_first
+
+    # Set last object
+    if object_last is None:
+        ## Set to YAML value if CLI value not provided
+        if "last_object" in config_dict:
+            ### Set to None if YAML value is not an integer
+            try:
+                config_dict["object_last"] = int(config_dict["last_object"])
+            except:
+                pre_logger.warning(
+                    f"last_object '{config_dict['last_object']}' "
+                    + "set in configuration file invalid, ignoring."
+                )
+                config_dict["object_last"] = None
+        ## Set to None if neither CLI nor YAML provided
+        else:
+            config_dict["object_last"] = None
+    ## Set to CLI value if provided
+    else:
+        config_dict["object_last"] = object_last
+
+    # Set first and last object to None if less than zero or invalid range
+    if (config_dict["object_first"] is not None) and (config_dict["object_first"] < 0):
+        pre_logger.warning(f"First object {config_dict['object_first']} invalid.")
+        config_dict["object_first"] = None
+    if (config_dict["object_last"] is not None) and (config_dict["object_last"] < 0):
+        pre_logger.warning(f"Last object {config_dict['object_last']} invalid.")
+        config_dict["object_last"] = None
+    if (
+        (config_dict["object_first"] is not None)
+        and (config_dict["object_last"] is not None)
+        and (config_dict["object_first"] > config_dict["object_last"])
+    ):
+        pre_logger.warning(
+            f"First and last object range ({config_dict['object_first']}, "
+            + f"{config_dict['object_last']}) invalid, ignoring."
+        )
+        config_dict["object_first"] = None
+        config_dict["object_last"] = None
+
+    # Set number of processes in batch
+    config_dict["batch_n_process"] = batch_n_process
+
+    # Set ID of process in batch
+    config_dict["batch_process_id"] = batch_process_id
+
+    # Return config dict with batch mode settings configured
+    return config_dict
+
+
+def set_ficl_objects_download_mode(
+    config_dict: dict, pre_logger: logging.Logger
+) -> dict:
+    pre_logger.info("Setting FICLs for download.")
+
+    # Iterate over each FICL
+    config_dict["objects"] = []
+    config_dict["ficls"] = []
+    for field in config_dict["fields"]:
+        for catalog_version in config_dict["catalog_versions"]:
+            for image_version in config_dict["image_versions"]:
+                for filter in config_dict["filters"]:
+                    ## Create FICL object and add to config dict FICL list
+                    ficl = FICL(
+                        field=field,
+                        image_version=image_version,
+                        catalog_version=catalog_version,
+                        filter=filter,
+                        objects=[-1],
+                        pixscale=[-1, -1],
+                    )
+                    config_dict["ficls"].append(ficl)
+
+    # Return config dict with FICL objects set
+    return config_dict
+
+
+def set_ficl_objects(
+    config_dict: dict,
+    pre_logger: logging.Logger,
+    object_first: int | None = None,
+    object_last: int | None = None,
+    batch_n_process: int = 1,
+    batch_process_id: int = 0,
+) -> dict:
+    pre_logger.info("Setting FICLs for run.")
+
+    # Set batch mode settings - first and last objects, n, id
+    config_dict = set_batch_settings(
+        config_dict=config_dict,
+        object_first=object_first,
+        object_last=object_last,
+        batch_n_process=batch_n_process,
+        batch_process_id=batch_process_id,
+        pre_logger=pre_logger,
+    )
+
+    # Iterate over each FICL permutation
+    config_dict["ficls"] = []
+    for field in config_dict["fields"]:
+        for image_version in config_dict["image_versions"]:
+            for catalog_version in config_dict["catalog_versions"]:
+                ## Skip FIC if input catalog or input segmap missing
+                if ficl_is_missing_input(
+                    config_dict=config_dict,
+                    field=field,
+                    image_version=image_version,
+                    filter="",
+                    fic=True,
+                ):
+                    pre_logger.warning(
+                        f"Field {field} and image version "
+                        + f"{image_version} missing input files, skipping."
+                    )
+                    continue
+
+                ## Get list of object IDs for FIC
+                objects = get_objects(
+                    config_dict=config_dict,
+                    field=field,
+                    image_version=image_version,
+                    catalog_version=catalog_version,
+                    batch_n_process=batch_n_process,
+                    batch_process_id=batch_process_id,
+                )
+
+                ## Iterate over each filter
+                for filter in config_dict["filters"]:
+                    ### Skip FICL if any input files missing
+                    if ficl_is_missing_input(
+                        config_dict=config_dict,
+                        field=field,
+                        image_version=image_version,
+                        filter=filter,
+                    ):
+                        pre_logger.warning(
+                            "FICL "
+                            + "_".join([field, image_version, catalog_version, filter])
+                            + "missing input files, skipping."
+                        )
+                        continue
+
+                    ### Get pixel scale from science file
+                    path_science = paths.get_path(
+                        "science",
+                        input_root=config_dict["input_root"],
+                        field=field,
+                        image_version=image_version,
+                        filter=filter,
+                    )
+                    pixscale = science.get_pixscale(path_science)
+
+                    ### Create FICL object and add to config dict FICL list
+                    ficl = FICL(
+                        field=field,
+                        image_version=image_version,
+                        catalog_version=catalog_version,
+                        filter=filter,
+                        objects=objects,
+                        pixscale=pixscale,
+                    )
+                    config_dict["ficls"].append(ficl)
+
+    # Return config dict with FICL objects set
+    return config_dict
+
+
+def set_run_settings(config_dict: dict) -> dict:
+    # Set datetime to current local time
+    config_dict["datetime"] = dt.now()
+
+    # Set run number to 1 by default
+    run_number = 1
+
+    ## Increase run number if other processes in same batch are found
+    while paths.get_path(
+        "run",
+        run_root=config_dict["run_root"],
+        field=config_dict["fields"][0],
+        datetime=config_dict["datetime"],
+        run_number=run_number,
+    ).exists():
+        run_number += 1
+
+    # Set run number
+    config_dict["run_number"] = run_number
+
+    # Return config dict with run settings set
+    return config_dict
+
+
+## Main
 
 
 def create_config(
@@ -485,217 +972,53 @@ def create_config(
     MorphFITSConfig
         A configuration object for this program execution.
     """
-    print("Loading configuration.")
+    # Create a temporary logger
+    pre_logger_path = Path("tmp.log").resolve()
+    logs.create_logger(filename=pre_logger_path)
+    pre_logger = logging.getLogger("CONFIG")
+    pre_logger.info("Configuring settings for run.")
 
-    # Load config file values
-    config_dict = {} if config_path is None else yaml.safe_load(open(config_path))
-
-    ## Cast and resolve paths
-    for root_key in [
-        "morphfits_root",
-        "input_root",
-        "output_root",
-        "product_root",
-        "run_root",
-        "galfit_path",
-    ]:
-        if root_key in config_dict:
-            config_dict[root_key] = paths.get_path_obj(config_dict[root_key])
-        if locals()[root_key] is not None:
-            config_dict[root_key] = paths.get_path_obj(locals()[root_key])
-
-    # Set any parameters passed through CLI call
-    ## Paths
-    ### Terminate if input root not found
-    if "input_root" not in config_dict:
-        raise FileNotFoundError("Input root not passed, terminating.")
+    # Set all configurations from YAML file if passed
+    if config_path is None:
+        config_dict = {}
     else:
-        input_root_dir = Path(config_dict["input_root"]).resolve()
-        if not input_root_dir.exists():
-            #### Create input root and other directories if in download mode
-            if download:
-                input_root_dir.mkdir(parents=True, exist_ok=True)
-            else:
-                raise FileNotFoundError(
-                    f"Input root {config_dict['input_root']} not found."
-                )
+        pre_logger.info(f"Loading configuration settings from {config_path}.")
+        config_dict = yaml.safe_load(open(config_path, mode="r"))
 
-    ### Set root directory as parent of input root if not found
-    if "morphfits_root" not in config_dict:
-        config_dict["morphfits_root"] = config_dict["input_root"].parent
+    # Set all paths
+    config_dict = set_paths(
+        config_dict=config_dict,
+        cli_settings=locals(),
+        download_mode=download,
+        pre_logger=pre_logger,
+        pre_logger_path=pre_logger_path,
+    )
 
-    ### Set product, output, and run directories from root directory
-    for root in ["output_root", "product_root", "run_root"]:
-        if root not in config_dict:
-            config_dict[root] = paths.get_path(
-                root, morphfits_root=config_dict["morphfits_root"]
-            )
+    # Set all FICL settings (fields, image versions, etc.)
+    config_dict = set_ficl_settings(config_dict=config_dict, cli_settings=locals())
 
-    ## FICLOs - overwrites configuration file
-    if fields is not None:
-        config_dict["fields"] = fields
-    if image_versions is not None:
-        config_dict["image_versions"] = image_versions
-    if catalog_versions is not None:
-        config_dict["catalog_versions"] = catalog_versions
-    if filters is not None:
-        config_dict["filters"] = filters
-    if objects is not None:
-        config_dict["objects"] = objects
-    if wrappers is not None:
-        config_dict["wrappers"] = wrappers
+    # Set all filter names to valid filters corresponding with science frame locations
+    config_dict = clean_filters(config_dict=config_dict, pre_logger=pre_logger)
 
-    ## If parameters are still unset, assume program execution over all
-    ## discovered values in input directory
+    # Set all FICL objects (list[FICL])
     if download:
-        config_dict["objects"] = []
-    for parameter in [
-        "field",
-        "image_version",
-        # "catalog_version",
-        "filter",
-        "object",
-    ]:
-        if (parameter + "s" not in config_dict) or (
-            config_dict[parameter + "s"] is None
-        ):
-            if download:
-                raise ValueError(f"Parameter '{parameter}' must be provided.")
-            else:
-                config_dict[parameter + "s"] = paths.find_parameter_from_input(
-                    parameter_name=parameter, input_root=config_dict["input_root"]
-                )
-
-    ## Update filter if input files are named in the format of `f150w-clear` and
-    ## filter specified is 'f150w'
-    for field in config_dict["fields"]:
-        for image_version in config_dict["image_versions"]:
-            for i in range(len(config_dict["filters"])):
-                filter = config_dict["filters"][i]
-                science_path = paths.get_path(
-                    name="science",
-                    input_root=config_dict["input_root"],
-                    field=field,
-                    image_version=image_version,
-                    filter=filter,
-                )
-
-                # If input files using filter not found, but input files using
-                # other known filter names found, replace filter with other
-                # filter name
-                if not science_path.exists():
-                    possible_filters = [
-                        f"{filter}-clear",
-                        f"clear-{filter}",
-                        f"{filter}-clearp",
-                        f"clearp-{filter}",
-                    ]
-                    for possible_filter in possible_filters:
-                        possible_science_path = paths.get_path(
-                            name="science",
-                            input_root=config_dict["input_root"],
-                            field=field,
-                            image_version=image_version,
-                            filter=possible_filter,
-                        )
-                        if possible_science_path.exists():
-                            print(
-                                f"Input data for filter '{filter}' "
-                                + f"not found, replacing with '{possible_filter}'."
-                            )
-                            config_dict["filters"].pop(i)
-                            config_dict["filters"].insert(i, possible_filter)
-                            break
-
-    # Set batch mode parameters
-    if "first_object" in config_dict:
-        config_dict["object_first"] = config_dict["first_object"]
-    else:
-        config_dict["object_first"] = object_first
-    if "last_object" in config_dict:
-        config_dict["object_last"] = config_dict["last_object"]
-    else:
-        config_dict["object_last"] = object_last
-    config_dict["batch_n_process"] = batch_n_process
-    config_dict["batch_process_id"] = batch_process_id
-
-    # If in batch mode or object range defined, reset objects accordingly
-    if (
-        (batch_n_process > 1)
-        or (config_dict["object_first"] is not None)
-        or (config_dict["object_last"] is not None)
-    ):
-        ## Terminate if more than one catalog specified for batch mode
-        if (batch_n_process) and (
-            (len(config_dict["fields"]) > 1) or (len(config_dict["image_versions"]) > 1)
-        ):
-            raise ValueError(
-                "Cannot set ranges for multiple catalog versions, "
-                + "as their ID ranges differ."
-            )
-
-        ## Get total object ID range from catalog
-        input_catalog_range = []
-        input_catalog_path = paths.get_path(
-            "input_catalog",
-            input_root=config_dict["input_root"],
-            field=config_dict["fields"][0],
-            image_version=config_dict["image_versions"][0],
+        config_dict = set_ficl_objects_download_mode(
+            config_dict=config_dict, pre_logger=pre_logger
         )
-        catalog = Table.read(input_catalog_path)
-        for id in catalog["id"]:
-            input_catalog_range.append(int(id))
-        del catalog
-        gc.collect()
-
-        ## Set objects to all if range not specified
-        if (config_dict["object_first"] is None) and (
-            config_dict["object_last"] is None
-        ):
-            user_range = input_catalog_range
-        ## Get specified object ID range from user
-        elif config_dict["object_first"] is None:
-            user_range = list(range(input_catalog_range[0], config_dict["object_last"]))
-        elif config_dict["object_last"] is None:
-            user_range = list(
-                range(config_dict["object_first"], input_catalog_range[-1])
-            )
-        else:
-            user_range = list(
-                range(config_dict["object_first"], config_dict["object_last"])
-            )
-
-        ## Get batch object ID range from user parameters
-        start_index, stop_index = misc.get_unique_batch_limits(
-            process_id=batch_process_id,
-            n_process=batch_n_process,
-            n_items=len(user_range),
+    else:
+        config_dict = set_ficl_objects(
+            config_dict=config_dict,
+            pre_logger=pre_logger,
+            object_first=object_first,
+            object_last=object_last,
+            batch_n_process=batch_n_process,
+            batch_process_id=batch_process_id,
         )
-        batch_range = user_range[start_index:stop_index]
-
-        ## Remove objects out of range
-        while (len(batch_range) > 0) and (batch_range[0] < input_catalog_range[0]):
-            batch_range.pop(0)
-        while (len(batch_range) > 0) and (batch_range[-1] > input_catalog_range[-1]):
-            batch_range.pop(-1)
-
-        ## Set object ID range for this batch run
-        config_dict["objects"] = batch_range
 
     # Set start datetime and run number
-    config_dict["datetime"] = dt.now()
-    run_number = 1
-    while paths.get_path(
-        "run",
-        run_root=config_dict["run_root"],
-        field=config_dict["fields"][0],
-        datetime=config_dict["datetime"],
-        run_number=run_number,
-    ).exists():
-        run_number += 1
-    config_dict["run_number"] = run_number
+    config_dict = set_run_settings(config_dict=config_dict)
 
-    # Create configuration object from dict
+    # Create configuration object from config dict
     morphfits_config = MorphFITSConfig(**config_dict)
 
     # Terminate if fitter is GALFIT and binary file is not linked
@@ -706,21 +1029,16 @@ def create_config(
         raise FileNotFoundError("GALFIT binary file not found or linked.")
 
     # Setup directories where missing
-    morphfits_config.setup_paths(display_progress=True, pre_input=download)
-
-    # Create logger
-    logs.create_logger(
-        filename=paths.get_path(
-            "run_log",
-            run_root=morphfits_config.run_root,
-            field=morphfits_config.fields[0],
-            datetime=morphfits_config.datetime,
-            run_number=morphfits_config.run_number,
-        )
+    morphfits_config.setup_paths(
+        pre_logger=pre_logger, display_progress=True, download_mode=download
     )
-    global logger
-    logger = logging.getLogger("CONFIG")
-    main_logger = logging.getLogger("MORPHFITS")
+
+    # Create program logger and remove pre-program logger
+    logger, main_logger = get_loggers(
+        morphfits_config=morphfits_config,
+        pre_logger=pre_logger,
+        pre_logger_path=pre_logger_path,
+    )
     main_logger.info("Starting MorphFITS.")
 
     # Display if batch mode
