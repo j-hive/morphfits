@@ -55,11 +55,6 @@ class FICL(BaseModel):
     filter of a JWST science observation. Each FICL corresponds to a single
     observation.
 
-    Parameters
-    ----------
-    BaseModel : class
-        Base pydantic model class for type validation.
-
     Attributes
     ----------
     field : str
@@ -95,11 +90,6 @@ class FICL(BaseModel):
 
 class MorphFITSConfig(BaseModel):
     """Configuration model for a program execution of MorphFITS.
-
-    Parameters
-    ----------
-    BaseModel : class
-        Base pydantic model class to enforce type validation upon creation.
 
     Attributes
     ----------
@@ -366,8 +356,33 @@ def ficl_is_unset(config_dict: dict, key: str) -> bool:
 
 
 def ficl_is_missing_input(
-    config_dict: dict, field: str, image_version: str, filter: str, fic: bool = False
+    config_dict: dict,
+    field: str,
+    image_version: str,
+    filter: str,
+    fic: bool = False,
 ) -> bool:
+    """Evaluate whether a FICL (or FIC) is missing input files required to run.
+
+    Parameters
+    ----------
+    config_dict : dict
+        Dictionary representing configuration settings.
+    field : str
+        Field of the target observation.
+    image_version : str
+        Image processing version of the target observation.
+    filter : str
+        Filter of the target observation.
+    fic : bool, optional
+        Consider a FIC and not a FICL, i.e. without the filter, by default
+        False.
+
+    Returns
+    -------
+    bool
+        FICL is missing at least one input file.
+    """
     required_inputs = REQUIRED_FIC_INPUTS if fic else REQUIRED_FICL_INPUTS
 
     # Iterate over each required input path name
@@ -390,8 +405,30 @@ def ficl_is_missing_input(
 
 
 def get_all_objects(
-    input_root: Path, field: str, image_version: str, catalog_version: str
+    input_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
 ) -> list[int]:
+    """Obtain the entire object ID range in a catalog for a given FIC, in the
+    form of a list of integers.
+
+    Parameters
+    ----------
+    input_root : Path
+        Path to the root of the input directory.
+    field : str
+        Field of the target observation.
+    image_version : str
+        Image processing version of the target observation.
+    catalog_version : str
+        Cataloging version of the target observation.
+
+    Returns
+    -------
+    list[int]
+        Object IDs in catalog, as a list of integers.
+    """
     # Read input catalog
     path_input_catalog = paths.get_path(
         "input_catalog",
@@ -412,6 +449,25 @@ def get_objects(
     image_version: str,
     catalog_version: str,
 ) -> list[int]:
+    """Obtain the object ID list for a given FICL, considering the batch mode
+    settings.
+
+    Parameters
+    ----------
+    config_dict : dict
+        Dictionary representing configuration settings.
+    field : str
+        Field of the target observation.
+    image_version : str
+        Image processing version of the target observation.
+    catalog_version : str
+        Cataloging version of the target observation.
+
+    Returns
+    -------
+    list[int]
+        Object IDs for a FICL, as a list of integers.
+    """
     # Set objects prior to any batch mode alterations
     ## Set object list as entire catalog range if not yet set or in batch mode
     if (
@@ -465,8 +521,26 @@ def get_objects(
 
 
 def get_loggers(
-    morphfits_config: MorphFITSConfig, pre_logger: logging.Logger, pre_logger_path: Path
+    morphfits_config: MorphFITSConfig,
+    pre_logger: logging.Logger,
+    pre_logger_path: Path,
 ) -> tuple[logging.Logger, logging.Logger]:
+    """Create and obtain the module and program loggers for this run.
+
+    Parameters
+    ----------
+    morphfits_config : MorphFITSConfig
+        Configuration object for this program run.
+    pre_logger : logging.Logger
+        Logging object prior to the creation of the log file.
+    pre_logger_path : Path
+        Path to the temporary logging file.
+
+    Returns
+    -------
+    tuple[logging.Logger, logging.Logger]
+        The config module logger, and the MorphFITS program logger.
+    """
     # Remove pre-program logger
     pre_logger_path.unlink()
     del pre_logger
@@ -500,6 +574,34 @@ def set_paths(
     pre_logger: logging.Logger,
     pre_logger_path: Path,
 ) -> dict:
+    """Resolve and configure the path settings in the configuration dictionary.
+
+    Parameters
+    ----------
+    config_dict : dict
+        Dictionary representing configuration settings.
+    cli_settings : dict
+        Settings passed from the CLI call.
+    download_mode : bool
+        In download program mode, i.e. the input root can be created and not
+        found.
+    pre_logger : logging.Logger
+        Logging object prior to the creation of the logging file.
+    pre_logger_path : Path
+        Path to the temporary logging file.
+
+    Returns
+    -------
+    dict
+        The configuration dictionary with the path settings configured.
+
+    Raises
+    ------
+    ValueError
+        Input root not passed.
+    FileNotFoundError
+        Input root not found.
+    """
     pre_logger.info("Configuring paths.")
 
     # Cast any path settings to Path objects
@@ -547,8 +649,28 @@ def set_paths(
 
 
 def set_ficl_settings(
-    config_dict: dict, cli_settings: dict, pre_logger: logging.Logger
+    config_dict: dict,
+    cli_settings: dict,
+    pre_logger: logging.Logger,
 ) -> dict:
+    """Resolve and configure the FICL settings in the configuration dictionary.
+
+    Note this does NOT include the list of FICL objects to be stored later.
+
+    Parameters
+    ----------
+    config_dict : dict
+        Dictionary representing configuration settings.
+    cli_settings : dict
+        Settings passed from the CLI call.
+    pre_logger : logging.Logger
+        Logging object prior to the creation of the logging file.
+
+    Returns
+    -------
+    dict
+        The configuration dictionary with the FICL settings configured.
+    """
     pre_logger.info("Configuring FICLs.")
 
     # Set FICLO settings from CLI if passed, i.e. override config file with CLI
@@ -601,6 +723,23 @@ def set_ficl_settings(
 
 
 def clean_filters(config_dict: dict, pre_logger: logging.Logger) -> dict:
+    """Resolve and set the filter names in the configuration dictionary.
+
+    Handles cases where a filter is named with the clear filter, but must be
+    matched to a filter named without.
+
+    Parameters
+    ----------
+    config_dict : dict
+        Dictionary representing configuration settings.
+    pre_logger : logging.Logger
+        Logging object prior to the creation of the logging file.
+
+    Returns
+    -------
+    dict
+        The configuration dictionary with the filters configured.
+    """
     pre_logger.info("Cleaning filters.")
 
     # Iterate over each FICL in config dict
@@ -667,6 +806,31 @@ def set_batch_settings(
     batch_process_id: int,
     pre_logger: logging.Logger,
 ) -> dict:
+    """Set the batch mode settings in the configuration dictionary.
+
+    Note the settings aren't ingested in the configuration object to be created
+    later, but are used in determining the object ranges of each FICL object.
+
+    Parameters
+    ----------
+    config_dict : dict
+        Dictionary representing configuration settings.
+    object_first : int | None
+        First object ID in a range to be run over.
+    object_last : int | None
+        Last object ID in a range to be run over.
+    batch_n_process : int
+        Number of processes in this batch.
+    batch_process_id : int
+        ID of this process in this batch, starting from 0.
+    pre_logger : logging.Logger
+        Logging object prior to the creation of the logging file.
+
+    Returns
+    -------
+    dict
+        The configuration dictionary with the batch mode settings configured.
+    """
     # Set first object
     if object_first is None:
         ## Set to YAML value if CLI value not provided
@@ -739,6 +903,21 @@ def set_batch_settings(
 def set_ficl_objects_download_mode(
     config_dict: dict, pre_logger: logging.Logger
 ) -> dict:
+    """Set the list of FICL objects for the configuration object, for the
+    download program, i.e. with irrelevant objects and pixscales.
+
+    Parameters
+    ----------
+    config_dict : dict
+        Dictionary representing configuration settings.
+    pre_logger : logging.Logger
+        Logging object prior to the creation of the logging file.
+
+    Returns
+    -------
+    dict
+        The configuration dictionary with the list of FICL objects set.
+    """
     pre_logger.info("Setting FICLs for download.")
 
     # Iterate over each FICL
@@ -766,11 +945,35 @@ def set_ficl_objects_download_mode(
 def set_ficl_objects(
     config_dict: dict,
     pre_logger: logging.Logger,
-    object_first: int | None = None,
-    object_last: int | None = None,
-    batch_n_process: int = 1,
-    batch_process_id: int = 0,
+    object_first: int | None,
+    object_last: int | None,
+    batch_n_process: int,
+    batch_process_id: int,
 ) -> dict:
+    """Set the list of FICL objects for the configuration object.
+
+    Note these are the valid FICLs for the entire run.
+
+    Parameters
+    ----------
+    config_dict : dict
+        Dictionary representing configuration settings.
+    pre_logger : logging.Logger
+        Logging object prior to the creation of the logging file.
+    object_first : int | None
+        First object ID in a range to be run over.
+    object_last : int | None
+        Last object ID in a range to be run over.
+    batch_n_process : int
+        Number of processes in this batch.
+    batch_process_id : int
+        ID of this process in this batch, starting from 0.
+
+    Returns
+    -------
+    dict
+        The configuration dictionary with the list of FICL objects set.
+    """
     pre_logger.info("Setting FICLs for run.")
 
     # Set batch mode settings - first and last objects, n, id
@@ -854,6 +1057,18 @@ def set_ficl_objects(
 
 
 def set_run_settings(config_dict: dict) -> dict:
+    """Set the run settings in the configuration dictionary.
+
+    Parameters
+    ----------
+    config_dict : dict
+        Dictionary representing configuration settings.
+
+    Returns
+    -------
+    dict
+        The configuration dictionary with the run settings configured.
+    """
     # Set datetime to current local time
     config_dict["datetime"] = dt.now()
 
