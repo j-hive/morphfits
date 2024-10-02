@@ -475,7 +475,10 @@ def main(
 
     # Run GALFIT and record parameters, for each FICLO
     if not skip_fits:
-        for ficl in morphfits_config.get_FICLs():
+        for ficl in morphfits_config.ficls:
+            logger.info(
+                f"Batch object ID range: {ficl.objects[0]} to {ficl.objects[-1]}."
+            )
             run_galfit(
                 galfit_path=morphfits_config.galfit_path,
                 input_root=morphfits_config.input_root,
@@ -495,7 +498,7 @@ def main(
 
     # Plot models, for each FICLO
     if make_plots:
-        for ficl in morphfits_config.get_FICLs():
+        for ficl in morphfits_config.ficls:
             plots.plot_model(
                 output_root=morphfits_config.output_root,
                 product_root=morphfits_config.product_root,
@@ -512,7 +515,7 @@ def main(
     plots.plot_histograms(
         output_root=morphfits_config.output_root,
         run_root=morphfits_config.run_root,
-        field=morphfits_config.fields[0],
+        field=morphfits_config.ficls[0].field,
         datetime=morphfits_config.datetime,
         run_number=morphfits_config.run_number,
     )

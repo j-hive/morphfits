@@ -117,7 +117,7 @@ def get_download_list(
     # Get filenames of all required files from configuration
     logger.info("Getting list of files to download from configuration.")
     list_download = []
-    for ficl in morphfits_config.get_FICLs(pre_input=True):
+    for ficl in morphfits_config.ficls:
         # Get required destination paths for FICL
         required_paths: list[Path] = [
             paths.get_path(

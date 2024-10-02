@@ -792,7 +792,7 @@ def generate_products(
         Display progress on terminal screen via tqdm, by default False.
     """
     # Iterate over each FICL in configuration
-    for ficl in morphfits_config.get_FICLs():
+    for ficl in morphfits_config.ficls:
         logger.info(f"Generating products for FICL {ficl}.")
 
         # Generate science cutouts if missing or requested

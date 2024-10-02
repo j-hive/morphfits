@@ -668,7 +668,7 @@ def stamp(
     logger.info("Starting MorphFITS.")
 
     # Display progress
-    ficl = next(morphfits_config.get_FICLs())
+    ficl = next(morphfits_config.ficls)
     logger.info(f"Starting MorphFITS stamps for FICL {ficl}.")
 
     # Regenerate stamps for each object in FICL
