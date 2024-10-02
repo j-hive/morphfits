@@ -6,10 +6,10 @@
 
 import gc
 import logging
-import itertools
+import tempfile
 import shutil
 from pathlib import Path
-from typing import Generator, Annotated
+from typing import Annotated
 from datetime import datetime as dt
 
 from astropy.table import Table
@@ -17,7 +17,7 @@ import yaml
 from pydantic import BaseModel, StringConstraints
 from tqdm import tqdm
 
-from . import paths, ROOT
+from . import paths
 from .utils import logs, misc, science
 
 
@@ -279,7 +279,7 @@ class MorphFITSConfig(BaseModel):
         logger.info("Recording configuration settings for this run.")
 
         # Convert Path objects to strings
-        write_config = self.__dict__
+        write_config = self.__dict__.copy()
         for key in write_config:
             if isinstance(write_config[key], Path):
                 write_config[key] = str(write_config[key])
@@ -619,7 +619,6 @@ def set_paths(
     cli_settings: dict,
     download_mode: bool,
     pre_logger: logging.Logger,
-    pre_logger_path: Path,
 ) -> dict:
     """Resolve and configure the path settings in the configuration dictionary.
 
@@ -634,8 +633,6 @@ def set_paths(
         found.
     pre_logger : logging.Logger
         Logging object prior to the creation of the logging file.
-    pre_logger_path : Path
-        Path to the temporary logging file.
 
     Returns
     -------
@@ -668,12 +665,10 @@ def set_paths(
     # Set input root directory
     ## Terminate if input root not set
     if "input_root" not in config_dict:
-        pre_logger_path.unlink()
         raise ValueError("Input root not configured, terminating.")
 
     ## Terminate if input root not found, AND not in download mode
     elif (not config_dict["input_root"].exists()) and (not download_mode):
-        pre_logger_path.unlink()
         raise FileNotFoundError(f"Input root {config_dict['input_root']} not found.")
 
     ## Create input root if not found, and in download mode
@@ -788,10 +783,12 @@ def set_batch_settings(
         config_dict["object_last"] = None
 
     # Set number of processes in batch
-    config_dict["batch_n_process"] = batch_n_process
+    if ("batch_n_process" not in config_dict) or (batch_n_process > 1):
+        config_dict["batch_n_process"] = batch_n_process
 
     # Set ID of process in batch
-    config_dict["batch_process_id"] = batch_process_id
+    if ("batch_process_id" not in config_dict) or (batch_process_id > 0):
+        config_dict["batch_process_id"] = batch_process_id
 
     # Return config dict with batch mode settings configured
     return config_dict
@@ -831,6 +828,7 @@ def set_ficls_download_mode(config_dict: dict, pre_logger: logging.Logger) -> di
                         objects=[-1],
                         pixscale=[-1, -1],
                     )
+                    pre_logger.info(f"Adding FICL {ficl}.")
                     config_dict["ficls"].append(ficl)
 
     # Return config dict with FICL objects set
@@ -914,6 +912,8 @@ def set_ficls(
         fields = [config_dict["input_root"] / field for field in config_dict["fields"]]
 
     for field in fields:
+        pre_logger.info(f"Checking input for field {field.name}.")
+
         # Iterate over image versions
         ## Iterate over all field subdirectories if user does not specify
         ## image versions
@@ -926,6 +926,8 @@ def set_ficls(
             ]
 
         for image_version in image_versions:
+            pre_logger.info(f"Checking input for image version {image_version}.")
+
             # Iterate over catalog versions
             ## Iterate over all field subdirectories if user does not specify
             ## catalog versions
@@ -936,6 +938,11 @@ def set_ficls(
                 catalog_versions = config_dict["catalog_versions"]
 
             for catalog_version in catalog_versions:
+                pre_logger.info(
+                    f"Checking input for catalog version {catalog_version}."
+                )
+                fic_names = [field.name, image_version.name, catalog_version]
+
                 ## Skip FIC if input catalog or input segmap missing
                 if ficl_is_missing_input(
                     config_dict=config_dict,
@@ -944,13 +951,13 @@ def set_ficls(
                     filter="",
                     fic=True,
                 ):
-                    fic_names = [field.name, image_version.name, catalog_version]
                     pre_logger.warning(
                         f"FIC {'_'.join(fic_names)} missing input files, skipping."
                     )
                     continue
 
                 ## Get list of object IDs for FIC
+                pre_logger.info(f"Resolving object IDs for FIC {'_'.join(fic_names)}.")
                 objects = get_objects(
                     config_dict=config_dict,
                     field=field.name,
@@ -1021,6 +1028,7 @@ def set_ficls(
                         objects=objects,
                         pixscale=pixscale,
                     )
+                    pre_logger.info(f"Adding FICL {ficl}.")
                     config_dict["ficls"].append(ficl)
 
     # Return config dict with FICL objects set
@@ -1050,7 +1058,7 @@ def set_run_settings(config_dict: dict) -> dict:
     while paths.get_path(
         "run",
         run_root=config_dict["run_root"],
-        field=config_dict["fields"][0],
+        field=config_dict["ficls"][0].field,
         datetime=config_dict["datetime"],
         run_number=run_number,
     ).exists():
@@ -1159,8 +1167,8 @@ def create_config(
         A configuration object for this program execution.
     """
     # Create a temporary logger
-    pre_logger_path = Path("tmp.log").resolve()
-    base_logger = logs.create_logger(filename=pre_logger_path)
+    pre_log = tempfile.NamedTemporaryFile()
+    base_logger = logs.create_logger(filename=pre_log.name)
     pre_logger = logging.getLogger("CONFIG")
     pre_logger.info("Configuring settings for run.")
 
@@ -1177,7 +1185,6 @@ def create_config(
         cli_settings=locals(),
         download_mode=download,
         pre_logger=pre_logger,
-        pre_logger_path=pre_logger_path,
     )
 
     # Set all FICL objects (list[FICL])
@@ -1188,6 +1195,7 @@ def create_config(
     else:
         config_dict = set_ficls(
             config_dict=config_dict,
+            cli_settings=locals(),
             pre_logger=pre_logger,
             object_first=object_first,
             object_last=object_last,
@@ -1214,7 +1222,9 @@ def create_config(
     )
 
     # Remove pre-program loggers
-    pre_logger_path.unlink()
+    base_logger.handlers.clear()
+    pre_logger.handlers.clear()
+    pre_log.close()
     del base_logger
     del pre_logger
     gc.collect()
@@ -1225,8 +1235,8 @@ def create_config(
 
     # Display if batch mode
     if batch_n_process > 1:
-        logger.info("Running in batch mode.")
-        logger.info(f"Batch process: {batch_process_id} / {batch_n_process-1}")
+        main_logger.info("Running in batch mode.")
+        main_logger.info(f"Batch process: {batch_process_id} / {batch_n_process-1}")
 
     # Return configuration object
     return morphfits_config

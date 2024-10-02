@@ -794,6 +794,10 @@ def generate_products(
     # Iterate over each FICL in configuration
     for ficl in morphfits_config.ficls:
         logger.info(f"Generating products for FICL {ficl}.")
+        logger.info(
+            f"Object ID range: {min(ficl.objects)} to {max(ficl.objects)} "
+            + f"({max(ficl.objects)-min(ficl.objects)} objects)."
+        )
 
         # Generate science cutouts if missing or requested
         objects, positions, image_sizes = generate_stamps(

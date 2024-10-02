@@ -352,6 +352,10 @@ def plot_model(
     logger.info(
         f"Plotting models for FICL {'_'.join([field,image_version,catalog_version,filter])}."
     )
+    logger.info(
+        f"Object ID range: {min(objects)} to {max(objects)} "
+        + f"({len(objects)} objects)."
+    )
 
     # Iterate over each object in FICL
     for object in (

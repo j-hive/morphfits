@@ -274,7 +274,13 @@ def run_galfit(
         Rerun GALFIT on previously fitted objects, by default False.
     """
     logger.info(
-        f"Running GALFIT for FICL {'_'.join([field, image_version, catalog_version, filter])}."
+        "Running GALFIT for FICL "
+        + "_".join([field, image_version, catalog_version, filter])
+        + "."
+    )
+    logger.info(
+        f"Object ID range: {min(objects)} to {max(objects)} "
+        + f"({len(objects)} objects)."
     )
 
     # Iterate over each object in FICL
@@ -476,9 +482,6 @@ def main(
     # Run GALFIT and record parameters, for each FICLO
     if not skip_fits:
         for ficl in morphfits_config.ficls:
-            logger.info(
-                f"Batch object ID range: {ficl.objects[0]} to {ficl.objects[-1]}."
-            )
             run_galfit(
                 galfit_path=morphfits_config.galfit_path,
                 input_root=morphfits_config.input_root,
