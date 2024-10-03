@@ -239,6 +239,7 @@ def subplot_histogram(catalog: pd.DataFrame, ax: Axes, parameter: str):
         values = []
         for datum in catalog[parameter]:
             try:
+                assert not np.isnan(datum)
                 values.append(float(datum))
             except:
                 continue
@@ -274,6 +275,7 @@ def subplot_histogram(catalog: pd.DataFrame, ax: Axes, parameter: str):
             else:
                 ##### Skip NaNs
                 try:
+                    assert not np.isnan(datum)
                     data.append(float(datum))
                 except:
                     continue

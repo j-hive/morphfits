@@ -926,7 +926,7 @@ def set_ficls(
             ]
 
         for image_version in image_versions:
-            pre_logger.info(f"Checking input for image version {image_version}.")
+            pre_logger.info(f"Checking input for image version {image_version.name}.")
 
             # Iterate over catalog versions
             ## Iterate over all field subdirectories if user does not specify
