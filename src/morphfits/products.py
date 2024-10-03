@@ -796,7 +796,7 @@ def generate_products(
         logger.info(f"Generating products for FICL {ficl}.")
         logger.info(
             f"Object ID range: {min(ficl.objects)} to {max(ficl.objects)} "
-            + f"({max(ficl.objects)-min(ficl.objects)} objects)."
+            + f"({len(ficl.objects)} objects)."
         )
 
         # Generate science cutouts if missing or requested
