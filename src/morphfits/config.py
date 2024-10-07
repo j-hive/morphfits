@@ -794,7 +794,9 @@ def set_batch_settings(
     return config_dict
 
 
-def set_ficls_download_mode(config_dict: dict, pre_logger: logging.Logger) -> dict:
+def set_ficls_download_mode(
+    config_dict: dict, cli_settings: dict, pre_logger: logging.Logger
+) -> dict:
     """Set the list of FICL objects for the configuration object, for the
     download program, i.e. with irrelevant objects and pixscales.
 
@@ -811,6 +813,16 @@ def set_ficls_download_mode(config_dict: dict, pre_logger: logging.Logger) -> di
         The configuration dictionary with the list of FICL objects set.
     """
     pre_logger.info("Configuring FICLs for download.")
+
+    # Set FICLO settings from CLI if passed, i.e. override config file with CLI
+    for ficlo_key in [
+        "fields",
+        "image_versions",
+        "catalog_versions",
+        "filters",
+    ]:
+        if cli_settings[ficlo_key] is not None:
+            config_dict[ficlo_key] = cli_settings[ficlo_key]
 
     # Iterate over each FICL
     config_dict["objects"] = []
