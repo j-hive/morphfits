@@ -818,7 +818,6 @@ def set_ficls_download_mode(
     for ficlo_key in [
         "fields",
         "image_versions",
-        "catalog_versions",
         "filters",
     ]:
         if cli_settings[ficlo_key] is not None:
@@ -828,20 +827,19 @@ def set_ficls_download_mode(
     config_dict["objects"] = []
     config_dict["ficls"] = []
     for field in config_dict["fields"]:
-        for catalog_version in config_dict["catalog_versions"]:
-            for image_version in config_dict["image_versions"]:
-                for filter in config_dict["filters"]:
-                    ## Create FICL object and add to config dict FICL list
-                    ficl = FICL(
-                        field=field,
-                        image_version=image_version,
-                        catalog_version=catalog_version,
-                        filter=filter,
-                        objects=[-1],
-                        pixscale=[-1, -1],
-                    )
-                    pre_logger.info(f"Adding FICL {ficl}.")
-                    config_dict["ficls"].append(ficl)
+        for image_version in config_dict["image_versions"]:
+            for filter in config_dict["filters"]:
+                ## Create FICL object and add to config dict FICL list
+                ficl = FICL(
+                    field=field,
+                    image_version=image_version,
+                    catalog_version=DEFAULT_CATVER,
+                    filter=filter,
+                    objects=[-1],
+                    pixscale=[-1, -1],
+                )
+                pre_logger.info(f"Adding FICL {ficl}.")
+                config_dict["ficls"].append(ficl)
 
     # Return config dict with FICL objects set
     return config_dict
