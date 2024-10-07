@@ -1202,7 +1202,7 @@ def create_config(
     # Set all FICL objects (list[FICL])
     if download:
         config_dict = set_ficls_download_mode(
-            config_dict=config_dict, pre_logger=pre_logger
+            config_dict=config_dict, cli_settings=locals(), pre_logger=pre_logger
         )
     else:
         config_dict = set_ficls(
