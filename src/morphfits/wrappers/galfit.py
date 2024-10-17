@@ -10,7 +10,6 @@ import shutil
 from subprocess import Popen, PIPE, STDOUT
 from pathlib import Path
 from datetime import datetime as dt
-import csv
 
 from astropy.io import fits
 from astropy.table import Table

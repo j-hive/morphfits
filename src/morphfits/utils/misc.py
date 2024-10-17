@@ -4,6 +4,9 @@
 # Imports
 
 
+import numpy as np
+
+
 # Functions
 
 
@@ -64,4 +67,14 @@ def get_unique(items: list) -> list:
     list
         Sorted list of unique elements.
     """
-    return sorted(set(list(items)))
+    not_nan_items = []
+
+    # Remove any NaNs from list
+    for item in items:
+        if isinstance(item, float) and np.isnan(item):
+            continue
+        else:
+            not_nan_items.append(item)
+
+    # Return unique items in list, sorted
+    return sorted(set(not_nan_items))

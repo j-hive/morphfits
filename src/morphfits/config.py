@@ -1235,9 +1235,6 @@ def create_config(
     base_logger.handlers.clear()
     pre_logger.handlers.clear()
     pre_log.close()
-    del base_logger
-    del pre_logger
-    gc.collect()
 
     # Create program logger and remove pre-program logger
     logger, main_logger = get_loggers(morphfits_config=morphfits_config)

@@ -10,7 +10,6 @@ import csv
 from datetime import datetime as dt
 from pathlib import Path
 
-import numpy as np
 from astropy.io import fits
 
 from .. import paths
@@ -53,6 +52,13 @@ HEADERS = [
 """
 
 
+GALFIT_LOG_REGEX = "[\*|\[]?\d{1,10}[\.]\d{1,2}[\*|\[]?"
+GALFIT_LOG_FLOAT_REGEX = "\d{1,10}[\.]\d{1,2}"
+"""Regex for seven .2f numbers found in GALFIT logs, which may or may not be
+enveloped by * or [] characters.
+"""
+
+
 FLAGS = {
     "1": 0,
     "2": 1,
@@ -76,18 +82,6 @@ FLAGS = {
 }
 """GALFIT flags as written in the model headers, and their corresponding
 bit-mask exponent, where 2 is the base.
-"""
-
-
-GALFIT_LOG_REGEX = "[\*|\[]?\d{1,10}[\.]\d{1,2}[\*|\[]?"
-GALFIT_LOG_FLOAT_REGEX = "\d{1,10}[\.]\d{1,2}"
-"""Regex for seven .2f numbers found in GALFIT logs, which may or may not be
-enveloped by * or [] characters.
-
-See Also
---------
-`record_parameters`
-    Function using this expression to record the fitting parameters from logs.
 """
 
 
