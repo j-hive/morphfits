@@ -19,7 +19,7 @@ from astropy.wcs import WCS
 from jinja2 import Template
 from tqdm import tqdm
 
-from . import paths
+from .utils import path
 from .config import MorphFITSConfig
 from .wrappers import galfit
 from .utils import science
@@ -111,13 +111,13 @@ def generate_stamps(
     logger.info("Generating stamps.")
 
     # Load in catalog
-    input_catalog_path = paths.get_path(
+    input_catalog_path = path.get_path(
         "input_catalog", input_root=input_root, field=field, image_version=image_version
     )
     input_catalog = Table.read(input_catalog_path)
 
     # Load in image and header data
-    science_path = paths.get_path(
+    science_path = path.get_path(
         "science",
         input_root=input_root,
         field=field,
@@ -162,7 +162,7 @@ def generate_stamps(
         )
 
         # Skip objects that have already been stamped
-        stamp_path = paths.get_path(
+        stamp_path = path.get_path(
             "stamp",
             product_root=product_root,
             field=field,
@@ -313,7 +313,7 @@ def generate_sigmas(
     logger.info("Generating sigma maps.")
 
     # Load in exposure and weights maps
-    exposure_path = paths.get_path(
+    exposure_path = path.get_path(
         "exposure",
         input_root=input_root,
         field=field,
@@ -325,7 +325,7 @@ def generate_sigmas(
     exposure_headers = exposure_file["PRIMARY"].header
     exposure_wcs = WCS(exposure_headers)
 
-    weights_path = paths.get_path(
+    weights_path = path.get_path(
         "weights",
         input_root=input_root,
         field=field,
@@ -355,7 +355,7 @@ def generate_sigmas(
         object, position, image_size = objects[i], positions[i], image_sizes[i]
 
         # Skip objects which already have sigma maps
-        sigma_path = paths.get_path(
+        sigma_path = path.get_path(
             "sigma",
             product_root=product_root,
             field=field,
@@ -376,7 +376,7 @@ def generate_sigmas(
                 logger.info(f"Generating sigma map for object {object}.")
 
             # Load stamp for this object and filter over minimum of 0
-            stamp_path = paths.get_path(
+            stamp_path = path.get_path(
                 "stamp",
                 product_root=product_root,
                 field=field,
@@ -542,7 +542,7 @@ def generate_psfs(
     logger.info("Generating PSF crops.")
 
     # Load in PSF and clear memory
-    input_psf_path = paths.get_path(
+    input_psf_path = path.get_path(
         "input_psf",
         input_root=input_root,
         filter=filter,
@@ -567,7 +567,7 @@ def generate_psfs(
         object, image_size = objects[i], image_sizes[i]
 
         # Skip existing PSF cutouts
-        psf_path = paths.get_path(
+        psf_path = path.get_path(
             "psf",
             product_root=product_root,
             field=field,
@@ -653,7 +653,7 @@ def generate_masks(
     logger.info("Generating masks.")
 
     # Load in segmentation map
-    segmap_path = paths.get_path(
+    segmap_path = path.get_path(
         "input_segmap",
         input_root=input_root,
         field=field,
@@ -684,7 +684,7 @@ def generate_masks(
         object, position, image_size = objects[i], positions[i], image_sizes[i]
 
         # Skip objects which already have masks
-        mask_path = paths.get_path(
+        mask_path = path.get_path(
             "mask",
             product_root=product_root,
             field=field,

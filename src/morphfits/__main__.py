@@ -11,9 +11,9 @@ from pathlib import Path
 
 import typer
 
-from . import config, input, paths, plots, products, ROOT
+from . import config, download, plot, product, ROOT
 from .wrappers import galfit
-from .utils import logs
+from .utils import log, path
 
 
 # App Instantiation
@@ -317,7 +317,7 @@ def galwrap(
     logger = logging.getLogger("MORPHFITS")
 
     # Unzip zipped files
-    input.unzip_files(morphfits_config=morphfits_config)
+    download.unzip_files(morphfits_config=morphfits_config)
 
     # Call wrapper
     galfit.main(
@@ -460,7 +460,7 @@ def download(
     logger = logging.getLogger("MORPHFITS")
 
     # Download and unzip files
-    input.main(
+    download.main(
         morphfits_config=morphfits_config,
         skip_download=skip_download,
         skip_unzip=skip_unzip,
@@ -656,8 +656,8 @@ def stamp(
     )
 
     # Create program and module logger
-    logs.create_logger(
-        filename=paths.get_path(
+    log.create_logger(
+        filename=path.get_path(
             "run_log",
             run_root=morphfits_config.run_root,
             datetime=morphfits_config.datetime,
@@ -672,7 +672,7 @@ def stamp(
     logger.info(f"Starting MorphFITS stamps for FICL {ficl}.")
 
     # Regenerate stamps for each object in FICL
-    products.generate_stamps(
+    product.generate_stamps(
         input_root=morphfits_config.input_root,
         product_root=morphfits_config.product_root,
         image_version=ficl.image_version,
@@ -684,7 +684,7 @@ def stamp(
     )
 
     # Plot all objects
-    plots.plot_objects(
+    plot.plot_objects(
         output_root=morphfits_config.output_root,
         product_root=morphfits_config.product_root,
         field=ficl.field,

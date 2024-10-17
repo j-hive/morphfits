@@ -19,7 +19,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from tqdm import tqdm
 
-from . import paths
+from .utils import path
 from .utils import misc
 
 
@@ -373,7 +373,7 @@ def plot_model(
             f"plot_{wrapper}",
         ]
         object_paths = {
-            name: paths.get_path(
+            name: path.get_path(
                 name,
                 product_root=product_root,
                 output_root=output_root,
@@ -556,14 +556,14 @@ def plot_histograms(
     logger.info("Plotting fitted parameter distribution histograms.")
 
     # Plot run histogram if run catalog exists
-    path_catalog_run = paths.get_path(
+    path_catalog_run = path.get_path(
         "run_catalog",
         run_root=run_root,
         field=field,
         datetime=datetime,
         run_number=run_number,
     )
-    path_histogram_run = paths.get_path(
+    path_histogram_run = path.get_path(
         "run_histogram",
         run_root=run_root,
         field=field,
@@ -578,8 +578,8 @@ def plot_histograms(
         )
 
     # Plot main histogram
-    path_catalog = paths.get_path("catalog", output_root=output_root)
-    path_histogram = paths.get_path("histogram", output_root=output_root)
+    path_catalog = path.get_path("catalog", output_root=output_root)
+    path_histogram = path.get_path("histogram", output_root=output_root)
     catalog = pd.read_csv(path_catalog)
     logger.info("Updating main catalog parameter histogram.")
     plot_histogram(catalog=catalog, histogram_path=path_histogram, type="main")
@@ -593,7 +593,7 @@ def plot_histograms(
                 catalog_FIC = catalog_FI[catalog_FI["catalog version"] == cC]
                 for cL in misc.get_unique(catalog_FIC["filter"]):
                     catalog_FICL = catalog_FIC[catalog_FIC["filter"] == cL]
-                    path_histogram_ficl = paths.get_path(
+                    path_histogram_ficl = path.get_path(
                         "ficl_histogram",
                         output_root=output_root,
                         field=cF,
@@ -668,7 +668,7 @@ def plot_objects(
     for object in (
         tqdm(objects, unit="object", leave=False) if display_progress else objects
     ):
-        stamp_path = paths.get_path(
+        stamp_path = path.get_path(
             "stamp",
             product_root=product_root,
             field=field,
@@ -730,7 +730,7 @@ def plot_objects(
     plt.tight_layout(pad=0)
 
     # Save plot
-    objects_path = paths.get_path(
+    objects_path = path.get_path(
         "ficl_objects",
         output_root=output_root,
         field=field,

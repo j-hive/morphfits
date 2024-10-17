@@ -12,7 +12,7 @@ from pathlib import Path
 
 from astropy.io import fits
 
-from .. import paths
+from .utils import path
 
 
 # Constants
@@ -130,7 +130,7 @@ def get_galfit_flags(
         Flag bitmask for raised GALFIT flags.
     """
     # Get headers from model FITS file
-    model_path = paths.get_path(
+    model_path = path.get_path(
         "model_galfit",
         output_root=output_root,
         field=field,
@@ -185,7 +185,7 @@ def get_galfit_parameters(
         associated errors, also as strings.
     """
     # Open log as text file
-    log_path = paths.get_path(
+    log_path = path.get_path(
         "log_galfit",
         output_root=output_root,
         field=field,
@@ -393,14 +393,14 @@ def write(
         Integer return code of GALFIT when run in a subprocess.
     """
     # Create CSV if missing and write headers
-    path_catalog_run = paths.get_path(
+    path_catalog_run = path.get_path(
         "run_catalog",
         run_root=run_root,
         field=field,
         datetime=datetime,
         run_number=run_number,
     )
-    path_catalog_morphfits = paths.get_path("catalog", output_root=output_root)
+    path_catalog_morphfits = path.get_path("catalog", output_root=output_root)
     if not path_catalog_run.exists():
         with open(path_catalog_run, mode="w", newline="") as csv_file:
             writer = csv.writer(csv_file)
@@ -411,7 +411,7 @@ def write(
             writer.writerow(HEADERS)
 
     # Copy fit parameters from GALFIT log for successful runs
-    galfit_log_path = paths.get_path(
+    galfit_log_path = path.get_path(
         "log_galfit",
         output_root=output_root,
         field=field,
@@ -420,7 +420,7 @@ def write(
         filter=filter,
         object=object,
     )
-    galfit_model_path = paths.get_path(
+    galfit_model_path = path.get_path(
         "model_galfit",
         output_root=output_root,
         field=field,

@@ -13,7 +13,7 @@ from datetime import datetime as dt
 import yaml
 from pydantic import BaseModel
 
-from . import DATA_ROOT
+from .. import DATA_ROOT
 
 
 # Constants

@@ -19,7 +19,8 @@ import csv
 
 from tqdm import tqdm
 
-from morphfits import config, paths, ROOT
+from morphfits import config, ROOT
+from morphfits.utils import path
 
 
 # Constants
@@ -120,19 +121,19 @@ def get_download_list(
     for ficl in morphfits_config.ficls:
         # Get required destination paths for FICL
         required_paths: list[Path] = [
-            paths.get_path(
+            path.get_path(
                 "input_segmap",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
                 image_version=ficl.image_version,
             ),
-            paths.get_path(
+            path.get_path(
                 "input_catalog",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
                 image_version=ficl.image_version,
             ),
-            paths.get_path(
+            path.get_path(
                 "exposure",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
@@ -141,7 +142,7 @@ def get_download_list(
             ),
             Path(
                 str(
-                    paths.get_path(
+                    path.get_path(
                         "exposure",
                         input_root=morphfits_config.input_root,
                         field=ficl.field,
@@ -150,7 +151,7 @@ def get_download_list(
                     )
                 ).replace("drc", "drz")
             ).resolve(),
-            paths.get_path(
+            path.get_path(
                 "science",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
@@ -159,7 +160,7 @@ def get_download_list(
             ),
             Path(
                 str(
-                    paths.get_path(
+                    path.get_path(
                         "science",
                         input_root=morphfits_config.input_root,
                         field=ficl.field,
@@ -168,7 +169,7 @@ def get_download_list(
                     )
                 ).replace("drc", "drz")
             ).resolve(),
-            paths.get_path(
+            path.get_path(
                 "weights",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
@@ -177,7 +178,7 @@ def get_download_list(
             ),
             Path(
                 str(
-                    paths.get_path(
+                    path.get_path(
                         "weights",
                         input_root=morphfits_config.input_root,
                         field=ficl.field,

@@ -17,8 +17,8 @@ from jinja2 import Template
 from tqdm import tqdm
 
 from . import GALFIT_DATA_ROOT
-from .. import config, paths, plots, products
-from ..utils import cataloging, science
+from .. import catalog, config, plot, product
+from ..utils import path, science
 
 
 # Constants
@@ -101,7 +101,7 @@ def generate_feedfiles(
     product_path_names = ["model_galfit", "stamp", "sigma", "psf", "mask"]
 
     # Load in catalog
-    input_catalog_path = paths.get_path(
+    input_catalog_path = path.get_path(
         "input_catalog",
         input_root=input_root,
         field=field,
@@ -110,7 +110,7 @@ def generate_feedfiles(
     input_catalog = Table.read(input_catalog_path)
 
     # Get zeropoint
-    science_path = paths.get_path(
+    science_path = path.get_path(
         "science",
         input_root=input_root,
         field=field,
@@ -134,7 +134,7 @@ def generate_feedfiles(
         object, image_size = objects[i], image_sizes[i]
 
         # Skip objects which already have feedfiles
-        feedfile_path = paths.get_path(
+        feedfile_path = path.get_path(
             "feedfile",
             product_root=product_root,
             field=field,
@@ -155,7 +155,7 @@ def generate_feedfiles(
 
         # Get paths
         product_paths = {
-            path_name: paths.get_path(
+            path_name: path.get_path(
                 path_name,
                 output_root=output_root,
                 product_root=product_root,
@@ -287,7 +287,7 @@ def run_galfit(
         tqdm(objects, unit="run", leave=False) if display_progress else objects
     ):
         ## Get model path
-        model_path = paths.get_path(
+        model_path = path.get_path(
             "model_galfit",
             output_root=output_root,
             field=field,
@@ -304,7 +304,7 @@ def run_galfit(
             continue
 
         ## Get feedfile path
-        feedfile_path = paths.get_path(
+        feedfile_path = path.get_path(
             "feedfile",
             product_root=product_root,
             field=field,
@@ -321,7 +321,7 @@ def run_galfit(
             continue
 
         ## Copy GALFIT and constraints to FICLO product directory
-        ficlo_products_path = paths.get_path(
+        ficlo_products_path = path.get_path(
             "product_ficlo",
             product_root=product_root,
             field=field,
@@ -359,7 +359,7 @@ def run_galfit(
             )
 
         ## Write captured output to GALFIT log file
-        galfit_log_path = paths.get_path(
+        galfit_log_path = path.get_path(
             "log_galfit",
             output_root=output_root,
             field=field,
@@ -377,7 +377,7 @@ def run_galfit(
             ### Move model to output directory
             if "galfit.fits" in path.name:
                 path.rename(
-                    paths.get_path(
+                    path.get_path(
                         "model_galfit",
                         output_root=output_root,
                         field=field,
@@ -402,7 +402,7 @@ def run_galfit(
                 path.unlink()
 
         ## Write parameters to catalog
-        cataloging.write(
+        catalog.write(
             output_root=output_root,
             run_root=run_root,
             datetime=datetime,
@@ -467,7 +467,7 @@ def main(
 
     # Generate products where missing, for each FICLO
     if not skip_products:
-        products.generate_products(
+        product.generate_products(
             morphfits_config=morphfits_config,
             regenerate_products=regenerate_products,
             regenerate_stamps=regenerate_stamps,
@@ -501,7 +501,7 @@ def main(
     # Plot models, for each FICLO
     if make_plots:
         for ficl in morphfits_config.ficls:
-            plots.plot_model(
+            plot.plot_model(
                 output_root=morphfits_config.output_root,
                 product_root=morphfits_config.product_root,
                 field=ficl.field,
@@ -514,7 +514,7 @@ def main(
             )
 
     # Plot histograms
-    plots.plot_histograms(
+    plot.plot_histograms(
         output_root=morphfits_config.output_root,
         run_root=morphfits_config.run_root,
         field=morphfits_config.ficls[0].field,

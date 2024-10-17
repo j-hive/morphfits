@@ -1,4 +1,4 @@
-"""Configure settings and fixtures for pytest.
+"""Base pytest configuration settings and fixtures.
 """
 
 # Imports
