@@ -1,4 +1,4 @@
-"""Test the GalWrap configuration module.
+"""Tests for the configuration settings module.
 """
 
 # Imports

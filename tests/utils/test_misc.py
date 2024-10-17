@@ -1,9 +1,19 @@
+"""Tests for the miscellaneous utilities module.
+"""
+
+# Imports
+
+
 import pytest
+
 from morphfits.utils import misc
 
 
+# Tests
+
+
 def test_get_unique_batch_limits():
-    """Testing the Unique Batch Limit Function"""
+    """Test the unique batch limit function."""
 
     # Testing Base Case
 
