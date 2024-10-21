@@ -1027,7 +1027,12 @@ def set_ficls(
                         image_version=image_version.name,
                         filter=cleaned_filter,
                     )
-                    pixscale = science.get_pixscale(path_science)
+                    try:
+                        pixscale = science.get_pixscale(path_science)
+                    except Exception as e:
+                        logger.error(e)
+                        logger.warning("Setting pixscale to default 40mas.")
+                        pixscale = [0.04, 0.04]
 
                     ## Create FICL object and add to config dict FICL list
                     ficl = FICL(

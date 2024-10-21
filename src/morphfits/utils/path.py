@@ -385,6 +385,8 @@ def get_path_name(name: str) -> str:
 
 def get_path(
     name: str,
+    morphfits_config=None,
+    ficl=None,
     morphfits_root: Path | None = None,
     input_root: Path | None = None,
     output_root: Path | None = None,
@@ -441,6 +443,20 @@ def get_path(
     """
     # Resolve name
     path_name = get_path_name(name)
+
+    # TODO cleanup maybe resolve parameter function
+    if morphfits_config is not None:
+        input_root = morphfits_config.input_root
+        output_root = morphfits_config.output_root
+        product_root = morphfits_config.product_root
+        run_root = morphfits_config.run_root
+        datetime = morphfits_config.datetime
+        run_number = morphfits_config.run_number
+    if ficl is not None:
+        field = ficl.field
+        image_version = ficl.image_version
+        catalog_version = ficl.catalog_version
+        filter = ficl.filter
 
     # Resolve path for given parameters
     return MORPHFITS_PATHS[path_name].resolve(

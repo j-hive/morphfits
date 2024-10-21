@@ -5,22 +5,28 @@
 
 
 import logging
-from typing import Optional, List
-from typing_extensions import Annotated
 from pathlib import Path
+from typing import Annotated, Optional, List
 
 import typer
 
-from . import config, download, plot, product, ROOT
+from . import config, download, plot, product
 from .wrappers import galfit
 from .utils import log, path
 
 
 # App Instantiation
+
+
 app = typer.Typer()
+"""Primary app of program.
+"""
 
 
-# Morphology Fitters
+# Programs
+
+
+## Wrappers
 
 
 @app.command()
@@ -319,21 +325,26 @@ def galwrap(
     # Unzip zipped files
     download.unzip_files(morphfits_config=morphfits_config)
 
-    # Call wrapper
-    galfit.main(
+    # Create product files
+    product.make_all(
         morphfits_config=morphfits_config,
-        regenerate_products=regenerate_products,
-        regenerate_stamps=regenerate_stamps,
-        regenerate_psfs=regenerate_psfs,
-        regenerate_masks=regenerate_masks,
-        regenerate_sigmas=regenerate_sigmas,
-        keep_feedfiles=keep_feedfiles,
-        force_refit=force_refit,
-        skip_products=skip_products,
-        skip_fits=skip_fits,
-        make_plots=make_plots,
-        display_progress=display_progress,
+        remake_all=regenerate_products,
+        remake_stamps=regenerate_stamps,
+        remake_sigmas=regenerate_sigmas,
+        remake_psfs=regenerate_psfs,
+        remake_masks=regenerate_masks,
+        progress_bar=display_progress,
     )
+
+    # Create feedfiles
+
+    # Run GALFIT
+
+    # Write catalogs
+
+    # Plot histograms
+
+    # Plot models
 
     # Remove empty directories
     morphfits_config.clean_paths(display_progress=display_progress)
@@ -357,11 +368,12 @@ def pysersic():
     raise NotImplementedError
 
 
-# Other Commands
+## Product
 
 
+# TODO rename
 @app.command()
-def download(
+def get(
     config_path: Annotated[
         typer.FileText,
         typer.Option(
@@ -471,97 +483,17 @@ def download(
     logger.info("Exiting MorphFITS.")
 
 
-# In Development
+@app.command(rich_help_panel="Files")
+def get_inputs():
+    raise NotImplementedError
 
 
 @app.command()
-def histogram(
-    config_path: Annotated[
-        typer.FileText,
-        typer.Option(
-            help="Path to configuration settings YAML file.",
-            rich_help_panel="Paths",
-            exists=True,
-            dir_okay=False,
-            show_default=False,
-            resolve_path=True,
-        ),
-    ] = None,
-    morphfits_root: Annotated[
-        Path,
-        typer.Option(
-            help="Path to MorphFITS filesystem root.",
-            rich_help_panel="Paths",
-            exists=True,
-            file_okay=False,
-            show_default=False,
-            resolve_path=True,
-        ),
-    ] = None,
-    input_root: Annotated[
-        Path,
-        typer.Option(
-            help="Path to root input directory. Must be set here or in --config-path.",
-            rich_help_panel="Paths",
-            exists=True,
-            file_okay=False,
-            show_default=False,
-            resolve_path=True,
-        ),
-    ] = None,
-    run_root: Annotated[
-        Path,
-        typer.Option(
-            help="Path to root runs directory.",
-            rich_help_panel="Paths",
-            exists=True,
-            file_okay=False,
-            show_default=False,
-            resolve_path=True,
-            writable=True,
-        ),
-    ] = None,
-    display_progress: Annotated[
-        bool,
-        typer.Option(
-            "--display-progress",
-            "-d",
-            help="Display progress as a loading bar and suppress per-object logging.",
-            is_flag=True,
-        ),
-    ] = False,
-):
-    """Model objects from given FICLs using GALFIT."""
-    # Create configuration object
-    morphfits_config = config.create_config(
-        config_path=config_path,
-        morphfits_root=morphfits_root,
-        input_root=input_root,
-        output_root=output_root,
-        product_root=product_root,
-        run_root=run_root,
-        fields=fields,
-        image_versions=image_versions,
-        catalog_versions=catalog_versions,
-        filters=filters,
-        objects=objects,
-        object_first=object_first,
-        object_last=object_last,
-        batch_n_process=batch_n_process,
-        batch_process_id=batch_process_id,
-        galfit_path=galfit_path,
-        display_progress=display_progress,
-    )
+def get_products():
+    raise NotImplementedError
 
-    # Display status
-    logger = logging.getLogger("MORPHFITS")
 
-    # Call wrapper
-
-    # Remove empty directories
-
-    # Exit
-    logger.info("Exiting MorphFITS.")
+## In Development
 
 
 @app.command()
@@ -699,7 +631,7 @@ def stamp(
     logger.info("Exiting MorphFITS.")
 
 
-# Main Program
+## Main
 
 
 def main():
