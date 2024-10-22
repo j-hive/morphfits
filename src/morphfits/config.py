@@ -1028,7 +1028,7 @@ def set_ficls(
                         filter=cleaned_filter,
                     )
                     try:
-                        pixscale = science.get_pixscale(path_science)
+                        pixscale = science.get_pixscale(fits_path=path_science)
                     except Exception as e:
                         logger.error(e)
                         logger.warning("Setting pixscale to default 40mas.")
