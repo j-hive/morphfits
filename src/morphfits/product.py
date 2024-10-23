@@ -13,8 +13,10 @@ module.
 
 
 import logging
+from pathlib import Path
 
 import numpy as np
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.nddata.utils import Cutout2D
 from astropy.table import Table
@@ -47,14 +49,13 @@ np.seterr(divide="ignore", invalid="ignore")
 
 
 def make_stamp(
-    morphfits_config: MorphFITSConfig,
-    ficl: FICL,
-    object: int,
-    input_catalog: Table,
+    path: Path,
     image: np.ndarray,
     wcs: WCS,
     zeropoint: float,
-    remake: bool = False,
+    pixscale: tuple[int, int],
+    position: SkyCoord,
+    image_size: int,
 ):
     """Create the stamp for a single object.
 
@@ -65,49 +66,27 @@ def make_stamp(
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
-        Configuration settings for this program run.
-    ficl : FICL
-        Settings for a single observation, e.g. field and image version.
-    object : int
-        Integer ID of object in corresponding input catalog.
-    input_catalog : Table
-        Catalog detailing each object in a field.
-    image : np.ndarray
-        2D float array representing the observation data.
+    path : Path
+        Path to which to write stamp FITS file.
+    image : ndarray
+        2D float image data array from input science file.
     wcs : WCS
-        Coordinate system object of the observation image.
+        Coordinate system object from input science file.
     zeropoint : float
-        Brightness zeropoint of the original observation.
-    remake : bool, optional
-        Remake and overwrite if exists, by default False.
+        Brightness zeropoint from input science file.
+    pixscale : tuple[int, int]
+        Pixel scales along each axis from input science file, in "/px.
+    position : SkyCoord
+        Coordinates of object in sky.
+    image_size : int
+        Number of pixels along one dimension of square stamp.
 
     Raises
     ------
-    FileExistsError
-        Stamp already exists and remaking not requested.
     ValueError
         Cutout missing nonzero data or non-square dimensions (likely on the edge
         of the original image).
     """
-    # Get path to which to write stamp
-    stamp_path = path.get_path(
-        name="stamp", morphfits_config=morphfits_config, ficl=ficl, object=object
-    )
-
-    # Skip existing stamps unless in remake mode
-    if stamp_path.exists() and not remake:
-        raise FileExistsError(f"Skipping object {object}, stamp exists.")
-
-    # Get object position and image size from catalog
-    position = science.get_position(input_catalog=input_catalog, object=object)
-    image_size = science.get_image_size(
-        input_catalog=input_catalog,
-        catalog_version=ficl.catalog_version,
-        object=object,
-        pixscale=ficl.pixscale,
-    )
-
     # Generate stamp
     stamp = Cutout2D(data=image, position=position, size=image_size, wcs=wcs)
 
@@ -121,35 +100,33 @@ def make_stamp(
         stamp_headers["EXPTIME"] = 1
         stamp_headers["ZP"] = zeropoint
         stamp_headers["SB"] = science.get_surface_brightness(
-            image=stamp.data, pixscale=ficl.pixscale, zeropoint=zeropoint
+            image=stamp.data, pixscale=pixscale, zeropoint=zeropoint
         )
 
         # Wrote stamp to FITS file
         stamp_hdul = fits.PrimaryHDU(data=stamp.data, header=stamp_headers)
-        stamp_hdul.writeto(stamp_path, overwrite=True)
+        stamp_hdul.writeto(path, overwrite=True)
 
     # Otherwise raise error to skip object
+    elif not stamp_has_nonzero_data:
+        raise ValueError(f"missing nonzero data")
     else:
-        if not stamp_has_nonzero_data:
-            raise ValueError(f"Skipping object {object}, missing nonzero data.")
-        else:
-            raise ValueError(
-                f"Skipping object {object}, dimensions "
-                + f"{stamp.data.shape} don't match expected image size {image_size}."
-            )
+        raise ValueError(
+            f"got dimensions {stamp.data.shape}, "
+            + f"expected ({image_size}, {image_size})"
+        )
 
 
 def make_sigma(
-    morphfits_config: MorphFITSConfig,
-    ficl: FICL,
-    object: int,
-    input_catalog: Table,
+    path: Path,
+    stamp_image: np.ndarray,
     exposure_image: np.ndarray,
     exposure_headers: fits.Header,
     exposure_wcs: WCS,
     weights_image: np.ndarray,
     weights_wcs: WCS,
-    remake: bool = False,
+    position: SkyCoord,
+    image_size: int,
 ):
     """Create the sigma map for a single object.
 
@@ -160,54 +137,26 @@ def make_sigma(
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
-        Configuration settings for this program run.
-    ficl : FICL
-        Settings for a single observation, e.g. field and image version.
-    object : int
-        Integer ID of object in corresponding input catalog.
-    input_catalog : Table
-        Catalog detailing each object in a field.
+    path : Path
+        Path to which to write sigma map FITS file.
+    stamp_image : np.ndarray
+        2D float image data array from product stamp file.
     exposure_image : np.ndarray
-        2D float array representing the exposure map data.
+        2D float image data array from input exposure map file.
     exposure_headers : fits.Header
-        Headers from the exposure map file.
+        FITS headers from input exposure map file.
     exposure_wcs : WCS
-        Coordinate system object of the exposure map image.
+        Coordinate system object from input exposure map file.
     weights_image : np.ndarray
-        2D float array representing the weights map data.
+        2D float image data array from input weights map file.
     weights_wcs : WCS
-        Coordinate system object of the weights map image.
-    remake : bool, optional
-        Remake and overwrite if exists, by default False.
-
-    Raises
-    ------
-    FileExistsError
-        Sigma already exists and remaking not requested.
+        Coordinate system object from input weights map file.
+    position : SkyCoord
+        Coordinates of object in sky.
+    image_size : int
+        Number of pixels along one dimension of square image.
     """
-    # Get path to which to write sigma map
-    sigma_path = path.get_path(
-        name="sigma", morphfits_config=morphfits_config, ficl=ficl, object=object
-    )
-
-    # Skip existing sigmas unless in remake mode
-    if sigma_path.exists() and not remake:
-        raise FileExistsError(f"Skipping object {object}, sigma map exists.")
-
-    # Get position and image size of this object
-    position = science.get_position(input_catalog=input_catalog, object=object)
-    image_size = science.get_image_size(
-        input_catalog=input_catalog,
-        catalog_version=ficl.catalog_version,
-        object=object,
-        pixscale=ficl.pixscale,
-    )
-
-    # Load stamp for this object and filter over minimum of 0
-    stamp_image, stamp_headers = science.get_fits_data(
-        name="stamp", morphfits_config=morphfits_config, ficl=ficl, object=object
-    )
+    # Filter stamp over minimum of 0
     maximized_stamp = np.maximum(stamp_image, 0)
 
     # Generate cutout for exposure map, which is 4x smaller than science
@@ -272,19 +221,10 @@ def make_sigma(
         data=corrected_sigma,
         header=exposure_wcs.to_header(),
     )
-    sigma_hdul.writeto(sigma_path, overwrite=True)
+    sigma_hdul.writeto(path, overwrite=True)
 
 
-def make_psf(
-    morphfits_config: MorphFITSConfig,
-    ficl: FICL,
-    object: int,
-    input_catalog: Table,
-    input_psf_image: np.ndarray,
-    input_psf_pixscale: float,
-    input_psf_length: float,
-    remake: bool = False,
-):
+def make_psf(path: Path, image: np.ndarray, position: tuple[int, int], image_size: int):
     """Create the PSF crop for a single object.
 
     A PSF crop is a cutout of the simulated PSF for the corresponding filter, at
@@ -295,66 +235,30 @@ def make_psf(
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
-        Configuration settings for this program run.
-    ficl : FICL
-        Settings for a single observation, e.g. field and image version.
-    object : int
-        Integer ID of object in corresponding input catalog.
-    input_catalog : Table
-        Catalog detailing each object in a field.
-    input_psf_image : np.ndarray
-        2D float array representing the original simulated PSF data.
-    input_psf_pixscale : float
-        Pixel scale of the original simulated PSF, in arcsec/pixel.
-    input_psf_length : float
-        Pixel dimension of the original square simulated PSF.
-    remake : bool, optional
-        Remake and overwrite if exists, by default False.
-
-    Raises
-    ------
-    FileExistsError
-        PSF crop already exists and remaking not requested.
+    path : Path
+        Path to which to write PSF crop FITS file.
+    image : np.ndarray
+        2D float image data array from input PSF file.
+    position : SkyCoord
+        Coordinates of object in sky.
+    image_size : int
+        Number of pixels along one dimension of square stamp.
     """
-    # Get path to which to write PSF crop
-    psf_path = path.get_path(
-        name="psf", morphfits_config=morphfits_config, ficl=ficl, object=object
-    )
-
-    # Skip existing PSF crops unless in remake mode
-    if psf_path.exists() and not remake:
-        raise FileExistsError(f"Skipping object {object}, PSF crop exists.")
-
-    # Get image size of this object
-    image_size = science.get_image_size(
-        input_catalog=input_catalog,
-        catalog_version=ficl.catalog_version,
-        object=object,
-        pixscale=ficl.pixscale,
-    )
-
-    # Calculate PSF size from ratio of PSF pixscale to science pixscale
-    psf_image_size = int(image_size * input_psf_pixscale / max(ficl.pixscale))
-    center = int(input_psf_length / 2)
-
     # Cutout square of calculated size, centered at PSF center
-    psf = Cutout2D(data=input_psf_image, position=(center, center), size=psf_image_size)
+    psf = Cutout2D(data=image, position=position, size=image_size)
 
     # Write to file
     psf_hdul = fits.PrimaryHDU(data=psf.data)
-    psf_hdul.writeto(psf_path, overwrite=True)
+    psf_hdul.writeto(path, overwrite=True)
 
 
 def make_mask(
-    morphfits_config: MorphFITSConfig,
-    ficl: FICL,
-    object: int,
-    input_catalog: Table,
-    segmap_image: np.ndarray,
-    segmap_wcs: WCS,
-    expand_segmap: bool,
-    remake: bool = False,
+    path: Path,
+    image: np.ndarray,
+    wcs: WCS,
+    expand: bool,
+    position: SkyCoord,
+    image_size: int,
 ):
     """Create the mask for a single object.
 
@@ -368,55 +272,32 @@ def make_mask(
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
-        Configuration settings for this program run.
-    ficl : FICL
-        Settings for a single observation, e.g. field and image version.
-    object : int
-        Integer ID of object in corresponding input catalog.
-    input_catalog : Table
-        Catalog detailing each object in a field.
-    segmap_image : np.ndarray
-        2D integer array representing the segmentation map data.
-    segmap_wcs : WCS
-        Coordinate system object of the segmentation map image.
-    expand_segmap : bool
+    path : Path
+        Path to which to write mask FITS file.
+    image : ndarray
+        2D float image data array from input segmentation map file.
+    wcs : WCS
+        Coordinate system object from input segmentation map file.
+    expand : bool
         Expand the segmentation map to twice its size. Used for shorter
         wavelength observations, due to them having half the pixel scale of
         longer wavelength observations.
-    remake : bool, optional
-        Remake and overwrite if exists, by default False.
+    position : SkyCoord
+        Coordinates of object in sky.
+    image_size : int
+        Number of pixels along one dimension of square image.
 
     Raises
     ------
     FileExistsError
         Mask already exists and remaking not requested.
     """
-    # Get path to which to write mask
-    mask_path = path.get_path(
-        name="mask",
-        morphfits_config=morphfits_config,
-        ficl=ficl,
-        object=object,
-    )
-    if mask_path.exists() and not remake:
-        raise FileExistsError(f"Skipping object {object}, mask exists.")
-
-    # Get position and image size of this object
-    position = science.get_position(input_catalog=input_catalog, object=object)
-    image_size = science.get_image_size(
-        input_catalog=input_catalog,
-        catalog_version=ficl.catalog_version,
-        object=object,
-        pixscale=ficl.pixscale,
-    )
-
     # Create cutout from segmap
     segmap_cutout = Cutout2D(
-        data=segmap_image,
+        data=image,
         position=position,
         size=image_size,
-        wcs=segmap_wcs,
+        wcs=wcs,
     )
 
     # Set array of ones to zero where object and sky are
@@ -427,7 +308,7 @@ def make_mask(
     mask[sky_location] = 0
 
     # Expand (re-bin) data if incorrect pixscale
-    if expand_segmap:
+    if expand:
         zeroes = np.zeros(shape=(image_size, image_size))
         i_start = int(image_size / 4)
         mask_length = int(np.ceil(image_size / 2))
@@ -439,13 +320,13 @@ def make_mask(
 
     # Write to disk
     mask_hdul = fits.PrimaryHDU(data=mask, header=segmap_cutout.wcs.to_header())
-    mask_hdul.writeto(mask_path, overwrite=True)
+    mask_hdul.writeto(path, overwrite=True)
 
 
 ## All Objects
 
 
-def make_stamps(
+def make_ficl_stamps(
     morphfits_config: MorphFITSConfig,
     ficl: FICL,
     input_catalog: Table,
@@ -472,7 +353,7 @@ def make_stamps(
     progress_bar : bool, optional
         Display a loading bar and suppress logging, by default False.
     """
-    logger.info(f"Making stamps for FICL {ficl}.")
+    logger.info(f"FICL {ficl}: Making stamps.")
 
     # Try loading image and header data
     try:
@@ -482,7 +363,7 @@ def make_stamps(
         zeropoint = science.get_zeropoint(headers=headers)
         wcs = WCS(header=headers)
     except Exception as e:
-        logger.error(f"Skipping making stamps for FICL {ficl}.")
+        logger.error(f"FICL {ficl}: Skipping stamps - failed loading input.")
         logger.error(e)
         return
 
@@ -496,33 +377,56 @@ def make_stamps(
     skipped = 0
     for object in objects:
         # Try making stamp for object
-        if not progress_bar:
-            logger.debug(f"Making stamp for object {object}.")
         try:
-            make_stamp(
+            # Get path to stamp
+            stamp_path = path.get_path(
+                name="stamp",
                 morphfits_config=morphfits_config,
                 ficl=ficl,
                 object=object,
+            )
+
+            # Skip existing stamps unless requested
+            if stamp_path.exists() and not remake:
+                if not progress_bar:
+                    logger.debug(f"Object {object}: Skipping stamp - exists.")
+                skipped += 1
+                continue
+
+            # Get object position and image size from catalog
+            position = science.get_position(input_catalog=input_catalog, object=object)
+            image_size = science.get_image_size(
                 input_catalog=input_catalog,
+                catalog_version=ficl.catalog_version,
+                object=object,
+                pixscale=ficl.pixscale,
+            )
+
+            # Make stamp for object
+            if not progress_bar:
+                logger.debug(f"Object {object}: Making stamp.")
+            make_stamp(
+                path=stamp_path,
                 image=image,
                 wcs=wcs,
                 zeropoint=zeropoint,
-                remake=remake,
+                pixscale=ficl.pixscale,
+                position=position,
+                image_size=image_size,
             )
 
         # Catch any errors and skip to next object
         except Exception as e:
             if not progress_bar:
-                logger.debug(e)
+                logger.debug(f"Object {object}: Skipping stamp - {e}.")
             skipped += 1
             continue
 
     # Log number of skipped or failed objects
-    if skipped > 0:
-        logger.debug(f"Skipped making stamps for {skipped} objects.")
+    logger.info(f"FICL {ficl}: Made stamps - skipped {skipped} objects.")
 
 
-def make_sigmas(
+def make_ficl_sigmas(
     morphfits_config: MorphFITSConfig,
     ficl: FICL,
     input_catalog: Table,
@@ -549,7 +453,7 @@ def make_sigmas(
     progress_bar : bool, optional
         Display a loading bar and suppress logging, by default False.
     """
-    logger.info(f"Making sigma maps for FICL {ficl}.")
+    logger.info(f"FICL {ficl}: Making sigma maps.")
 
     # Try loading image and header data
     try:
@@ -562,7 +466,7 @@ def make_sigmas(
         )
         weights_wcs = WCS(header=weights_headers)
     except Exception as e:
-        logger.error(f"Skipping making sigma maps for FICL {ficl}.")
+        logger.error(f"FICL {ficl}: Skipping sigma maps - failed loading input.")
         logger.error(e)
         return
 
@@ -576,35 +480,66 @@ def make_sigmas(
     skipped = 0
     for object in objects:
         # Try making sigma map for object
-        if not progress_bar:
-            logger.debug(f"Making sigma map for object {object}.")
         try:
-            make_sigma(
+            # Get path to sigma map
+            sigma_path = path.get_path(
+                name="sigma",
                 morphfits_config=morphfits_config,
                 ficl=ficl,
                 object=object,
+            )
+
+            # Skip existing sigmas unless requested
+            if sigma_path.exists() and not remake:
+                if not progress_bar:
+                    logger.debug(f"Object {object}: Skipping sigma map - exists.")
+                skipped += 1
+                continue
+
+            # Get object position and image size from catalog
+            position = science.get_position(input_catalog=input_catalog, object=object)
+            image_size = science.get_image_size(
                 input_catalog=input_catalog,
+                catalog_version=ficl.catalog_version,
+                object=object,
+                pixscale=ficl.pixscale,
+            )
+
+            # Get stamp of this object
+            stamp_image, stamp_headers = science.get_fits_data(
+                name="stamp",
+                morphfits_config=morphfits_config,
+                ficl=ficl,
+                object=object,
+            )
+
+            # Make sigma map for object
+            if not progress_bar:
+                logger.debug(f"Object {object}: Making sigma map.")
+            make_sigma(
+                path=sigma_path,
+                stamp_image=stamp_image,
                 exposure_image=exposure_image,
                 exposure_headers=exposure_headers,
                 exposure_wcs=exposure_wcs,
                 weights_image=weights_image,
                 weights_wcs=weights_wcs,
-                remake=remake,
+                position=position,
+                image_size=image_size,
             )
 
         # Catch any errors and skip to next object
         except Exception as e:
             if not progress_bar:
-                logger.debug(e)
+                logger.debug(f"Object {object}: Skipping sigma map - {e}.")
             skipped += 1
             continue
 
     # Log number of skipped or failed objects
-    if skipped > 0:
-        logger.debug(f"Skipped making sigma maps for {skipped} objects.")
+    logger.info(f"FICL {ficl}: Made sigma maps - skipped {skipped} objects.")
 
 
-def make_psfs(
+def make_ficl_psfs(
     morphfits_config: MorphFITSConfig,
     ficl: FICL,
     input_catalog: Table,
@@ -632,7 +567,7 @@ def make_psfs(
     progress_bar : bool, optional
         Display a loading bar and suppress logging, by default False.
     """
-    logger.info(f"Making PSF crops for FICL {ficl}.")
+    logger.info(f"FICL {ficl}: Making PSF crops.")
 
     # Try opening PSF and getting information from headers
     try:
@@ -642,7 +577,7 @@ def make_psfs(
         input_psf_pixscale = input_psf_headers["PIXELSCL"]
         input_psf_length = input_psf_headers["NAXIS1"]
     except Exception as e:
-        logger.error(f"Skipping making PSF crops for FICL {ficl}.")
+        logger.error(f"FICL {ficl}: Skipping PSF crops - failed loading input.")
         logger.error(e)
         return
 
@@ -656,33 +591,53 @@ def make_psfs(
     skipped = 0
     for object in objects:
         # Try making PSF crop for object
-        if not progress_bar:
-            logger.debug(f"Making PSF crop for object {object}.")
         try:
-            make_psf(
-                morphfits_config=morphfits_config,
-                ficl=ficl,
-                object=object,
+            # Get path to PSF crop
+            psf_path = path.get_path(
+                name="psf", morphfits_config=morphfits_config, ficl=ficl, object=object
+            )
+
+            # Skip existing PSF crops unless requested
+            if psf_path.exists() and not remake:
+                if not progress_bar:
+                    logger.debug(f"Object {object}: Skipping PSF crop - exists.")
+                skipped += 1
+                continue
+
+            # Get object image size from catalog
+            image_size = science.get_image_size(
                 input_catalog=input_catalog,
-                input_psf_image=input_psf_image,
-                input_psf_pixscale=input_psf_pixscale,
-                input_psf_length=input_psf_length,
-                remake=remake,
+                catalog_version=ficl.catalog_version,
+                object=object,
+                pixscale=ficl.pixscale,
+            )
+
+            # Calculate PSF size from ratio of PSF pixscale to science pixscale
+            psf_image_size = int(image_size * input_psf_pixscale / max(ficl.pixscale))
+            center = int(input_psf_length / 2)
+
+            # Make PSF crop for object
+            if not progress_bar:
+                logger.debug(f"Object {object}: Making PSF crop.")
+            make_psf(
+                path=psf_path,
+                image=input_psf_image,
+                position=(center, center),
+                image_size=psf_image_size,
             )
 
         # Catch any errors and skip to next object
         except Exception as e:
             if not progress_bar:
-                logger.debug(e)
+                logger.debug(f"Object {object}: Skipping PSF crop - {e}.")
             skipped += 1
             continue
 
     # Log number of skipped or failed objects
-    if skipped > 0:
-        logger.debug(f"Skipped making PSF crops for {skipped} objects.")
+    logger.info(f"FICL {ficl}: Made PSF crops - skipped {skipped} objects.")
 
 
-def make_masks(
+def make_ficl_masks(
     morphfits_config: MorphFITSConfig,
     ficl: FICL,
     input_catalog: Table,
@@ -709,7 +664,7 @@ def make_masks(
     progress_bar : bool, optional
         Display a loading bar and suppress logging, by default False.
     """
-    logger.info(f"Making masks for FICL {ficl}.")
+    logger.info(f"FICL {ficl}: Making masks.")
 
     # Try opening segmentation map and getting information from headers
     try:
@@ -727,9 +682,11 @@ def make_masks(
         segmap_pixscale = science.get_pixscale(fits_path=segmap_path)
 
         # Set flag to expand data if pixscales are not equal
+        # As a result of short wavelength observations having half the pixscale
+        # of long wavelength observations
         expand_segmap = max(segmap_pixscale) / max(ficl.pixscale) == 2
     except Exception as e:
-        logger.error(f"Skipping making masks for FICL {ficl}.")
+        logger.error(f"FICL {ficl}: Skipping masks - failed loading input.")
         logger.error(e)
         return
 
@@ -743,30 +700,51 @@ def make_masks(
     skipped = 0
     for object in objects:
         # Try making mask for object
-        if not progress_bar:
-            logger.debug(f"Making mask for object {object}.")
         try:
-            make_mask(
+            # Get path to mask
+            mask_path = path.get_path(
+                name="mask",
                 morphfits_config=morphfits_config,
                 ficl=ficl,
                 object=object,
+            )
+
+            # Skip existing masks unless requested
+            if mask_path.exists() and not remake:
+                if not progress_bar:
+                    logger.debug(f"Object {object}: Skipping mask - exists.")
+                skipped += 1
+                continue
+
+            # Get position and image size of this object
+            position = science.get_position(input_catalog=input_catalog, object=object)
+            image_size = science.get_image_size(
                 input_catalog=input_catalog,
-                segmap_image=segmap_image,
-                segmap_wcs=segmap_wcs,
-                expand_segmap=expand_segmap,
-                remake=remake,
+                catalog_version=ficl.catalog_version,
+                object=object,
+                pixscale=ficl.pixscale,
+            )
+
+            if not progress_bar:
+                logger.debug(f"Object {object}: Making mask.")
+            make_mask(
+                path=mask_path,
+                image=segmap_image,
+                wcs=segmap_wcs,
+                expand=expand_segmap,
+                position=position,
+                image_size=image_size,
             )
 
         # Catch any errors and skip to next object
         except Exception as e:
             if not progress_bar:
-                logger.debug(e)
+                logger.debug(f"Object {object}: Skipping mask - {e}.")
             skipped += 1
             continue
 
     # Log number of skipped or failed objects
-    if skipped > 0:
-        logger.debug(f"Skipped making PSF crops for {skipped} objects.")
+    logger.info(f"FICL {ficl}: Made masks - skipped {skipped} objects.")
 
 
 ## Main
@@ -813,53 +791,60 @@ def make_all(
     """
     # Iterate over each FICL in this run
     for ficl in morphfits_config.ficls:
-        logger.info(f"Making products for FICL {ficl}.")
-        logger.info(
-            f"Object ID range: {min(ficl.objects)} to {max(ficl.objects)} "
-            + f"({len(ficl.objects)} objects)."
-        )
+        # Try to make all products for FICL
+        try:
+            logger.info(f"FICL {ficl}: Making products.")
+            logger.info(
+                f"Objects: {min(ficl.objects)} to {max(ficl.objects)} "
+                + f"({len(ficl.objects)} objects)."
+            )
 
-        # Open catalog
-        input_catalog_path = path.get_path(
-            "input_catalog",
-            input_root=morphfits_config.input_root,
-            field=ficl.field,
-            image_version=ficl.image_version,
-        )
-        input_catalog = Table.read(input_catalog_path)
+            # Open input catalog
+            input_catalog_path = path.get_path(
+                "input_catalog",
+                input_root=morphfits_config.input_root,
+                field=ficl.field,
+                image_version=ficl.image_version,
+            )
+            input_catalog = Table.read(input_catalog_path)
 
-        # Make stamps for all objects in FICL
-        make_stamps(
-            morphfits_config=morphfits_config,
-            ficl=ficl,
-            input_catalog=input_catalog,
-            remake=remake_all or remake_stamps,
-            progress_bar=progress_bar,
-        )
+            # Make stamps for all objects in FICL
+            make_ficl_stamps(
+                morphfits_config=morphfits_config,
+                ficl=ficl,
+                input_catalog=input_catalog,
+                remake=remake_all or remake_stamps,
+                progress_bar=progress_bar,
+            )
 
-        # Make sigma map stamps for all objects in FICL
-        make_sigmas(
-            morphfits_config=morphfits_config,
-            ficl=ficl,
-            input_catalog=input_catalog,
-            remake=remake_all or remake_sigmas,
-            progress_bar=progress_bar,
-        )
+            # Make sigma map stamps for all objects in FICL
+            make_ficl_sigmas(
+                morphfits_config=morphfits_config,
+                ficl=ficl,
+                input_catalog=input_catalog,
+                remake=remake_all or remake_sigmas,
+                progress_bar=progress_bar,
+            )
 
-        # Make PSF crops for all objects in FICL
-        make_psfs(
-            morphfits_config=morphfits_config,
-            ficl=ficl,
-            input_catalog=input_catalog,
-            remake=remake_all or remake_psfs,
-            progress_bar=progress_bar,
-        )
+            # Make PSF crops for all objects in FICL
+            make_ficl_psfs(
+                morphfits_config=morphfits_config,
+                ficl=ficl,
+                input_catalog=input_catalog,
+                remake=remake_all or remake_psfs,
+                progress_bar=progress_bar,
+            )
 
-        # Make mask stamps for all objects in FICL
-        make_masks(
-            morphfits_config=morphfits_config,
-            ficl=ficl,
-            input_catalog=input_catalog,
-            remake=remake_all or remake_masks,
-            progress_bar=progress_bar,
-        )
+            # Make mask stamps for all objects in FICL
+            make_ficl_masks(
+                morphfits_config=morphfits_config,
+                ficl=ficl,
+                input_catalog=input_catalog,
+                remake=remake_all or remake_masks,
+                progress_bar=progress_bar,
+            )
+
+        # Catch any error opening FICL or input catalog
+        except Exception as e:
+            logger.error(f"FICL {ficl}: Skipping making products - {e}.")
+            continue
