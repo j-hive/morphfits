@@ -18,23 +18,33 @@ from .utils import log, path
 # App Instantiation
 
 
-app = typer.Typer()
+app = typer.Typer(add_completion=False, no_args_is_help=True)
 """Primary app of program.
 """
 
 
-# Programs
+# Commands
 
 
-## Wrappers
+## Morphology
 
 
-@app.command()
+@app.command(
+    short_help="Model galaxy and cluster objects using GALFIT.",
+    help="Model the morphology of identified galaxy and cluster objects "
+    + "from JWST observations using GALFIT. "
+    + "Creates cutouts, deviations, PSF crops, masks, and models "
+    + "of each object, as well as catalogs and histograms of each fitting, "
+    + "and optional plots.",
+    rich_help_panel="Morphology",
+)
 def galwrap(
     galfit_path: Annotated[
         typer.FileBinaryRead,
         typer.Option(
-            help="Path to GALFIT binary file.",
+            "--galfit",
+            "-g",
+            help="Path to GALFIT binary executable file.",
             rich_help_panel="Paths",
             exists=True,
             dir_okay=False,
@@ -45,6 +55,8 @@ def galwrap(
     config_path: Annotated[
         typer.FileText,
         typer.Option(
+            "--config",
+            "-c",
             help="Path to configuration settings YAML file.",
             rich_help_panel="Paths",
             exists=True,
@@ -56,6 +68,8 @@ def galwrap(
     morphfits_root: Annotated[
         Path,
         typer.Option(
+            "--root",
+            "-r",
             help="Path to MorphFITS filesystem root.",
             rich_help_panel="Paths",
             exists=True,
@@ -67,7 +81,9 @@ def galwrap(
     input_root: Annotated[
         Path,
         typer.Option(
-            help="Path to root input directory. Must be set here or in --config-path.",
+            "--input",
+            "-i",
+            help="Path to root input directory.",
             rich_help_panel="Paths",
             exists=True,
             file_okay=False,
@@ -78,6 +94,7 @@ def galwrap(
     output_root: Annotated[
         Path,
         typer.Option(
+            "--output",
             help="Path to root output directory.",
             rich_help_panel="Paths",
             exists=True,
@@ -90,6 +107,7 @@ def galwrap(
     product_root: Annotated[
         Path,
         typer.Option(
+            "--product",
             help="Path to root products directory.",
             rich_help_panel="Paths",
             exists=True,
@@ -102,6 +120,7 @@ def galwrap(
     run_root: Annotated[
         Path,
         typer.Option(
+            "--run",
             help="Path to root runs directory.",
             rich_help_panel="Paths",
             exists=True,
@@ -183,6 +202,7 @@ def galwrap(
         int,
         typer.Option(
             "--batch-n-process",
+            "-n",
             help="Number of cores over which to divide a program run.",
             rich_help_panel="Batch Runs",
             show_default=False,
@@ -192,69 +212,69 @@ def galwrap(
         int,
         typer.Option(
             "--batch-process-id",
+            "-p",
             help="Process number in batch run (out of batch_n_process).",
             rich_help_panel="Batch Runs",
             show_default=False,
         ),
     ] = 0,
-    regenerate_products: Annotated[
+    remake_all: Annotated[
         bool,
         typer.Option(
-            "--regenerate-products",
-            help="Regenerate all products. Overrides other flags.",
+            "--remake-all",
+            help="Remake all products and overwrite existing. Overrides other 'remake' flags.",
             rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
-    regenerate_stamps: Annotated[
+    remake_stamps: Annotated[
         bool,
         typer.Option(
-            "--regenerate-stamps",
-            help="Regenerate all stamps. Must be set for other products to regenerate.",
+            "--remake-stamps",
+            help="Remake stamps and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
-    regenerate_psfs: Annotated[
+    remake_sigmas: Annotated[
         bool,
         typer.Option(
-            "--regenerate-psfs",
-            help="Regenerate all PSF crops.",
+            "--remake-sigmas",
+            help="Remake sigma maps and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
-    regenerate_masks: Annotated[
+    remake_psfs: Annotated[
         bool,
         typer.Option(
-            "--regenerate-masks",
-            help="Regenerate all bad pixel masks.",
+            "--remake-psfs",
+            help="Remake PSF crops and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
-    regenerate_sigmas: Annotated[
+    remake_masks: Annotated[
         bool,
         typer.Option(
-            "--regenerate-sigmas",
-            help="Regenerate all sigma maps.",
+            "--remake-masks",
+            help="Remake masks and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
-    keep_feedfiles: Annotated[
+    remake_feedfiles: Annotated[
         bool,
         typer.Option(
-            "--keep-feedfiles",
-            help="Use existing GALFIT feedfiles.",
+            "--remake-feedfiles",
+            help="Remake GALFIT feedfiles and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
     ] = False,
-    force_refit: Annotated[
+    refit: Annotated[
         bool,
         typer.Option(
-            "--force-refit",
             help="Run GALFIT over previously fitted objects and overwrite existing models.",
             rich_help_panel="Stages",
             is_flag=True,
@@ -287,17 +307,15 @@ def galwrap(
             is_flag=True,
         ),
     ] = False,
-    display_progress: Annotated[
+    progress_bar: Annotated[
         bool,
         typer.Option(
-            "--display-progress",
-            "-d",
+            "--progress",
             help="Display progress as a loading bar and suppress per-object logging.",
             is_flag=True,
         ),
     ] = False,
 ):
-    """Model objects from given FICLs using GALFIT."""
     # Create configuration object
     morphfits_config = config.create_config(
         config_path=config_path,
@@ -316,7 +334,7 @@ def galwrap(
         batch_n_process=batch_n_process,
         batch_process_id=batch_process_id,
         galfit_path=galfit_path,
-        display_progress=display_progress,
+        display_progress=progress_bar,
     )
 
     # Display status
@@ -328,12 +346,12 @@ def galwrap(
     # Create product files
     product.make_all(
         morphfits_config=morphfits_config,
-        remake_all=regenerate_products,
-        remake_stamps=regenerate_stamps,
-        remake_sigmas=regenerate_sigmas,
-        remake_psfs=regenerate_psfs,
-        remake_masks=regenerate_masks,
-        progress_bar=display_progress,
+        remake_all=remake_all,
+        remake_stamps=remake_stamps,
+        remake_sigmas=remake_sigmas,
+        remake_psfs=remake_psfs,
+        remake_masks=remake_masks,
+        progress_bar=progress_bar,
     )
 
     # Create feedfiles
@@ -347,7 +365,7 @@ def galwrap(
     # Plot models
 
     # Remove empty directories
-    morphfits_config.clean_paths(display_progress=display_progress)
+    morphfits_config.clean_paths(display_progress=progress_bar)
 
     # Write configuration to file in run directory
     morphfits_config.write()
@@ -356,27 +374,55 @@ def galwrap(
     logger.info("Exiting MorphFITS.")
 
 
-@app.command()
+@app.command(
+    short_help="Model galaxy and cluster objects using imcascade.",
+    help="Model the morphology of identified galaxy and cluster objects "
+    + "from JWST observations using imcascade. "
+    + "Creates cutouts, deviations, PSF crops, masks, and models "
+    + "of each object, as well as catalogs and histograms of each fitting, "
+    + "and optional plots.",
+    rich_help_panel="Morphology",
+    hidden=True,
+)
 def imcascade():
-    """[NOT IMPLEMENTED] Model objects from given FICLs using imcascade."""
     raise NotImplementedError
 
 
-@app.command()
+@app.command(
+    short_help="Model galaxy and cluster objects using pysersic.",
+    help="Model the morphology of identified galaxy and cluster objects "
+    + "from JWST observations using pysersic. "
+    + "Creates cutouts, deviations, PSF crops, masks, and models "
+    + "of each object, as well as catalogs and histograms of each fitting, "
+    + "and optional plots.",
+    rich_help_panel="Morphology",
+    hidden=True,
+)
 def pysersic():
-    """[NOT IMPLEMENTED] Model objects from given FICLs using pysersic."""
     raise NotImplementedError
 
 
-## Product
+## Tools
 
 
 # TODO rename
-@app.command()
+@app.command(
+    short_help="Download and unzip input files from the DJA archive.",
+    help="Download input files required for a morphology fitting run, "
+    + "unzip them, and organize them as per the MorphFITS directory structure. "
+    + "Required files downloaded are the input catalog, segmentation map, "
+    + "science image, and exposure and weights maps. "
+    + "Note the simulated PSF must be manually downloaded from STSci's "
+    + "drop box and moved to the appropriate location. "
+    + "For further details, consult the README.",
+    rich_help_panel="Tools",
+)
 def get(
     config_path: Annotated[
         typer.FileText,
         typer.Option(
+            "--config",
+            "-c",
             help="Path to configuration settings YAML file.",
             rich_help_panel="Paths",
             exists=True,
@@ -388,6 +434,8 @@ def get(
     input_root: Annotated[
         Path,
         typer.Option(
+            "--input",
+            "-i",
             help="Path to root input directory. Must be set here or in --config-path.",
             rich_help_panel="Paths",
             file_okay=False,
@@ -453,8 +501,6 @@ def get(
         ),
     ] = False,
 ):
-    """Download and unzip input files from the DJA archive."""
-
     # Create configuration object
     morphfits_config = config.create_config(
         config_path=config_path,
@@ -483,20 +529,27 @@ def get(
     logger.info("Exiting MorphFITS.")
 
 
-@app.command(rich_help_panel="Files")
-def get_inputs():
-    raise NotImplementedError
-
-
-@app.command()
+# TODO rename
+@app.command(
+    short_help="Create FICLO products (cutouts for each object).",
+    help="Create products for each FICLO. A product is an intermediate "
+    + "FITS file required for a morphology fitting algorithm. "
+    + "This includes stamps, sigma maps, PSF crops, and masks "
+    + "for each object in a FICL.",
+    rich_help_panel="Tools",
+    hidden=True,
+)
 def get_products():
     raise NotImplementedError
 
 
-## In Development
-
-
-@app.command()
+# TODO rename
+@app.command(
+    short_help="Visualize each object in a field.",
+    help="Create a plot visualizing each object in a FICL.",
+    rich_help_panel="Tools",
+    hidden=True,
+)
 def stamp(
     input_root: Annotated[
         Path,
@@ -574,7 +627,6 @@ def stamp(
         ),
     ] = None,
 ):
-    """[IN DEVELOPMENT] Generate stamp cutouts of all objects from a given FICL."""
     # Create configuration object
     morphfits_config = config.create_config(
         input_root=input_root,
