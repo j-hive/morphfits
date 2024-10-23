@@ -4,7 +4,7 @@
 # Imports
 
 
-from morphfits import config
+from morphfits import settings
 
 
 # Tests

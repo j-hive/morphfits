@@ -10,9 +10,9 @@ from typing import Annotated, Optional, List
 
 import typer
 
-from . import config, download, plot, product
+from . import download, plot, products, settings
 from .wrappers import galfit
-from .utils import log, path
+from .utils import logs, paths
 
 
 # App Instantiation
@@ -317,7 +317,7 @@ def galwrap(
     ] = False,
 ):
     # Create configuration object
-    morphfits_config = config.create_config(
+    morphfits_config = settings.create_config(
         config_path=config_path,
         morphfits_root=morphfits_root,
         input_root=input_root,
@@ -344,7 +344,7 @@ def galwrap(
     download.unzip_files(morphfits_config=morphfits_config)
 
     # Create product files
-    product.make_all(
+    products.make_all(
         morphfits_config=morphfits_config,
         remake_all=remake_all,
         remake_stamps=remake_stamps,
@@ -502,7 +502,7 @@ def get(
     ] = False,
 ):
     # Create configuration object
-    morphfits_config = config.create_config(
+    morphfits_config = settings.create_config(
         config_path=config_path,
         input_root=input_root,
         fields=fields,
@@ -628,7 +628,7 @@ def stamp(
     ] = None,
 ):
     # Create configuration object
-    morphfits_config = config.create_config(
+    morphfits_config = settings.create_config(
         input_root=input_root,
         product_root=product_root,
         output_root=output_root,
@@ -640,8 +640,8 @@ def stamp(
     )
 
     # Create program and module logger
-    log.create_logger(
-        filename=path.get_path(
+    logs.create_logger(
+        filename=paths.get_path(
             "run_log",
             run_root=morphfits_config.run_root,
             datetime=morphfits_config.datetime,
@@ -656,7 +656,7 @@ def stamp(
     logger.info(f"Starting MorphFITS stamps for FICL {ficl}.")
 
     # Regenerate stamps for each object in FICL
-    product.generate_stamps(
+    products.generate_stamps(
         input_root=morphfits_config.input_root,
         product_root=morphfits_config.product_root,
         image_version=ficl.image_version,

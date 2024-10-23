@@ -4,7 +4,7 @@
 # Imports
 
 
-from morphfits import product
+from morphfits import products
 
 
 # Tests

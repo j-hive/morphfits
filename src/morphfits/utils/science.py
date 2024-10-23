@@ -14,7 +14,7 @@ from astropy.table import Table
 from astropy.wcs import WCS
 from astropy.wcs import utils as wcs_utils
 
-from . import path
+from . import paths
 
 
 # Constants
@@ -65,7 +65,7 @@ def get_fits_data(
         The image as a 2D float array, and its corresponding header object.
     """
     # Get path to FITS file
-    fits_path = path.get_path(
+    fits_path = paths.get_path(
         name=name,
         morphfits_config=morphfits_config,
         ficl=ficl,

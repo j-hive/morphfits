@@ -19,8 +19,8 @@ import csv
 
 from tqdm import tqdm
 
-from morphfits import config, ROOT
-from morphfits.utils import path
+from morphfits import ROOT, settings
+from morphfits.utils import paths
 
 
 # Constants
@@ -94,7 +94,7 @@ def get_dja_list() -> dict[str, dict]:
 
 
 def get_download_list(
-    morphfits_config: config.MorphFITSConfig,
+    morphfits_config: settings.MorphFITSConfig,
     list_dja: dict[str, dict],
     overwrite: bool = False,
 ) -> list[tuple[str, str]]:
@@ -121,19 +121,19 @@ def get_download_list(
     for ficl in morphfits_config.ficls:
         # Get required destination paths for FICL
         required_paths: list[Path] = [
-            path.get_path(
+            paths.get_path(
                 "input_segmap",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
                 image_version=ficl.image_version,
             ),
-            path.get_path(
+            paths.get_path(
                 "input_catalog",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
                 image_version=ficl.image_version,
             ),
-            path.get_path(
+            paths.get_path(
                 "exposure",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
@@ -142,7 +142,7 @@ def get_download_list(
             ),
             Path(
                 str(
-                    path.get_path(
+                    paths.get_path(
                         "exposure",
                         input_root=morphfits_config.input_root,
                         field=ficl.field,
@@ -151,7 +151,7 @@ def get_download_list(
                     )
                 ).replace("drc", "drz")
             ).resolve(),
-            path.get_path(
+            paths.get_path(
                 "science",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
@@ -160,7 +160,7 @@ def get_download_list(
             ),
             Path(
                 str(
-                    path.get_path(
+                    paths.get_path(
                         "science",
                         input_root=morphfits_config.input_root,
                         field=ficl.field,
@@ -169,7 +169,7 @@ def get_download_list(
                     )
                 ).replace("drc", "drz")
             ).resolve(),
-            path.get_path(
+            paths.get_path(
                 "weights",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
@@ -178,7 +178,7 @@ def get_download_list(
             ),
             Path(
                 str(
-                    path.get_path(
+                    paths.get_path(
                         "weights",
                         input_root=morphfits_config.input_root,
                         field=ficl.field,
@@ -307,7 +307,7 @@ def download_files(
         logger.info(f"Downloaded '{filename}' ({size_file}).")
 
 
-def unzip_files(morphfits_config: config.MorphFITSConfig):
+def unzip_files(morphfits_config: settings.MorphFITSConfig):
     """Unzip downloaded files.
 
     Parameters
@@ -357,7 +357,7 @@ def unzip_files(morphfits_config: config.MorphFITSConfig):
 
 
 def main(
-    morphfits_config: config.MorphFITSConfig,
+    morphfits_config: settings.MorphFITSConfig,
     skip_download: bool = False,
     skip_unzip: bool = False,
     overwrite: bool = False,

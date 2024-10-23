@@ -17,8 +17,8 @@ from jinja2 import Template
 from tqdm import tqdm
 
 from . import GALFIT_DATA_ROOT
-from .. import catalog, config, plot, product
-from ..utils import path, science
+from .. import catalog, plot, products, settings
+from ..utils import paths, science
 
 
 # Constants
@@ -101,7 +101,7 @@ def generate_feedfiles(
     product_path_names = ["model_galfit", "stamp", "sigma", "psf", "mask"]
 
     # Load in catalog
-    input_catalog_path = path.get_path(
+    input_catalog_path = paths.get_path(
         "input_catalog",
         input_root=input_root,
         field=field,
@@ -110,7 +110,7 @@ def generate_feedfiles(
     input_catalog = Table.read(input_catalog_path)
 
     # Get zeropoint
-    science_path = path.get_path(
+    science_path = paths.get_path(
         "science",
         input_root=input_root,
         field=field,
@@ -134,7 +134,7 @@ def generate_feedfiles(
         object, image_size = objects[i], image_sizes[i]
 
         # Skip objects which already have feedfiles
-        feedfile_path = path.get_path(
+        feedfile_path = paths.get_path(
             "feedfile",
             product_root=product_root,
             field=field,
@@ -155,7 +155,7 @@ def generate_feedfiles(
 
         # Get paths
         product_paths = {
-            path_name: path.get_path(
+            path_name: paths.get_path(
                 path_name,
                 output_root=output_root,
                 product_root=product_root,
@@ -420,7 +420,7 @@ def run_galfit(
 
 
 def main(
-    morphfits_config: config.MorphFITSConfig,
+    morphfits_config: settings.MorphFITSConfig,
     regenerate_products: bool = False,
     regenerate_stamps: bool = False,
     regenerate_psfs: bool = False,
@@ -467,7 +467,7 @@ def main(
 
     # Generate products where missing, for each FICLO
     if not skip_products:
-        product.generate_products(
+        products.generate_products(
             morphfits_config=morphfits_config,
             regenerate_products=regenerate_products,
             regenerate_stamps=regenerate_stamps,

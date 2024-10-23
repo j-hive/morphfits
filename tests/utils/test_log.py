@@ -4,7 +4,7 @@
 # Imports
 
 
-from morphfits.utils import log
+from morphfits.utils import logs
 
 
 # Tests

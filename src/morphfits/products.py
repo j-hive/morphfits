@@ -25,8 +25,8 @@ from scipy import ndimage
 
 from tqdm import tqdm
 
-from .config import MorphFITSConfig, FICL
-from .utils import path, science
+from .settings import MorphFITSConfig, FICL
+from .utils import paths, science
 
 
 # Constants
@@ -379,7 +379,7 @@ def make_ficl_stamps(
         # Try making stamp for object
         try:
             # Get path to stamp
-            stamp_path = path.get_path(
+            stamp_path = paths.get_path(
                 name="stamp",
                 morphfits_config=morphfits_config,
                 ficl=ficl,
@@ -482,7 +482,7 @@ def make_ficl_sigmas(
         # Try making sigma map for object
         try:
             # Get path to sigma map
-            sigma_path = path.get_path(
+            sigma_path = paths.get_path(
                 name="sigma",
                 morphfits_config=morphfits_config,
                 ficl=ficl,
@@ -593,7 +593,7 @@ def make_ficl_psfs(
         # Try making PSF crop for object
         try:
             # Get path to PSF crop
-            psf_path = path.get_path(
+            psf_path = paths.get_path(
                 name="psf", morphfits_config=morphfits_config, ficl=ficl, object=object
             )
 
@@ -674,7 +674,7 @@ def make_ficl_masks(
             ficl=ficl,
         )
         segmap_wcs = WCS(segmap_headers)
-        segmap_path = path.get_path(
+        segmap_path = paths.get_path(
             name="input_segmap",
             morphfits_config=morphfits_config,
             ficl=ficl,
@@ -702,7 +702,7 @@ def make_ficl_masks(
         # Try making mask for object
         try:
             # Get path to mask
-            mask_path = path.get_path(
+            mask_path = paths.get_path(
                 name="mask",
                 morphfits_config=morphfits_config,
                 ficl=ficl,
@@ -800,7 +800,7 @@ def make_all(
             )
 
             # Open input catalog
-            input_catalog_path = path.get_path(
+            input_catalog_path = paths.get_path(
                 "input_catalog",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,

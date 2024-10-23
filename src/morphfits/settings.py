@@ -10,14 +10,14 @@ import tempfile
 import shutil
 from pathlib import Path
 from typing import Annotated
-from datetime import datetime as dt
+from datetime import datetime as datetime_type
 
 from astropy.table import Table
 import yaml
 from pydantic import BaseModel, StringConstraints
 from tqdm import tqdm
 
-from .utils import log, path
+from .utils import logs, paths
 from .utils import misc, science
 
 
@@ -86,10 +86,20 @@ class FICL(BaseModel):
         return "_".join(
             [self.field, self.image_version, self.catalog_version, self.filter]
         )
+    
+
+class MorphFITSRuntime(BaseModel):
+    
 
 
 class MorphFITSConfig(BaseModel):
-    """Configuration model for a program execution of MorphFITS.
+    """NOT IMPLEMENTED."""
+
+    pass
+
+
+class MorphitRuntimeasdfsd(BaseModel):
+    """Runtime settings for a single program execution of MorphFITS.
 
     Attributes
     ----------
@@ -122,7 +132,7 @@ class MorphFITSConfig(BaseModel):
     output_root: Path
     product_root: Path
     run_root: Path
-    datetime: dt
+    datetime: datetime_type
     run_number: int
     ficls: list[FICL]
     wrappers: list[str] = ["galfit"]
@@ -150,7 +160,7 @@ class MorphFITSConfig(BaseModel):
         pre_logger.info("Creating product and output directories where missing.")
 
         # Create run directory for both download and fitting runs
-        path.get_path(
+        paths.get_path(
             name="run",
             run_root=self.run_root,
             field=self.ficls[0].field,
@@ -165,7 +175,7 @@ class MorphFITSConfig(BaseModel):
                 # Iterate over each required input directory
                 for path_name in ["input_data", "input_images"]:
                     # Create directory if it does not exist
-                    path.get_path(
+                    paths.get_path(
                         name=path_name,
                         input_root=self.input_root,
                         field=ficl.field,
@@ -174,7 +184,7 @@ class MorphFITSConfig(BaseModel):
                     ).mkdir(parents=True, exist_ok=True)
 
             # Make PSFs directory
-            path.get_path(
+            paths.get_path(
                 name="input_psfs",
                 input_root=self.input_root,
             ).mkdir(parents=True, exist_ok=True)
@@ -192,7 +202,7 @@ class MorphFITSConfig(BaseModel):
                     # Make leaf FICLO directories
                     for path_name in ["product_ficlo", "output_ficlo"]:
                         # Create directory if it does not exist
-                        path.get_path(
+                        paths.get_path(
                             name=path_name,
                             output_root=self.output_root,
                             product_root=self.product_root,
@@ -225,7 +235,7 @@ class MorphFITSConfig(BaseModel):
                 # Clean product paths
                 for path_name in ["stamp", "sigma", "psf", "mask"]:
                     # Remove FICLO products directory if any missing
-                    if not path.get_path(
+                    if not paths.get_path(
                         name=path_name,
                         product_root=self.product_root,
                         field=ficl.field,
@@ -235,7 +245,7 @@ class MorphFITSConfig(BaseModel):
                         object=object,
                     ).exists():
                         shutil.rmtree(
-                            path.get_path(
+                            paths.get_path(
                                 name="product_ficlo",
                                 product_root=self.product_root,
                                 field=ficl.field,
@@ -250,7 +260,7 @@ class MorphFITSConfig(BaseModel):
                 # Clean output paths
                 for wrapper in self.wrappers:
                     # Remove FICLO outputs directory if any models missing
-                    if not path.get_path(
+                    if not paths.get_path(
                         name=f"model_{wrapper}",
                         output_root=self.output_root,
                         field=ficl.field,
@@ -260,7 +270,7 @@ class MorphFITSConfig(BaseModel):
                         object=object,
                     ).exists():
                         shutil.rmtree(
-                            path.get_path(
+                            paths.get_path(
                                 name="output_ficlo",
                                 output_root=self.output_root,
                                 field=ficl.field,
@@ -293,7 +303,7 @@ class MorphFITSConfig(BaseModel):
         yaml.safe_dump(
             write_config,
             open(
-                path.get_path(
+                paths.get_path(
                     "run_config",
                     run_root=self.run_root,
                     field=self.ficls[0].field,
@@ -371,7 +381,7 @@ def ficl_is_missing_input(
     # Iterate over each required input path name
     for required_input in required_inputs:
         ## Get path to required input
-        path_input = path.get_path(
+        path_input = paths.get_path(
             required_input,
             input_root=config_dict["input_root"],
             field=field,
@@ -413,7 +423,7 @@ def get_all_objects(
         Object IDs in catalog, as a list of integers.
     """
     # Read input catalog
-    path_input_catalog = path.get_path(
+    path_input_catalog = paths.get_path(
         "input_catalog",
         input_root=input_root,
         field=field,
@@ -532,7 +542,7 @@ def clean_filter(
         Valid matching filter name, or None, if not found.
     """
     # Get path to input science frame from FIL
-    science_path = path.get_path(
+    science_path = paths.get_path(
         name="science",
         input_root=input_root,
         field=field,
@@ -558,7 +568,7 @@ def clean_filter(
     ## Iterate over each clear filter arrangement
     for possible_filter in possible_filters:
         ### Get path to input science frame using new filter name
-        possible_science_path = path.get_path(
+        possible_science_path = paths.get_path(
             name="science",
             input_root=input_root,
             field=field,
@@ -594,8 +604,8 @@ def get_loggers(
         The config module logger, and the MorphFITS program logger.
     """
     # Create program loggers
-    log.create_logger(
-        filename=path.get_path(
+    logs.create_logger(
+        filename=paths.get_path(
             "run_log",
             run_root=morphfits_config.run_root,
             field=morphfits_config.ficls[0].field,
@@ -658,9 +668,9 @@ def set_paths(
         "galfit_path",
     ]:
         if path_key in config_dict:
-            config_dict[path_key] = path.get_path_obj(config_dict[path_key])
+            config_dict[path_key] = paths.get_path_obj(config_dict[path_key])
         if cli_settings[path_key] is not None:
-            config_dict[path_key] = path.get_path_obj(cli_settings[path_key])
+            config_dict[path_key] = paths.get_path_obj(cli_settings[path_key])
 
     # Set input root directory
     ## Terminate if input root not set
@@ -682,7 +692,7 @@ def set_paths(
     # Set product, output, and run directories from root directory
     for root_key in ["output_root", "product_root", "run_root"]:
         if root_key not in config_dict:
-            config_dict[root_key] = path.get_path(
+            config_dict[root_key] = paths.get_path(
                 root_key, morphfits_root=config_dict["morphfits_root"]
             )
 
@@ -910,7 +920,7 @@ def set_ficls(
     # Iterate over fields
     ## Iterate over all input root subdirectories if user does not specify fields
     if ficl_is_unset(config_dict=config_dict, key="fields"):
-        fields = path.get_directories(path=config_dict["input_root"])
+        fields = paths.get_directories(path=config_dict["input_root"])
 
         ## Remove PSFs directory, as it is also an input root subdirectory
         for field in fields:
@@ -928,7 +938,7 @@ def set_ficls(
         ## Iterate over all field subdirectories if user does not specify
         ## image versions
         if ficl_is_unset(config_dict=config_dict, key="image_versions"):
-            image_versions = path.get_directories(path=field)
+            image_versions = paths.get_directories(path=field)
         ## Iterate over all specified image versions if user specifies
         else:
             image_versions = [
@@ -979,7 +989,7 @@ def set_ficls(
                 ## Iterate over all image version subdirectories if user does
                 ## not specify filters
                 if ficl_is_unset(config_dict=config_dict, key="filters"):
-                    filters = path.get_directories(path=image_version)
+                    filters = paths.get_directories(path=image_version)
                 ## Iterate over all specified filters if user specifies
                 else:
                     filters = [
@@ -1020,7 +1030,7 @@ def set_ficls(
                         continue
 
                     ## Get pixel scale from science file
-                    path_science = path.get_path(
+                    path_science = paths.get_path(
                         "science",
                         input_root=config_dict["input_root"],
                         field=field.name,
@@ -1064,13 +1074,13 @@ def set_run_settings(config_dict: dict) -> dict:
         The configuration dictionary with the run settings configured.
     """
     # Set datetime to current local time
-    config_dict["datetime"] = dt.now()
+    config_dict["datetime"] = datetime_type.now()
 
     # Set run number to 1 by default
     run_number = 1
 
     ## Increase run number if other processes in same batch are found
-    while path.get_path(
+    while paths.get_path(
         "run",
         run_root=config_dict["run_root"],
         field=config_dict["ficls"][0].field,
@@ -1183,7 +1193,7 @@ def create_config(
     """
     # Create a temporary logger
     pre_log = tempfile.NamedTemporaryFile()
-    base_logger = log.create_logger(filename=pre_log.name)
+    base_logger = logs.create_logger(filename=pre_log.name)
     pre_logger = logging.getLogger("CONFIG")
     pre_logger.info("Configuring settings for run.")
 
