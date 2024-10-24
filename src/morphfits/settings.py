@@ -616,71 +616,17 @@ def get_runtime_settings(
     pre_logger = logging.getLogger("CONFIG")
     pre_logger.info("Loading runtime settings.")
 
-    # Set all configurations from YAML file if passed
+    # Get CLI settings as dict from passed parameters
+    cli_settings = locals()
+
+    # Get file settings as dict from YAML file
     if config_path is None:
-        config_dict = {}
+        file_settings = {}
     else:
         pre_logger.info(f"Loading runtime settings from {config_path}.")
-        config_dict = yaml.safe_load(open(config_path, mode="r"))
+        file_settings = yaml.safe_load(open(config_path, mode="r"))
 
-    # Set all paths
-    config_dict = set_paths(
-        config_dict=config_dict,
-        cli_settings=locals(),
-        download_mode=download,
-        pre_logger=pre_logger,
-    )
-
-    # Set all FICL objects (list[FICL])
-    if download:
-        config_dict = set_ficls_download_mode(
-            config_dict=config_dict, cli_settings=locals(), pre_logger=pre_logger
-        )
-    else:
-        config_dict = set_ficls(
-            config_dict=config_dict,
-            cli_settings=locals(),
-            pre_logger=pre_logger,
-            object_first=object_first,
-            object_last=object_last,
-            batch_n_process=batch_n_process,
-            batch_process_id=batch_process_id,
-        )
-
-    # Set start datetime and run number
-    config_dict = set_run_settings(config_dict=config_dict)
-
-    # Create configuration object from config dict
-    morphfits_config = MorphFITSConfig(**config_dict)
-
-    # Terminate if fitter is GALFIT and binary file is not linked
-    if ("galfit" in morphfits_config.wrappers) and (
-        (morphfits_config.galfit_path is None)
-        or (not morphfits_config.galfit_path.exists())
-    ):
-        raise FileNotFoundError("GALFIT binary file not found or linked.")
-
-    # Setup directories where missing
-    morphfits_config.setup_paths(
-        pre_logger=pre_logger, display_progress=True, download_mode=download
-    )
-
-    # Remove pre-program loggers
-    base_logger.handlers.clear()
-    pre_logger.handlers.clear()
-    pre_log.close()
-
-    # Create program logger and remove pre-program logger
-    logger, main_logger = get_loggers(morphfits_config=morphfits_config)
-    main_logger.info("Starting MorphFITS.")
-
-    # Display if batch mode
-    if batch_n_process > 1:
-        main_logger.info("Running in batch mode.")
-        main_logger.info(f"Batch process: {batch_process_id} / {batch_n_process-1}")
-
-    # Return configuration object
-    return morphfits_config
+    #
 
 
 def get_config_settings() -> ConfigSettings:

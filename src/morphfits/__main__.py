@@ -218,6 +218,69 @@ def galwrap(
             show_default=False,
         ),
     ] = 0,
+    skip_unzip: Annotated[
+        bool,
+        typer.Option(
+            "--skip-unzip",
+            help="Skip unzipping any zipped observation files.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
+    skip_product: Annotated[
+        bool,
+        typer.Option(
+            "--skip-product",
+            help="Skip making any product files.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
+    skip_morphology: Annotated[
+        bool,
+        typer.Option(
+            "--skip-morphology",
+            help="Skip running any morphology fitting.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
+    skip_catalog: Annotated[
+        bool,
+        typer.Option(
+            "--skip-catalog",
+            help="Skip writing any catalog files.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
+    skip_histogram: Annotated[
+        bool,
+        typer.Option(
+            "--skip-histogram",
+            help="Skip making any histogram plots.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
+    skip_plot: Annotated[
+        bool,
+        typer.Option(
+            "--skip-plot",
+            help="Skip making any model plots.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
+    skip_cleanup: Annotated[
+        bool,
+        typer.Option(
+            "--skip-cleanup",
+            help="Skip cleaning up the directory structure.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = False,
     remake_all: Annotated[
         bool,
         typer.Option(
@@ -272,41 +335,14 @@ def galwrap(
             is_flag=True,
         ),
     ] = False,
-    refit: Annotated[
-        bool,
+    log_level: Annotated[
+        str,
         typer.Option(
-            help="Run GALFIT over previously fitted objects and overwrite existing models.",
-            rich_help_panel="Stages",
-            is_flag=True,
+            "--log-level",
+            help="Logging level at which to write logs to file, "
+            + "one of the standard Python levels.",
         ),
-    ] = False,
-    skip_products: Annotated[
-        bool,
-        typer.Option(
-            "--skip-products",
-            help="Skip all product generation.",
-            rich_help_panel="Stages",
-            is_flag=True,
-        ),
-    ] = False,
-    skip_fits: Annotated[
-        bool,
-        typer.Option(
-            "--skip-fits",
-            help="Skip all fitting via GALFIT.",
-            rich_help_panel="Stages",
-            is_flag=True,
-        ),
-    ] = False,
-    make_plots: Annotated[
-        bool,
-        typer.Option(
-            "--make-plots",
-            help="Generate model visualizations.",
-            rich_help_panel="Stages",
-            is_flag=True,
-        ),
-    ] = False,
+    ] = "debug",
     progress_bar: Annotated[
         bool,
         typer.Option(
@@ -316,14 +352,16 @@ def galwrap(
         ),
     ] = False,
 ):
-    # Create configuration object
-    morphfits_config = settings.create_config(
+    # Create settings objects
+    runtime_settings, config_settings = settings.get_settings(
         config_path=config_path,
         morphfits_root=morphfits_root,
         input_root=input_root,
         output_root=output_root,
         product_root=product_root,
         run_root=run_root,
+        batch_n_process=batch_n_process,
+        batch_process_id=batch_process_id,
         fields=fields,
         image_versions=image_versions,
         catalog_versions=catalog_versions,
@@ -331,32 +369,40 @@ def galwrap(
         objects=objects,
         object_first=object_first,
         object_last=object_last,
-        batch_n_process=batch_n_process,
-        batch_process_id=batch_process_id,
+        progress_bar=progress_bar,
+        log_level=log_level,
+        skip_unzip=skip_unzip,
+        skip_product=skip_product,
+        skip_morphology=skip_morphology,
+        skip_catalog=skip_catalog,
+        skip_histogram=skip_histogram,
+        skip_plot=skip_plot,
+        skip_cleanup=skip_cleanup,
+        remake_all=remake_all,
+        remake_stamps=remake_stamps,
+        remake_sigmas=remake_sigmas,
+        remake_psfs=remake_psfs,
+        remake_masks=remake_masks,
+        remake_others=remake_feedfiles,
+        morphology="galfit",
         galfit_path=galfit_path,
-        display_progress=progress_bar,
+        initialized=True,
     )
 
     # Display status
     logger = logging.getLogger("MORPHFITS")
 
     # Unzip zipped files
-    download.unzip_files(morphfits_config=morphfits_config)
+    download.unzip_files(path_settings=runtime_settings.roots)
 
     # Create product files
-    products.make_all(
-        morphfits_config=morphfits_config,
-        remake_all=remake_all,
-        remake_stamps=remake_stamps,
-        remake_sigmas=remake_sigmas,
-        remake_psfs=remake_psfs,
-        remake_masks=remake_masks,
-        progress_bar=progress_bar,
-    )
+    products.make_all(runtime_settings=runtime_settings)
 
     # Create feedfiles
+    galfit.make_all_feedfiles(runtime_settings=runtime_settings)
 
     # Run GALFIT
+    galfit.run_all_galfit(runtime_settings=runtime_settings)
 
     # Write catalogs
 
@@ -365,10 +411,10 @@ def galwrap(
     # Plot models
 
     # Remove empty directories
-    morphfits_config.clean_paths(display_progress=progress_bar)
+    runtime_settings.cleanup_directories()
 
     # Write configuration to file in run directory
-    morphfits_config.write()
+    runtime_settings.write()
 
     # Exit
     logger.info("Exiting MorphFITS.")

@@ -725,6 +725,7 @@ def make_ficl_masks(
                 pixscale=ficl.pixscale,
             )
 
+            # Make mask for object
             if not progress_bar:
                 logger.debug(f"Object {object}: Making mask.")
             make_mask(

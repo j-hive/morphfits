@@ -189,6 +189,18 @@ def get_image_size(
         return MINIMUM_IMAGE_SIZE
 
 
+def get_magnitude(runtime_settings, headers: fits.Header) -> float:
+    return headers["SURFACE_BRIGHTNESS"]
+
+
+def get_half_light_radius(input_catalog: Table, object: int) -> float:
+    return input_catalog[object]["a_image"]
+
+
+def get_axis_ratio(input_catalog: Table, object: int) -> float:
+    return input_catalog[object]["b_image"] / input_catalog[object]["a_image"]
+
+
 def get_surface_brightness(
     image: np.ndarray, pixscale: tuple[int, int], zeropoint: float
 ) -> float:
