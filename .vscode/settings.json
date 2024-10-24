@@ -207,6 +207,7 @@
         "yaxis",
         "ytick",
         "yticks",
+        "YYYYMMDDTHHMMSS",
         "zeropoint"
     ]
 }

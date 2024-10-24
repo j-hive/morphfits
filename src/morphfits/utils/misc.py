@@ -4,10 +4,101 @@
 # Imports
 
 
+from pathlib import Path
+from datetime import datetime
+
 import numpy as np
 
 
 # Functions
+
+
+def get_path_obj(path_like: str | Path) -> Path:
+    """Get a resolved Path object for a potential string.
+
+    Parameters
+    ----------
+    path_like : str | Path
+        Path which may or may not be of string type.
+
+    Returns
+    -------
+    Path
+        Corresponding Path object.
+    """
+    if isinstance(path_like, str):
+        return Path(path_like).resolve()
+    else:
+        return path_like.resolve()
+
+
+def get_subdirectories(path: Path) -> list[Path]:
+    """Get a list of subdirectories under a path.
+
+    Parameters
+    ----------
+    path : Path
+        Path to be walked.
+
+    Returns
+    -------
+    list[Path]
+        List of subdirectories under specified path.
+
+    Raises
+    ------
+    ValueError
+        Specified path not a directory.
+    """
+    if path.is_dir():
+        return [item for item in path.iterdir() if item.is_dir()]
+    else:
+        raise ValueError(f"Path {path} is not a directory.")
+
+
+def get_str_from_datetime(date_time: datetime) -> str:
+    """Get a string representation of a datetime, in the format
+    'YYYYMMDDTHHMMSS'.
+
+    Parameters
+    ----------
+    date_time : datetime
+        Datetime to convert to str.
+
+    Returns
+    -------
+    str
+        String representation of datetime.
+    """
+    return date_time.strftime("%Y%m%dT%H%M%S")
+
+
+def get_str_from_run_number(run_number: int) -> str:
+    """Get a string representation of a run number, in the format '01', with one
+    leading zero if the number is one digit.
+
+    Parameters
+    ----------
+    run_number : int
+        Number to convert to string.
+
+    Returns
+    -------
+    str
+        Run number as string with leading zero.
+    """
+    return str(run_number).rjust(2, "0")
+
+
+def get_preferred_setting(
+    name: str, file_settings: dict, cli_settings: dict
+) -> Path | str | int | bool:
+    if name in cli_settings:
+        return cli_settings[name]
+    elif name in file_settings:
+        return file_settings[name]
+    else:
+        raise KeyError(f"Setting {name} not found.")
 
 
 def get_unique_batch_limits(

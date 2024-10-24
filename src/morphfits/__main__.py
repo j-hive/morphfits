@@ -405,7 +405,6 @@ def pysersic():
 ## Tools
 
 
-# TODO rename
 @app.command(
     short_help="Download and unzip input files from the DJA archive.",
     help="Download input files required for a morphology fitting run, "
@@ -417,7 +416,7 @@ def pysersic():
     + "For further details, consult the README.",
     rich_help_panel="Tools",
 )
-def get(
+def initialize(
     config_path: Annotated[
         typer.FileText,
         typer.Option(
