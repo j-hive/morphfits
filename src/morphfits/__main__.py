@@ -316,6 +316,9 @@ def galwrap(
     # Display status
     logger = logging.getLogger("MORPHFITS")
 
+    # Unzip zipped files
+    input.unzip_files(morphfits_config=morphfits_config)
+
     # Call wrapper
     galfit.main(
         morphfits_config=morphfits_config,
@@ -468,6 +471,99 @@ def download(
     logger.info("Exiting MorphFITS.")
 
 
+# In Development
+
+
+@app.command()
+def histogram(
+    config_path: Annotated[
+        typer.FileText,
+        typer.Option(
+            help="Path to configuration settings YAML file.",
+            rich_help_panel="Paths",
+            exists=True,
+            dir_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    morphfits_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to MorphFITS filesystem root.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    input_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root input directory. Must be set here or in --config-path.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    run_root: Annotated[
+        Path,
+        typer.Option(
+            help="Path to root runs directory.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+            writable=True,
+        ),
+    ] = None,
+    display_progress: Annotated[
+        bool,
+        typer.Option(
+            "--display-progress",
+            "-d",
+            help="Display progress as a loading bar and suppress per-object logging.",
+            is_flag=True,
+        ),
+    ] = False,
+):
+    """Model objects from given FICLs using GALFIT."""
+    # Create configuration object
+    morphfits_config = config.create_config(
+        config_path=config_path,
+        morphfits_root=morphfits_root,
+        input_root=input_root,
+        output_root=output_root,
+        product_root=product_root,
+        run_root=run_root,
+        fields=fields,
+        image_versions=image_versions,
+        catalog_versions=catalog_versions,
+        filters=filters,
+        objects=objects,
+        object_first=object_first,
+        object_last=object_last,
+        batch_n_process=batch_n_process,
+        batch_process_id=batch_process_id,
+        galfit_path=galfit_path,
+        display_progress=display_progress,
+    )
+
+    # Display status
+    logger = logging.getLogger("MORPHFITS")
+
+    # Call wrapper
+
+    # Remove empty directories
+
+    # Exit
+    logger.info("Exiting MorphFITS.")
+
+
 @app.command()
 def stamp(
     input_root: Annotated[
@@ -562,7 +658,7 @@ def stamp(
     # Create program and module logger
     logs.create_logger(
         filename=paths.get_path(
-            "morphfits_log",
+            "run_log",
             run_root=morphfits_config.run_root,
             datetime=morphfits_config.datetime,
             run_number=morphfits_config.run_number,
@@ -572,7 +668,7 @@ def stamp(
     logger.info("Starting MorphFITS.")
 
     # Display progress
-    ficl = next(morphfits_config.get_FICLs())
+    ficl = next(morphfits_config.ficls)
     logger.info(f"Starting MorphFITS stamps for FICL {ficl}.")
 
     # Regenerate stamps for each object in FICL

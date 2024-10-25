@@ -22,7 +22,7 @@ def test_get_path_name():
     """Test `path.get_path_name` on valid and invalid path names."""
     # Positive
     ## Case 1
-    valid_names = ["input_root", "catalog", "product_root", "ficlo_products", "plots"]
+    valid_names = ["input_root", "input_catalog", "product_root", "product_ficlo"]
     for valid_name in valid_names:
         if paths.get_path_name(valid_name) != valid_name:
             assert ValueError(
@@ -32,10 +32,9 @@ def test_get_path_name():
     ## Case 2
     valid_alt_names = {
         "input_root": "inputs",
-        "catalog": "photometric catalog",
+        "input_catalog": "photometric catalog",
         "product_root": "products",
-        "ficlo_products": "product ficlo",
-        "plots": "viz",
+        "product_ficlo": "ficlo products",
     }
     for valid_name, valid_alt_name in valid_alt_names.items():
         if paths.get_path_name(valid_alt_name) != valid_name:
@@ -48,7 +47,7 @@ def test_get_path_name():
     valid_space_names = {
         "input_root": "input root",
         "product_root": "product root",
-        "ficlo_products": "ficlo products",
+        "product_ficlo": "product ficlo",
     }
     for valid_name, valid_space_name in valid_space_names.items():
         if paths.get_path_name(valid_space_name) != valid_name:
@@ -60,10 +59,10 @@ def test_get_path_name():
     ## Case 4
     valid_suffix_names = {
         "input_root": "input root dir",
-        "catalog": "catalog file",
+        "input_catalog": "input catalog file",
         "weight": "weight file",
-        "ficlo_products": "ficlo products dir",
-        "galfit_plot": "galfit plot file",
+        "product_ficlo": "product ficlo dir",
+        "plot_galfit": "plot galfit file",
     }
     for valid_name, valid_suffix_name in valid_suffix_names.items():
         if paths.get_path_name(valid_suffix_name) != valid_name:
@@ -76,8 +75,7 @@ def test_get_path_name():
     valid_unpluralized_names = {
         "input_psfs": "input psf dir",
         "input_images": "input image dir",
-        "ficlo_products": "ficlo product dir",
-        "plots": "plot dir",
+        "product_ficlo": "product ficlo dir",
     }
     for valid_name, valid_unpluralized_name in valid_unpluralized_names.items():
         if paths.get_path_name(valid_unpluralized_name) != valid_name:

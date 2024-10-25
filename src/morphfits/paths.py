@@ -5,7 +5,6 @@ GalWrap.
 # Imports
 
 
-import gc
 import logging
 import re
 from pathlib import Path
@@ -13,7 +12,6 @@ from datetime import datetime as dt
 
 import yaml
 from pydantic import BaseModel
-from astropy.table import Table
 
 from . import DATA_ROOT
 
@@ -306,105 +304,6 @@ def get_files(path: Path) -> list[Path]:
         raise ValueError(f"Path {path} is not a directory.")
 
 
-## Parameter
-
-
-def find_parameter_from_input(
-    parameter_name: str, input_root: Path
-) -> list[str] | list[int]:
-    """Find values for a parameter, e.g. filters, from an input directory
-    structure.
-
-    Parameters
-    ----------
-    parameter_name : str
-        Name of parameter, one of "field", "image_version", or "filter".
-        Other parameters are not currently supported for discovery.
-    input_root : Path
-        Path to root directory of input products.
-
-    Returns
-    -------
-    list[str] | list[int]
-        List of discovered parameter values.
-
-    Raises
-    ------
-    ValueError
-        Unrecognized parameter name.
-    """
-    # Store discovered values in list
-    discovered = []
-
-    # Each parameter is located in a different location
-    match parameter_name:
-        ## Every subdirectory of the input root, except for the PSF
-        ## subdirectory, is a field
-        case "field":
-            for field_dir in get_directories(input_root):
-                if field_dir.name == "psfs":
-                    continue
-                elif field_dir.name not in discovered:
-                    discovered.append(field_dir.name)
-        ## Every subdirectory of a field directory is an image version
-        case "image_version":
-            for field_dir in get_directories(input_root):
-                if field_dir.name == "psfs":
-                    continue
-                for image_dir in get_directories(field_dir):
-                    if image_dir.name not in discovered:
-                        discovered.append(image_dir.name)
-        ## Every subdirectory of an image version directory is a filter
-        ## Every PSF filename contains a filter
-        case "filter":
-            for psf_file in get_files(input_root / "psfs"):
-                filter = psf_file.name.split("_")[-1].split(".")[0].lower()
-                if filter not in discovered:
-                    discovered.append(filter)
-            for field_dir in get_directories(input_root):
-                if field_dir.name == "psfs":
-                    continue
-                for image_dir in get_directories(field_dir):
-                    for filter_dir in get_directories(image_dir):
-                        if filter_dir.name not in discovered:
-                            discovered.append(filter_dir.name)
-        ## Include every object from every catalog
-        case "object":
-            ### Find all catalogs
-            catalog_paths = []
-            for field_dir in get_directories(input_root):
-                if field_dir.name == "psfs":
-                    continue
-                for image_dir in get_directories(field_dir):
-                    catalog_paths.append(
-                        get_path(
-                            "catalog",
-                            input_root=input_root,
-                            field=field_dir.name,
-                            image_version=image_dir.name,
-                        )
-                    )
-
-            ### Read all catalogs for all objects
-            for catalog_path in catalog_paths:
-                catalog = Table.read(catalog_path)
-                for object in catalog["id"]:
-                    discovered.append(int(object) - 1)
-                del catalog
-                gc.collect()
-        ## Only FIL supported
-        case _:
-            raise ValueError(
-                f"Parameter {parameter_name} unrecognized for input discovery."
-            )
-
-    # Return discovered parameter values
-    return discovered
-
-
-## Resolution
-
-
 def get_path_name(name: str) -> str:
     """Get internally-standardized name of path corresponding to passed name.
 
@@ -479,6 +378,9 @@ def get_path_name(name: str) -> str:
 
     # Terminate if name not found
     raise ValueError(f"Unrecognized path name '{name}'.")
+
+
+## Main
 
 
 def get_path(

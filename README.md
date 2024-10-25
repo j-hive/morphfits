@@ -182,12 +182,12 @@ poetry run morphfits download --help
 To run MorphFITS over large ranges and multiple cores, it is recommended to run
 it via batch mode. This mode is activated by using the following arguments.
 
-|Argument|Type|Default|Description|
-|:---|:---|---:|:---|
-|`--first-object`|`int`|`None`|ID of first object in range.|
-|`--last-object`|`int`|`None`|ID of last object in range.|
-|`--batch-n-process`|`int`|`1`|Total number of batch processes.|
-|`--batch-process-id`|`int`|`0`|Process ID of current run.|
+|CLI Key|YAML Key|Type|Default|Description|
+|:---|:---|:---|---:|:---|
+|`--first-object`|`first_object`|`int`|`None`|ID of first object in range.|
+|`--last-object`|`first_object`|`int`|`None`|ID of last object in range.|
+|`--batch-n-process`|`batch_n_process`|`int`|`1`|Total number of batch processes.|
+|`--batch-process-id`|`batch_process_id`|`int`|`0`|Process ID of current run.|
 
 To run over all available objects in a catalog, don't provide arguments for
 `--object`, `first-object`, or `last-object`. 

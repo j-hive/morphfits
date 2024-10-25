@@ -1,4 +1,13 @@
-"""Miscellaneous Utilities"""
+"""Miscellaneous utility functions.
+"""
+
+# Imports
+
+
+import numpy as np
+
+
+# Functions
 
 
 def get_unique_batch_limits(
@@ -43,3 +52,29 @@ def get_unique_batch_limits(
     stop_index = start_index + n_items_process
 
     return start_index, stop_index
+
+
+def get_unique(items: list) -> list:
+    """Get the unique elements in a list of elements, as a sorted list.
+
+    Parameters
+    ----------
+    items : list
+        List of elements to be sorted.
+
+    Returns
+    -------
+    list
+        Sorted list of unique elements.
+    """
+    not_nan_items = []
+
+    # Remove any NaNs from list
+    for item in items:
+        if isinstance(item, float) and np.isnan(item):
+            continue
+        else:
+            not_nan_items.append(item)
+
+    # Return unique items in list, sorted
+    return sorted(set(not_nan_items))

@@ -111,10 +111,10 @@ def generate_stamps(
     logger.info("Generating stamps.")
 
     # Load in catalog
-    catalog_path = paths.get_path(
-        "catalog", input_root=input_root, field=field, image_version=image_version
+    input_catalog_path = paths.get_path(
+        "input_catalog", input_root=input_root, field=field, image_version=image_version
     )
-    catalog = Table.read(catalog_path)
+    input_catalog = Table.read(input_catalog_path)
 
     # Load in image and header data
     science_path = paths.get_path(
@@ -133,7 +133,7 @@ def generate_stamps(
     science_file.close()
     del science_file
     del science_path
-    del catalog_path
+    del input_catalog_path
     gc.collect()
 
     # Iterate over each object
@@ -143,14 +143,14 @@ def generate_stamps(
     ):
         # Record object position from catalog
         position = SkyCoord(
-            ra=catalog[object]["ra"], dec=catalog[object]["dec"], unit="deg"
+            ra=input_catalog[object]["ra"], dec=input_catalog[object]["dec"], unit="deg"
         )
 
         # Determine image size
-        kron_radius = catalog[object][
+        kron_radius = input_catalog[object][
             (
                 "kron_radius_circ"
-                if "kron_radius_circ" in catalog.keys()
+                if "kron_radius_circ" in input_catalog.keys()
                 else "kron_radius"
             )
         ]
@@ -542,19 +542,19 @@ def generate_psfs(
     logger.info("Generating PSF crops.")
 
     # Load in PSF and clear memory
-    original_psf_path = paths.get_path(
-        "original_psf",
+    input_psf_path = paths.get_path(
+        "input_psf",
         input_root=input_root,
         filter=filter,
     )
-    original_psf_file = fits.open(original_psf_path)
-    original_psf_data = original_psf_file["PRIMARY"].data
-    original_psf_headers = original_psf_file["PRIMARY"].header
-    psf_pixscale = original_psf_headers["PIXELSCL"]
-    psf_length = original_psf_headers["NAXIS1"]
-    original_psf_file.close
-    del original_psf_file
-    del original_psf_headers
+    input_psf_file = fits.open(input_psf_path)
+    input_psf_data = input_psf_file["PRIMARY"].data
+    input_psf_headers = input_psf_file["PRIMARY"].header
+    psf_pixscale = input_psf_headers["PIXELSCL"]
+    psf_length = input_psf_headers["NAXIS1"]
+    input_psf_file.close()
+    del input_psf_file
+    del input_psf_headers
     gc.collect()
 
     # Iterate over each object
@@ -588,7 +588,7 @@ def generate_psfs(
         try:
             # Cutout square of calculated size, centered at PSF center
             psf = Cutout2D(
-                data=original_psf_data, position=(center, center), size=psf_image_size
+                data=input_psf_data, position=(center, center), size=psf_image_size
             )
 
             # Write to file
@@ -617,6 +617,7 @@ def generate_masks(
     objects: list[int],
     positions: list[SkyCoord],
     image_sizes: list[int],
+    pixscale: tuple[float, float],
     regenerate: bool = False,
     display_progress: bool = False,
 ):
@@ -642,6 +643,8 @@ def generate_masks(
         List of positions of objects in the sky, from catalog.
     image_sizes : list[int]
         List of image sizes corresponding to each object's stamp.
+    pixscale : tuple[float, float]
+        Pixel scale along x and y axes, in arcseconds per pixel.
     regenerate : bool, optional
         Regenerate existing masks, by default False.
     display_progress : bool, optional
@@ -651,7 +654,7 @@ def generate_masks(
 
     # Load in segmentation map
     segmap_path = paths.get_path(
-        "segmap",
+        "input_segmap",
         input_root=input_root,
         field=field,
         image_version=image_version,
@@ -660,6 +663,10 @@ def generate_masks(
     segmap_file = fits.open(segmap_path)
     segmap_data = segmap_file["PRIMARY"].data
     segmap_wcs = WCS(segmap_file["PRIMARY"].header)
+
+    # Set flag to expand data if pixscales are not equal
+    segmap_pixscale = science.get_pixscale(science_path=segmap_path)
+    expand_segmap = max(segmap_pixscale) / max(pixscale) == 2
 
     # Close and clear files from memory
     segmap_file.close()
@@ -711,6 +718,17 @@ def generate_masks(
             sky_location = np.where(segmap_cutout.data == 0)
             mask[object_location] = 0
             mask[sky_location] = 0
+
+            # Expand (re-bin) data if incorrect pixscale
+            if expand_segmap:
+                zeroes = np.zeros(shape=(image_size, image_size))
+                i_start = int(image_size / 4)
+                mask_length = int(np.ceil(image_size / 2))
+                mask_cutout = mask[
+                    i_start : i_start + mask_length, i_start : i_start + mask_length
+                ]
+                zeroes[::2, ::2] += mask_cutout
+                mask = ndimage.maximum_filter(input=zeroes, size=2)
 
             # Write to disk
             mask_hdul = fits.PrimaryHDU(data=mask, header=segmap_cutout.wcs.to_header())
@@ -774,8 +792,12 @@ def generate_products(
         Display progress on terminal screen via tqdm, by default False.
     """
     # Iterate over each FICL in configuration
-    for ficl in morphfits_config.get_FICLs():
+    for ficl in morphfits_config.ficls:
         logger.info(f"Generating products for FICL {ficl}.")
+        logger.info(
+            f"Object ID range: {min(ficl.objects)} to {max(ficl.objects)} "
+            + f"({len(ficl.objects)} objects)."
+        )
 
         # Generate science cutouts if missing or requested
         objects, positions, image_sizes = generate_stamps(
@@ -832,6 +854,7 @@ def generate_products(
             objects=objects,
             positions=positions,
             image_sizes=image_sizes,
+            pixscale=ficl.pixscale,
             regenerate=regenerate_products or regenerate_masks,
             display_progress=display_progress,
         )

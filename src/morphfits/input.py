@@ -13,6 +13,7 @@ References
 import logging
 import gzip
 import shutil
+import tempfile, os
 from urllib import request
 from pathlib import Path
 import csv
@@ -42,11 +43,6 @@ LIST_DJA_ENDPOINT = "index.csv"
 """
 
 
-LIST_DJA_PATH = ROOT / "index.csv"
-"""Path to downloaded filelist CSV.
-"""
-
-
 logger = logging.getLogger("DOWNLOAD")
 """Logger object for this module.
 """
@@ -63,16 +59,18 @@ def get_dja_list() -> dict[str, dict]:
     dict[str, dict]
         DJA file list as a dictionary with details indexed by filename.
     """
+    # Open temporary file
+    temp_list_file = tempfile.NamedTemporaryFile(delete=False)
 
     # Download file list CSV from DJA index
     logger.info("Downloading file list from DJA.")
     request.urlretrieve(
-        url=BASE_URL + "/" + LIST_DJA_ENDPOINT, filename=str(LIST_DJA_PATH)
+        url=BASE_URL + "/" + LIST_DJA_ENDPOINT, filename=temp_list_file.name
     )
 
     # Add each file and corresponding details to a dictionary
     list_dja = {}
-    with open(LIST_DJA_PATH, mode="r", newline="") as csv_file:
+    with open(temp_list_file.name, mode="r", newline="") as csv_file:
         reader = csv.reader(csv_file)
         skipped_headers = False
         for line in reader:
@@ -88,7 +86,8 @@ def get_dja_list() -> dict[str, dict]:
             }
 
     # Delete CSV and return dictionary
-    LIST_DJA_PATH.unlink()
+    temp_list_file.close()
+    os.unlink(temp_list_file.name)
     return list_dja
 
 
@@ -117,17 +116,17 @@ def get_download_list(
     # Get filenames of all required files from configuration
     logger.info("Getting list of files to download from configuration.")
     list_download = []
-    for ficl in morphfits_config.get_FICLs(pre_input=True):
+    for ficl in morphfits_config.ficls:
         # Get required destination paths for FICL
         required_paths: list[Path] = [
             paths.get_path(
-                "segmap",
+                "input_segmap",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
                 image_version=ficl.image_version,
             ),
             paths.get_path(
-                "catalog",
+                "input_catalog",
                 input_root=morphfits_config.input_root,
                 field=ficl.field,
                 image_version=ficl.image_version,
@@ -314,10 +313,17 @@ def unzip_files(morphfits_config: config.MorphFITSConfig):
     morphfits_config : MorphFITSConfig
         Configuration object for this program run.
     """
+    # Get list of paths to zipped files
     logger.info("Getting list of files to unzip.")
     list_zip = get_zip_list(node=morphfits_config.input_root)
 
+    # Get list of zipped files to unzip and return if there are none
     n_zip = len(list_zip)
+    if n_zip == 0:
+        logger.info("No zipped files to unzip.")
+        return
+
+    # Iterate over each zipped file
     total_original, total_new = 0, 0
     logger.info(f"Unzipping {n_zip} file(s).")
     for zip_path in tqdm(list_zip, unit="file", leave=False):
@@ -342,6 +348,7 @@ def unzip_files(morphfits_config: config.MorphFITSConfig):
         str_new = get_size_str(size_file=size_new)
         logger.info(f"Unzipped '{unzip_path.name}' ({str_original} -> {str_new}).")
 
+    # Display total decompression size difference
     str_total_original = get_size_str(size_file=total_original)
     str_total_new = get_size_str(size_file=total_new)
     logger.info(f"Unzipped {n_zip} files ({str_total_original} -> {str_total_new}).")
