@@ -40,7 +40,7 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 )
 def galwrap(
     galfit_path: Annotated[
-        typer.FileBinaryRead,
+        Optional[typer.FileBinaryRead],
         typer.Option(
             "--galfit",
             "-g",
@@ -53,7 +53,7 @@ def galwrap(
         ),
     ] = None,
     config_path: Annotated[
-        typer.FileText,
+        Optional[typer.FileText],
         typer.Option(
             "--config",
             "-c",
@@ -66,7 +66,7 @@ def galwrap(
         ),
     ] = None,
     morphfits_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
             "--root",
             "-r",
@@ -79,7 +79,7 @@ def galwrap(
         ),
     ] = None,
     input_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
             "--input",
             "-i",
@@ -92,7 +92,7 @@ def galwrap(
         ),
     ] = None,
     output_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
             "--output",
             help="Path to root output directory.",
@@ -105,7 +105,7 @@ def galwrap(
         ),
     ] = None,
     product_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
             "--product",
             help="Path to root products directory.",
@@ -118,7 +118,7 @@ def galwrap(
         ),
     ] = None,
     run_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
             "--run",
             help="Path to root runs directory.",
@@ -180,7 +180,7 @@ def galwrap(
             show_default=False,
         ),
     ] = None,
-    object_first: Annotated[
+    first_object: Annotated[
         Optional[int],
         typer.Option(
             "--first-object",
@@ -189,7 +189,7 @@ def galwrap(
             show_default=False,
         ),
     ] = None,
-    object_last: Annotated[
+    last_object: Annotated[
         Optional[int],
         typer.Option(
             "--last-object",
@@ -199,7 +199,7 @@ def galwrap(
         ),
     ] = None,
     batch_n_process: Annotated[
-        int,
+        Optional[int],
         typer.Option(
             "--batch-n-process",
             "-n",
@@ -207,9 +207,9 @@ def galwrap(
             rich_help_panel="Batch Runs",
             show_default=False,
         ),
-    ] = 1,
+    ] = None,
     batch_process_id: Annotated[
-        int,
+        Optional[int],
         typer.Option(
             "--batch-process-id",
             "-p",
@@ -217,143 +217,143 @@ def galwrap(
             rich_help_panel="Batch Runs",
             show_default=False,
         ),
-    ] = 0,
+    ] = None,
     skip_unzip: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--skip-unzip",
             help="Skip unzipping any zipped observation files.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     skip_product: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--skip-product",
             help="Skip making any product files.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     skip_morphology: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--skip-morphology",
             help="Skip running any morphology fitting.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     skip_catalog: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--skip-catalog",
             help="Skip writing any catalog files.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     skip_histogram: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--skip-histogram",
             help="Skip making any histogram plots.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     skip_plot: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--skip-plot",
             help="Skip making any model plots.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     skip_cleanup: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--skip-cleanup",
             help="Skip cleaning up the directory structure.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     remake_all: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--remake-all",
             help="Remake all products and overwrite existing. Overrides other 'remake' flags.",
             rich_help_panel="Products",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     remake_stamps: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--remake-stamps",
             help="Remake stamps and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     remake_sigmas: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--remake-sigmas",
             help="Remake sigma maps and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     remake_psfs: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--remake-psfs",
             help="Remake PSF crops and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     remake_masks: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--remake-masks",
             help="Remake masks and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     remake_feedfiles: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--remake-feedfiles",
             help="Remake GALFIT feedfiles and overwrite existing.",
             rich_help_panel="Products",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
     log_level: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--log-level",
             help="Logging level at which to write logs to file, "
             + "one of the standard Python levels.",
         ),
-    ] = "debug",
+    ] = None,
     progress_bar: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--progress",
             help="Display progress as a loading bar and suppress per-object logging.",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
 ):
     # Create settings objects
-    runtime_settings, config_settings = settings.get_settings(
+    runtime_settings, science_settings = settings.get_settings(
         config_path=config_path,
         morphfits_root=morphfits_root,
         input_root=input_root,
@@ -367,8 +367,8 @@ def galwrap(
         catalog_versions=catalog_versions,
         filters=filters,
         objects=objects,
-        object_first=object_first,
-        object_last=object_last,
+        first_object=first_object,
+        last_object=last_object,
         progress_bar=progress_bar,
         log_level=log_level,
         skip_unzip=skip_unzip,
@@ -391,6 +391,13 @@ def galwrap(
 
     # Display status
     logger = logging.getLogger("MORPHFITS")
+    logger.info("Starting MorphFITS.")
+    if batch_n_process > 1:
+        logger.info("Running in batch mode.")
+        logger.info(
+            f"Batch process: {runtime_settings.process_id} "
+            + f"/ {runtime_settings.process_count-1}"
+        )
 
     # Unzip zipped files
     download.unzip_files(path_settings=runtime_settings.roots)
@@ -477,7 +484,7 @@ def initialize(
         ),
     ] = None,
     input_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
             "--input",
             "-i",
@@ -519,7 +526,7 @@ def initialize(
         ),
     ] = None,
     skip_download: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--skip-download",
             help="Skip downloading files (only unzip existing files).",
@@ -528,7 +535,7 @@ def initialize(
         ),
     ] = False,
     skip_unzip: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--skip-unzip",
             help="Skip unzipping files (only download files).",
@@ -537,7 +544,7 @@ def initialize(
         ),
     ] = False,
     overwrite: Annotated[
-        bool,
+        Optional[bool],
         typer.Option(
             "--overwrite",
             help="Overwrite existing downloads.",
@@ -597,7 +604,7 @@ def get_products():
 )
 def stamp(
     input_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
             help="Path to root input directory.",
             show_default=False,
@@ -648,7 +655,7 @@ def stamp(
         ),
     ],
     product_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
             help="Path to root product directory.",
             show_default='"products" directory created at --input-root level',
@@ -660,7 +667,7 @@ def stamp(
         ),
     ] = None,
     output_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
             help="Path to root output directory.",
             show_default='"output" directory created at --input-root level',

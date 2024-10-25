@@ -213,12 +213,12 @@ class PathSettings(BaseModel):
 class RuntimeSettings(BaseModel):
     roots: PathSettings
     date_time: datetime
-    run_number: int
-    process_count: int
-    process_id: int
+    run_number: int = 1
+    process_count: int = 1
+    process_id: int = 0
     ficls: list[FICL]
-    progress_bar: bool
-    log_level: int
+    progress_bar: bool = False
+    log_level: int = logging.DEBUG
     stages: Optional[StageSettings] = None
     remake: Optional[ProductSettings] = None
     morphology: Optional[Union[GALFITSettings, ImcascadeSettings, PysersicSettings]] = (
@@ -365,57 +365,142 @@ class RuntimeSettings(BaseModel):
         yaml.safe_dump(settings, open(settings_path, mode="w"))
 
 
-class ConfigSettings(BaseModel):
+class ScienceSettings(BaseModel):
     pass
 
 
 # Functions
 
 
+## Tertiary
+
+
+def get_preferred_path(
+    name: str, cli_settings: dict, file_settings: dict
+) -> Path | None:
+    # Try getting preferred setting and casting to path object
+    try:
+        path_str = get_priority_setting(name, cli_settings, file_settings)
+        return misc.get_path_obj(path_str)
+
+    # If setting unset or invalid, return None
+    except:
+        return
+
+
 ## Secondary
 
 
-def get_path_settings(
-    file_settings: dict, cli_settings: dict, initialized: bool
-) -> PathSettings:
-    path_settings_dict = {}
+def get_priority_setting(
+    name: str, cli_settings: dict, file_settings: dict
+) -> bool | int | Path | None:
+    # Return setting from CLI call if set
+    if cli_settings[name] is not None:
+        return cli_settings[name]
 
-    try:
-        path_settings_dict["root"] = misc.get_path_obj(
-            misc.get_preferred_setting(
-                name="morphfits_root",
-                file_settings=file_settings,
-                cli_settings=cli_settings,
-            )
-        )
-    except KeyError:
-        pass
+    # Return setting from YAML file if set
+    elif name in file_settings:
+        return file_settings[name]
 
-    try:
-        path_settings_dict["input"] = misc.get_path_obj(
-            misc.get_preferred_setting(
-                name="input_root",
-                file_settings=file_settings,
-                cli_settings=cli_settings,
-            )
-        )
-    except KeyError:
-        if "root" in path_settings_dict:
-            input_root_default = (
-                path_settings_dict["root"] / DEFAULT_INPUT_DIRECTORY_NAME
-            )
-            if initialized:
-                if input_root_default.exists():
-                    path_settings_dict["input"] = input_root_default
-                else:
-                    raise KeyError(f"Terminating - input root not found.")
-            else:
-                path_settings_dict["input"] = input_root_default
+    # Return None if unset
+
+
+def get_path_settings(cli_settings: dict, file_settings: dict) -> PathSettings:
+    # Set initialized flag from parameter from main command
+    initialized = cli_settings["initialized"]
+
+    # Get either path objects or None
+    root = get_preferred_path("morphfits_root", cli_settings, file_settings)
+    input = get_preferred_path("input_root", cli_settings, file_settings)
+    output = get_preferred_path("output_root", cli_settings, file_settings)
+    product = get_preferred_path("product_root", cli_settings, file_settings)
+    run = get_preferred_path("run_root", cli_settings, file_settings)
+
+    # Input root must be set
+    if input is None:
+        # Terminate if MorphFITS root is also unset
+        if root is None:
+            raise ValueError("Terminating - input root unset.")
+
+        # Otherwise assume input root exists and is under root
         else:
-            raise KeyError(f"Terminating - input root not set.")
+            input = root / DEFAULT_INPUT_DIRECTORY_NAME
+            assert input.exists(), f"Terminating - input root {input} not found."
+
+    # Input root should exist
+    elif not input.exists():
+        # Terminate if input root set but does not exist
+        if initialized:
+            raise FileNotFoundError(f"Terminating - input root {input} not found.")
+
+        # Create input root if main command is initialize
+        else:
+            input.mkdir(parents=True)
+
+    # Set root directory, if not found, as parent of input root
+    if root is None:
+        root = input.parent
+
+    # Set product, output, and run directories from root directory
+    if output is None:
+        output = root / DEFAULT_OUTPUT_DIRECTORY_NAME
+    if product is None:
+        product = root / DEFAULT_PRODUCT_DIRECTORY_NAME
+    if run is None:
+        run = root / DEFAULT_RUN_DIRECTORY_NAME
+
+    # Return created and validated object
+    return PathSettings(root=root, input=input, output=output, product=product, run=run)
 
 
-## Main
+def get_ficls(
+    cli_settings: dict,
+    file_settings: dict,
+    process_count: int,
+    process_id: int,
+    first_object: int,
+    last_object: int,
+) -> list[FICL]:
+    pass
+
+
+def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FICL]:
+    # Get preferred FIL settings
+    # NOTE Terminates if any of FIL unset, in future can implement discovery
+    fields = get_priority_setting("fields", cli_settings, file_settings)
+    imvers = get_priority_setting("image_versions", cli_settings, file_settings)
+    filters = get_priority_setting("filters", cli_settings, file_settings)
+
+    # Iterate over each FIL permutation
+    # NOTE Uses default catalog version
+    ficls = []
+    for field in fields:
+        for imver in imvers:
+            for filter in filters:
+                # Create FICL object and add to list
+                ficl = FICL(field=field, image_version=imver)
+
+
+def get_run_number(path_settings: PathSettings, field: str, date_time: datetime) -> int:
+    # Set run number to 1 by default
+    run_number = 1
+
+    # If any other processes in same batch use same date time, increase the run
+    # number until there is a free directory
+    while get_path(
+        "run",
+        run_root=path_settings.run,
+        field=field,
+        datetime=date_time,
+        run_number=run_number,
+    ).exists():
+        run_number += 1
+
+    # Return run number
+    return run_number
+
+
+## Primary
 
 
 def get_path(
@@ -575,41 +660,121 @@ def get_path(
     return misc.get_path_obj(path_like=path)
 
 
-def get_runtime_settings(
+def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSettings:
+    # Set initialized flag from parameter passed from main command
+    initialized = cli_settings["initialized"]
+
+    # Set root paths
+    roots = get_path_settings(cli_settings, file_settings)
+
+    # Set primitive runtime setting attributes
+    date_time = misc.get_str_from_datetime(datetime.now())
+    progress_bar = get_priority_setting("progress_bar", cli_settings, file_settings)
+    log_level = get_priority_setting("log_level", cli_settings, file_settings)
+    process_count = get_priority_setting("batch_n_process", cli_settings, file_settings)
+    process_id = get_priority_setting("batch_process_id", cli_settings, file_settings)
+    first_object = get_priority_setting("first_object", cli_settings, file_settings)
+    last_object = get_priority_setting("last_object", cli_settings, file_settings)
+
+    #
+    ficls = get_ficls(
+        cli_settings=cli_settings,
+        file_settings=file_settings,
+        process_count=process_count,
+        process_id=process_id,
+        first_object=first_object,
+        last_object=last_object,
+    )
+
+    #
+    run_number = get_run_number(
+        path_settings=roots, field=ficls[0].field, date_time=date_time
+    )
+
+    #
+    stages = get_stage_settings(cli_settings, file_settings)
+
+    #
+    remake = get_product_settings(cli_settings, file_settings)
+
+    #
+    morphology = get_morphology_settings(cli_settings, file_settings)
+
+    # Create object dict from settings that have been set
+    ## Set attributes which have definitely been set by this point
+    runtime_dict = {"roots": roots, "date_time": date_time, "ficls": ficls}
+
+    ## Set attributes which may be None at this point, if they are set
+    ## Otherwise they will be set to default as per the class definition
+    if run_number is not None:
+        runtime_dict["run_number"] = run_number
+    if process_count is not None:
+        runtime_dict["process_count"] = process_count
+    if process_id is not None:
+        runtime_dict["process_id"] = process_id
+    if progress_bar is not None:
+        runtime_dict["progress_bar"] = progress_bar
+    if log_level is not None:
+        runtime_dict["log_level"] = log_level
+    if stages is not None:
+        runtime_dict["stages"] = stages
+    if remake is not None:
+        runtime_dict["remake"] = remake
+    if morphology is not None:
+        runtime_dict["morphology"] = morphology
+
+    # Create class instance from settings
+    runtime_settings = RuntimeSettings(**runtime_dict)
+
+    #
+    runtime_settings.setup_directories(initialized=initialized)
+
+    #
+    runtime_settings.setup_loggers()
+
+    #
+    return runtime_settings
+
+
+def get_science_settings() -> ScienceSettings:
+    pass
+
+
+def get_settings(
     config_path: Path | None = None,
     morphfits_root: Path | None = None,
     input_root: Path | None = None,
     output_root: Path | None = None,
     product_root: Path | None = None,
     run_root: Path | None = None,
-    batch_n_process: int = 1,
-    batch_process_id: int = 0,
+    batch_n_process: int | None = None,
+    batch_process_id: int | None = None,
     fields: list[str] | None = None,
     image_versions: list[str] | None = None,
     catalog_versions: list[str] | None = None,
     filters: list[str] | None = None,
-    objects: list[str] | None = None,
-    object_first: int | None = None,
-    object_last: int | None = None,
-    progress_bar: bool = False,
-    log_level: int = logging.DEBUG,
-    skip_unzip: bool = False,
-    skip_product: bool = False,
-    skip_morphology: bool = False,
-    skip_catalog: bool = False,
-    skip_histogram: bool = False,
-    skip_plot: bool = False,
-    skip_cleanup: bool = False,
-    remake_all: bool = False,
-    remake_stamps: bool = False,
-    remake_sigmas: bool = False,
-    remake_psfs: bool = False,
-    remake_masks: bool = False,
-    remake_others: bool = False,
+    objects: list[int] | None = None,
+    first_object: int | None = None,
+    last_object: int | None = None,
+    progress_bar: bool | None = None,
+    log_level: int | None = None,
+    skip_unzip: bool | None = None,
+    skip_product: bool | None = None,
+    skip_morphology: bool | None = None,
+    skip_catalog: bool | None = None,
+    skip_histogram: bool | None = None,
+    skip_plot: bool | None = None,
+    skip_cleanup: bool | None = None,
+    remake_all: bool | None = None,
+    remake_stamps: bool | None = None,
+    remake_sigmas: bool | None = None,
+    remake_psfs: bool | None = None,
+    remake_masks: bool | None = None,
+    remake_others: bool | None = None,
     morphology: str | None = None,
     galfit_path: Path | None = None,
-    initialized: bool = False,
-) -> RuntimeSettings:
+    initialized: bool | None = None,
+) -> tuple[RuntimeSettings, ScienceSettings]:
     # Create a temporary logger
     pre_log = tempfile.NamedTemporaryFile()
     base_logger = logs.create_logger(filename=pre_log.name)
@@ -626,82 +791,14 @@ def get_runtime_settings(
         pre_logger.info(f"Loading runtime settings from {config_path}.")
         file_settings = yaml.safe_load(open(config_path, mode="r"))
 
-    #
+    # Get runtime and science settings from file and CLI settings
+    runtime_settings = get_runtime_settings(cli_settings, file_settings)
+    science_settings = get_science_settings(cli_settings, file_settings)
 
+    # Remove pre-program loggers
+    base_logger.handlers.clear()
+    pre_logger.handlers.clear()
+    pre_log.close()
 
-def get_config_settings() -> ConfigSettings:
-    pass
-
-
-def get_settings(
-    config_path: Path | None = None,
-    morphfits_root: Path | None = None,
-    input_root: Path | None = None,
-    output_root: Path | None = None,
-    product_root: Path | None = None,
-    run_root: Path | None = None,
-    batch_n_process: int = 1,
-    batch_process_id: int = 0,
-    fields: list[str] | None = None,
-    image_versions: list[str] | None = None,
-    catalog_versions: list[str] | None = None,
-    filters: list[str] | None = None,
-    objects: list[int] | None = None,
-    object_first: int | None = None,
-    object_last: int | None = None,
-    progress_bar: bool = False,
-    log_level: int = logging.DEBUG,
-    skip_unzip: bool = False,
-    skip_product: bool = False,
-    skip_morphology: bool = False,
-    skip_catalog: bool = False,
-    skip_histogram: bool = False,
-    skip_plot: bool = False,
-    skip_cleanup: bool = False,
-    remake_all: bool = False,
-    remake_stamps: bool = False,
-    remake_sigmas: bool = False,
-    remake_psfs: bool = False,
-    remake_masks: bool = False,
-    remake_others: bool = False,
-    morphology: str | None = None,
-    galfit_path: Path | None = None,
-    initialized: bool = True,
-) -> tuple[RuntimeSettings, ConfigSettings]:
-    runtime_settings = get_runtime_settings(
-        config_path=config_path,
-        morphfits_root=morphfits_root,
-        input_root=input_root,
-        output_root=output_root,
-        product_root=product_root,
-        run_root=run_root,
-        batch_n_process=batch_n_process,
-        batch_process_id=batch_process_id,
-        fields=fields,
-        image_versions=image_versions,
-        catalog_versions=catalog_versions,
-        filters=filters,
-        objects=objects,
-        object_first=object_first,
-        object_last=object_last,
-        progress_bar=progress_bar,
-        log_level=log_level,
-        skip_unzip=skip_unzip,
-        skip_product=skip_product,
-        skip_morphology=skip_morphology,
-        skip_catalog=skip_catalog,
-        skip_histogram=skip_histogram,
-        skip_plot=skip_plot,
-        skip_cleanup=skip_cleanup,
-        remake_all=remake_all,
-        remake_stamps=remake_stamps,
-        remake_sigmas=remake_sigmas,
-        remake_psfs=remake_psfs,
-        remake_masks=remake_masks,
-        remake_others=remake_others,
-        morphology=morphology,
-        galfit_path=galfit_path,
-        initialized=initialized,
-    )
-    config_settings = get_config_settings()
-    return runtime_settings, config_settings
+    # Return runtime and science settings
+    return runtime_settings, science_settings
