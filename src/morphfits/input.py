@@ -13,6 +13,7 @@ References
 import logging
 import gzip
 import shutil
+import tempfile, os
 from urllib import request
 from pathlib import Path
 import csv
@@ -42,11 +43,6 @@ LIST_DJA_ENDPOINT = "index.csv"
 """
 
 
-LIST_DJA_PATH = ROOT / "index.csv"
-"""Path to downloaded filelist CSV.
-"""
-
-
 logger = logging.getLogger("DOWNLOAD")
 """Logger object for this module.
 """
@@ -63,16 +59,18 @@ def get_dja_list() -> dict[str, dict]:
     dict[str, dict]
         DJA file list as a dictionary with details indexed by filename.
     """
+    # Open temporary file
+    temp_list_file = tempfile.NamedTemporaryFile(delete=False)
 
     # Download file list CSV from DJA index
     logger.info("Downloading file list from DJA.")
     request.urlretrieve(
-        url=BASE_URL + "/" + LIST_DJA_ENDPOINT, filename=str(LIST_DJA_PATH)
+        url=BASE_URL + "/" + LIST_DJA_ENDPOINT, filename=temp_list_file.name
     )
 
     # Add each file and corresponding details to a dictionary
     list_dja = {}
-    with open(LIST_DJA_PATH, mode="r", newline="") as csv_file:
+    with open(temp_list_file.name, mode="r", newline="") as csv_file:
         reader = csv.reader(csv_file)
         skipped_headers = False
         for line in reader:
@@ -88,7 +86,8 @@ def get_dja_list() -> dict[str, dict]:
             }
 
     # Delete CSV and return dictionary
-    LIST_DJA_PATH.unlink()
+    temp_list_file.close()
+    os.unlink(temp_list_file.name)
     return list_dja
 
 
