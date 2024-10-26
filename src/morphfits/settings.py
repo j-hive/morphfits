@@ -24,7 +24,7 @@ import yaml
 from pydantic import BaseModel, StringConstraints
 
 from . import DATA_ROOT
-from .utils import logs, misc
+from .utils import logs, misc, science
 
 
 # Constants
@@ -46,9 +46,9 @@ PATH_STANDARDS_DICT = yaml.safe_load(open(PATH_STANDARDS_PATH, mode="r"))
 
 
 def index_paths(node: dict[str, str | dict], base: str) -> dict[str, str]:
-    """Recursively read the MorphFITS filesystem standards YAML file and translate it into a
-    dictionary mapping the path names to their corresponding paths, as string
-    templates.
+    """Recursively read the MorphFITS filesystem standards YAML file and
+    translate it into a dictionary mapping the path names to their corresponding
+    paths, as string templates.
 
     Each value in the dictionary is a full path template, i.e. 'output_ficlo'
     has the value '[root]/[o]/{F}/{I}/{C}/{L}/{O}' and not '{O}'.
@@ -98,8 +98,8 @@ FILESYSTEM = index_paths(node=PATH_STANDARDS_DICT, base="")
 """
 
 
-DEFAULT_INPUT_DIRECTORY_NAME = "inputs"
-DEFAULT_OUTPUT_DIRECTORY_NAME = "outputs"
+DEFAULT_INPUT_DIRECTORY_NAME = "input"
+DEFAULT_OUTPUT_DIRECTORY_NAME = "output"
 DEFAULT_PRODUCT_DIRECTORY_NAME = "products"
 DEFAULT_RUN_DIRECTORY_NAME = "runs"
 """Default names for each top-level root directory.
@@ -115,11 +115,25 @@ REQUIRED_OUTPUT_DIRECTORIES = ["output_ficlo", "product_ficlo"]
 """
 
 
+REQUIRED_FIC_INPUTS = ["input_segmap", "input_catalog"]
+REQUIRED_FICL_INPUTS = ["input_psf", "exposure", "science", "weights"]
+"""Path names of required files for a FICLO to run.
+"""
+
+
 REQUIRED_PRODUCT_FILES = ["stamp", "sigma", "psf", "mask"]
 REQUIRED_GALFIT_OUTPUT_FILES = ["model_galfit"]
 REQUIRED_IMCASCADE_OUTPUT_FILES = ["model_imcascade"]
 REQUIRED_PYSERSIC_OUTPUT_FILES = ["model_pysersic"]
 """Path names of required files for a FICLO to be considered successful.
+"""
+
+
+## FICLO
+
+
+DEFAULT_CATALOG_VERSION = "dja-v7.2"
+"""Default catalog version, v7.2 of the DJA catalogue.
 """
 
 
@@ -218,7 +232,7 @@ class RuntimeSettings(BaseModel):
     process_id: int = 0
     ficls: list[FICL]
     progress_bar: bool = False
-    log_level: int = logging.DEBUG
+    log_level: str = logging._levelToName[logging.DEBUG]
     stages: Optional[StageSettings] = None
     remake: Optional[ProductSettings] = None
     morphology: Optional[Union[GALFITSettings, ImcascadeSettings, PysersicSettings]] = (
@@ -260,6 +274,19 @@ class RuntimeSettings(BaseModel):
                         ficl=ficl,
                     ).mkdir(parents=True, exist_ok=True)
 
+    def setup_loggers(self):
+        # Create logger object
+        logs.create_logger(
+            filename=get_path(
+                name="run_log",
+                runtime_settings=self,
+                field=self.ficls[0].field,
+            ),
+            level=self.log_level,
+        )
+        global logger
+        logger = logging.getLogger("CONFIG")
+
     def cleanup_directories(self):
         logger.info("Removing skipped directories.")
 
@@ -283,7 +310,7 @@ class RuntimeSettings(BaseModel):
                             ficl=ficl,
                             object=object,
                         )
-                        shutil.rmtree(product_ficlo_path)
+                        shutil.rmtree(product_ficlo_path, ignore_errors=True)
 
                 # Iterate over each expected output file
                 if isinstance(self.morphology, GALFITSettings):
@@ -307,7 +334,7 @@ class RuntimeSettings(BaseModel):
                             ficl=ficl,
                             object=object,
                         )
-                        shutil.rmtree(product_ficlo_path)
+                        shutil.rmtree(product_ficlo_path, ignore_errors=True)
 
     def write(self):
         logger.info("Recording runtime settings.")
@@ -343,26 +370,28 @@ class RuntimeSettings(BaseModel):
             else:
                 settings["morphology"] = "pysersic"
 
-        # Add FICLs as a list of dicts
-        settings["ficls"] = []
-        for ficl in self.ficls:
-            settings["ficls"].append(ficl.__dict__)
-
         # Add run details
-        settings["date_time"] = misc.get_str_from_datetime(date_time=self.date_time)
-        settings["run_number"] = misc.get_str_from_run_number(
-            run_number=self.run_number
-        )
+        settings["date_time"] = self.date_time
+        settings["run_number"] = self.run_number
         settings["process_count"] = self.process_count
         settings["process_id"] = self.process_id
         settings["progress_bar"] = self.progress_bar
         settings["log_level"] = self.log_level
 
+        # Add FICLs as a list of dicts
+        settings["ficls"] = []
+        for ficl in self.ficls:
+            settings["ficls"].append(ficl.__dict__)
+            settings["ficls"][-1]["pixscale"] = {
+                "x": ficl.pixscale[0],
+                "y": ficl.pixscale[1],
+            }
+
         # Write settings to file
         settings_path = get_path(
             name="run_settings", runtime_settings=self, field=self.ficls[0].field
         )
-        yaml.safe_dump(settings, open(settings_path, mode="w"))
+        yaml.dump(settings, open(settings_path, mode="w"), sort_keys=False)
 
 
 class ScienceSettings(BaseModel):
@@ -375,7 +404,7 @@ class ScienceSettings(BaseModel):
 ## Tertiary
 
 
-def get_preferred_path(
+def get_priority_path(
     name: str, cli_settings: dict, file_settings: dict
 ) -> Path | None:
     # Try getting preferred setting and casting to path object
@@ -388,12 +417,213 @@ def get_preferred_path(
         return
 
 
+def get_priority_stage(
+    stage: str, cli_settings: dict, file_settings: dict
+) -> bool | None:
+    # Return opposite of flag from CLI call if set
+    if cli_settings[f"skip_{stage}"] is not None:
+        return not cli_settings[f"skip_{stage}"]
+
+    # Return flag from YAML file if set
+    elif ("stages" in file_settings) and (stage in file_settings["stages"]):
+        return True
+
+    # Return None if unset
+
+
+def get_priority_remake(
+    product: str, cli_settings: dict, file_settings: dict
+) -> bool | None:
+    # Return opposite of flag from CLI call if set
+    if cli_settings[f"remake_{product}"] is not None:
+        return not cli_settings[f"remake_{product}"]
+
+    # Return flag from YAML file if set
+    elif ("remake" in file_settings) and (product in file_settings["remake"]):
+        return True
+
+    # Return None if unset
+
+
+def validate_batch_settings(
+    process_count: int | None,
+    process_id: int | None,
+    first_object: int | None,
+    last_object: int | None,
+):
+    # Terminate if invalid number of processes
+    if process_count is not None:
+        assert process_count > 0, f"Invalid # processes {process_count}."
+
+    # Terminate if invalid process ID
+    if process_id is not None:
+        assert process_id >= 0, f"Invalid process ID {process_id}."
+        if process_count is not None:
+            assert (
+                process_id < process_count
+            ), f"Invalid process ID {process_id} for # processes {process_count}."
+
+    # Terminate if invalid first object
+    if first_object is not None:
+        assert first_object > 0, f"Invalid first object ID {first_object}."
+
+    # Terminate if invalid last object
+    if last_object is not None:
+        assert last_object > 0, f"Invalid last object ID {last_object}."
+
+    # Terminate if invalid object range
+    if (first_object is not None) and (last_object is not None):
+        assert (
+            first_object <= last_object
+        ), f"Invalid object range {first_object} to {last_object}."
+
+
+def missing_input(
+    input_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    filter: str | None = None,
+) -> bool:
+    # Get list of path names of required input files
+    required_inputs = REQUIRED_FIC_INPUTS if filter is None else REQUIRED_FICL_INPUTS
+
+    # Iterate over each required input file
+    for required_input in required_inputs:
+        # Get path to required input file
+        input_path = get_path(
+            name=required_input,
+            input_root=input_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+            filter=filter,
+        )
+
+        # Return true if FIC/FICL missing any input file
+        if not input_path.exists():
+            return True
+
+    # Return false if FIC/FICL has all input files
+    return False
+
+
+def get_objects(
+    input_root: Path,
+    field: str,
+    image_version: str,
+    catalog_version: str,
+    objects: list[int] | None,
+    process_count: int | None,
+    process_id: int | None,
+    first_object: int | None,
+    last_object: int | None,
+) -> list[int]:
+    # Base list of objects is all possible object IDs, if in batch mode
+    if (
+        (objects is None)
+        or (process_count is not None)
+        or (first_object is not None)
+        or (last_object is not None)
+    ):
+        input_catalog_path = get_path(
+            name="input_catalog",
+            input_root=input_root,
+            field=field,
+            image_version=image_version,
+            catalog_version=catalog_version,
+        )
+        new_object_range = science.get_all_objects(input_catalog_path)
+        first_possible_object = new_object_range[0]
+        last_possible_object = new_object_range[-1]
+
+    # Base list of objects is the sorted list of object IDs, otherwise
+    else:
+        new_object_range = sorted(objects)
+
+    # Remove all object IDs before first object setting
+    if first_object is not None:
+        while new_object_range[0] < first_object:
+            new_object_range.pop(0)
+
+    # Remove all object IDs after last object setting
+    if last_object is not None:
+        while new_object_range[-1] > last_object:
+            new_object_range.pop(-1)
+
+    # Remove all object IDs not in batch process
+    if process_count is not None:
+        ## Get sub-range indices and values from batch settings
+        start_index, stop_index = misc.get_unique_batch_limits(
+            process_id=process_id,
+            n_process=process_count,
+            n_items=len(new_object_range),
+        )
+        new_object_range = new_object_range[start_index:stop_index]
+
+        ## Remove objects out of range
+        while (len(new_object_range) > 0) and (
+            new_object_range[0] < first_possible_object
+        ):
+            new_object_range.pop(0)
+        while (len(new_object_range) > 0) and (
+            new_object_range[-1] > last_possible_object
+        ):
+            new_object_range.pop(-1)
+
+    # Return final list of objects for this catalog (FIC) and runtime
+    return new_object_range
+
+
+def clean_filter(
+    input_root: Path, field: str, image_version: str, catalog_version: str, filter: str
+) -> str | None:
+    # Get path to input science frame
+    science_path = get_path(
+        name="science",
+        input_root=input_root,
+        field=field,
+        image_version=image_version,
+        filter=filter,
+    )
+
+    # Filter is valid if science frame exists
+    if science_path.exists():
+        return filter
+
+    # Filter is invalid otherwise, try other known filter formats
+    all_possible_filters = [
+        f"{filter}-clear",
+        f"clear-{filter}",
+        f"{filter}-clearp",
+        f"clearp-{filter}",
+        filter.replace("clear", "").replace("-", ""),
+        filter.replace("clearp", "").replace("-", ""),
+    ]
+
+    # Iterate over each known filter format
+    for possible_filter in all_possible_filters:
+        # Get path to input science frame
+        possible_science_path = get_path(
+            name="science",
+            input_root=input_root,
+            field=field,
+            image_version=image_version,
+            filter=possible_filter,
+        )
+
+        # Return new filter name if matching file found
+        if possible_science_path.exists():
+            pre_logger.debug(f"Filter {possible_filter} - found from {filter}.")
+            return possible_filter
+
+
 ## Secondary
 
 
 def get_priority_setting(
     name: str, cli_settings: dict, file_settings: dict
-) -> bool | int | Path | None:
+) -> bool | int | Path | list[str] | list[int] | None:
     # Return setting from CLI call if set
     if cli_settings[name] is not None:
         return cli_settings[name]
@@ -410,11 +640,11 @@ def get_path_settings(cli_settings: dict, file_settings: dict) -> PathSettings:
     initialized = cli_settings["initialized"]
 
     # Get either path objects or None
-    root = get_preferred_path("morphfits_root", cli_settings, file_settings)
-    input = get_preferred_path("input_root", cli_settings, file_settings)
-    output = get_preferred_path("output_root", cli_settings, file_settings)
-    product = get_preferred_path("product_root", cli_settings, file_settings)
-    run = get_preferred_path("run_root", cli_settings, file_settings)
+    root = get_priority_path("morphfits_root", cli_settings, file_settings)
+    input = get_priority_path("input_root", cli_settings, file_settings)
+    output = get_priority_path("output_root", cli_settings, file_settings)
+    product = get_priority_path("product_root", cli_settings, file_settings)
+    run = get_priority_path("run_root", cli_settings, file_settings)
 
     # Input root must be set
     if input is None:
@@ -456,20 +686,166 @@ def get_path_settings(cli_settings: dict, file_settings: dict) -> PathSettings:
 def get_ficls(
     cli_settings: dict,
     file_settings: dict,
-    process_count: int,
-    process_id: int,
-    first_object: int,
-    last_object: int,
+    input_root: Path,
+    process_count: int | None,
+    process_id: int | None,
+    first_object: int | None,
+    last_object: int | None,
 ) -> list[FICL]:
-    pass
+    # Get preferred FICLO settings
+    fields = get_priority_setting("fields", cli_settings, file_settings)
+    imvers = get_priority_setting("image_versions", cli_settings, file_settings)
+    catvers = get_priority_setting("catalog_versions", cli_settings, file_settings)
+    filters = get_priority_setting("filters", cli_settings, file_settings)
+    objects = get_priority_setting("objects", cli_settings, file_settings)
+
+    # Display settings to be searched for from input
+    log_str = "Searching for missing settings -"
+    if fields is None:
+        log_str += " fields,"
+    if imvers is None:
+        log_str += " image versions,"
+    if catvers is None:
+        log_str += " catalog versions,"
+    if filters is None:
+        log_str += " filters,"
+    if objects is None:
+        log_str += " objects,"
+    if log_str[-1] == ",":
+        pre_logger.debug(log_str[:-1] + ".")
+
+    # Initialize list of FICLs
+    ficls = []
+
+    # Get list of paths to field-level directories (input root subdirectories)
+    if fields is None:
+        f_paths = misc.get_subdirectories(input_root)
+
+        ## Remove PSFs directory, as it is also an input root subdirectory
+        for f_path in f_paths:
+            if f_path.name == "psfs":
+                f_paths.remove(f_path)
+                break
+    else:
+        f_paths = [input_root / field for field in fields]
+
+    # Iterate over each field directory
+    for f_path in f_paths:
+        # Get list of paths to image-version-level directories
+        if imvers is None:
+            fi_paths = misc.get_subdirectories(f_path)
+        else:
+            fi_paths = [f_path / imver for imver in imvers]
+
+        # Iterate over each image version directory
+        for fi_path in fi_paths:
+            # Set catalog version to default if unset
+            if catvers is None:
+                catvers = [DEFAULT_CATALOG_VERSION]
+
+            # Iterate over each catalog version
+            for catver in catvers:
+                # Skip FIC if missing any input
+                if missing_input(
+                    input_root=input_root,
+                    field=f_path.name,
+                    image_version=fi_path.name,
+                    catalog_version=catver,
+                ):
+                    pre_logger.warning(
+                        f"FIC {'_'.join([f_path.name,fi_path.name,catver])} "
+                        + "- skipping, missing input files."
+                    )
+                    continue
+
+                # Get object ID range unique to catalog for FIC
+                objects = get_objects(
+                    input_root=input_root,
+                    field=f_path.name,
+                    image_version=fi_path.name,
+                    catalog_version=catver,
+                    objects=objects,
+                    process_count=process_count,
+                    process_id=process_id,
+                    first_object=first_object,
+                    last_object=last_object,
+                )
+
+                # Get list of paths to filter-level directories
+                if filters is None:
+                    ficl_paths = misc.get_subdirectories(fi_path)
+                else:
+                    ficl_paths = [fi_path / filter for filter in filters]
+
+                # Iterate over each filter directory
+                for ficl_path in ficl_paths:
+                    # Get cleaned filter name
+                    cleaned_filter = clean_filter(
+                        input_root=input_root,
+                        field=f_path.name,
+                        image_version=fi_path.name,
+                        catalog_version=catver,
+                        filter=ficl_path.name,
+                    )
+
+                    # Skip filter if cleaned name not found
+                    if cleaned_filter is None:
+                        continue
+
+                    # Skip FICL if missing any input
+                    if missing_input(
+                        input_root=input_root,
+                        field=f_path.name,
+                        image_version=fi_path.name,
+                        catalog_version=catver,
+                        filter=cleaned_filter,
+                    ):
+                        pre_logger.warning(
+                            f"FICL {'_'.join([f_path.name,fi_path.name,catver,cleaned_filter])} "
+                            + "- skipping, missing input files."
+                        )
+                        continue
+
+                    # Get pixscale from science frame
+                    try:
+                        science_path = get_path(
+                            name="science",
+                            input_root=input_root,
+                            field=f_path.name,
+                            image_version=fi_path.name,
+                            catalog_version=catver,
+                            filter=cleaned_filter,
+                        )
+                        pixscale = science.get_pixscale(science_path)
+                    except Exception as e:
+                        logger.error(e)
+                        pixscale = [0.04, 0.04]
+
+                    # Create FICL object and add to list
+                    ficl = FICL(
+                        field=f_path.name,
+                        image_version=fi_path.name,
+                        catalog_version=catver,
+                        filter=cleaned_filter,
+                        objects=objects,
+                        pixscale=pixscale,
+                    )
+                    pre_logger.info(f"FICL {ficl} - adding.")
+                    ficls.append(ficl)
+
+    # Return list of FICLs
+    return ficls
 
 
 def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FICL]:
     # Get preferred FIL settings
-    # NOTE Terminates if any of FIL unset, in future can implement discovery
     fields = get_priority_setting("fields", cli_settings, file_settings)
     imvers = get_priority_setting("image_versions", cli_settings, file_settings)
     filters = get_priority_setting("filters", cli_settings, file_settings)
+
+    # NOTE Terminates if any of FIL unset, in future can implement discovery
+    if (fields is None) or (imvers is None) or (filters is None):
+        raise KeyError("FICLs not set for initialization.")
 
     # Iterate over each FIL permutation
     # NOTE Uses default catalog version
@@ -478,7 +854,19 @@ def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FIC
         for imver in imvers:
             for filter in filters:
                 # Create FICL object and add to list
-                ficl = FICL(field=field, image_version=imver)
+                ficl = FICL(
+                    field=field,
+                    image_version=imver,
+                    catalog_version=DEFAULT_CATALOG_VERSION,
+                    filter=filter,
+                    objects=[-1],
+                    pixscale=[-1, -1],
+                )
+                pre_logger.info(f"FICL {ficl} - adding.")
+                ficls.append(ficl)
+
+    # Return list of FICLs
+    return ficls
 
 
 def get_run_number(path_settings: PathSettings, field: str, date_time: datetime) -> int:
@@ -491,13 +879,119 @@ def get_run_number(path_settings: PathSettings, field: str, date_time: datetime)
         "run",
         run_root=path_settings.run,
         field=field,
-        datetime=date_time,
+        date_time=date_time,
         run_number=run_number,
     ).exists():
         run_number += 1
 
     # Return run number
     return run_number
+
+
+def get_stage_settings(cli_settings: dict, file_settings: dict) -> StageSettings | None:
+    # Return None if main command is initialize
+    if not cli_settings["initialized"]:
+        return
+
+    # Get skip stage flags from CLI call or YAML file
+    unzip = get_priority_stage("unzip", cli_settings, file_settings)
+    product = get_priority_stage("product", cli_settings, file_settings)
+    morphology = get_priority_stage("morphology", cli_settings, file_settings)
+    catalog = get_priority_stage("catalog", cli_settings, file_settings)
+    histogram = get_priority_stage("histogram", cli_settings, file_settings)
+    plot = get_priority_stage("plot", cli_settings, file_settings)
+    cleanup = get_priority_stage("cleanup", cli_settings, file_settings)
+
+    # Create object dict from settings that have been set
+    # Set attributes which may be None at this point, if they are set
+    # Otherwise they will be set to default as per the class definition
+    stage_dict = {}
+    if unzip is not None:
+        stage_dict["unzip"] = unzip
+    if product is not None:
+        stage_dict["product"] = product
+    if morphology is not None:
+        stage_dict["morphology"] = morphology
+    if catalog is not None:
+        stage_dict["catalog"] = catalog
+    if histogram is not None:
+        stage_dict["histogram"] = histogram
+    if plot is not None:
+        stage_dict["plot"] = plot
+    if cleanup is not None:
+        stage_dict["cleanup"] = cleanup
+
+    # Create and return class instance from settings
+    return StageSettings(**stage_dict)
+
+
+def get_product_settings(
+    cli_settings: dict, file_settings: dict
+) -> ProductSettings | None:
+    # Return None if main command is initialize
+    if not cli_settings["initialized"]:
+        return
+
+    # Get remake product flags from CLI call or YAML file
+    remake_all = get_priority_remake("all", cli_settings, file_settings)
+    stamps = get_priority_remake("stamps", cli_settings, file_settings)
+    sigmas = get_priority_remake("sigmas", cli_settings, file_settings)
+    psfs = get_priority_remake("psfs", cli_settings, file_settings)
+    masks = get_priority_remake("masks", cli_settings, file_settings)
+    others = get_priority_remake("others", cli_settings, file_settings)
+
+    # Create object dict from settings that have been set
+    # Set attributes which may be None at this point, if they are set
+    # Otherwise they will be set to default as per the class definition
+    remake_dict = {}
+    if (remake_all is not None) and (remake_all):
+        remake_dict["stamps"] = True
+        remake_dict["sigmas"] = True
+        remake_dict["psfs"] = True
+        remake_dict["masks"] = True
+        remake_dict["others"] = True
+    if stamps is not None:
+        remake_dict["stamps"] = stamps
+    if sigmas is not None:
+        remake_dict["sigmas"] = sigmas
+    if psfs is not None:
+        remake_dict["psfs"] = psfs
+    if masks is not None:
+        remake_dict["masks"] = masks
+    if others is not None:
+        remake_dict["others"] = others
+
+    # Create and return class instance from settings
+    return ProductSettings(**remake_dict)
+
+
+def get_morphology_settings(
+    cli_settings: dict, file_settings: dict
+) -> GALFITSettings | ImcascadeSettings | PysersicSettings | None:
+    # Return None if main command is initialize
+    if not cli_settings["initialized"]:
+        return
+
+    # Return matching morphology settings instance
+    match cli_settings["morphology"]:
+        case "galfit":
+            # Get GALFIT binary path setting from CLI or YAML
+            galfit_path = get_priority_path("galfit_path", cli_settings, file_settings)
+
+            # Terminate if not found, return setting object otherwise
+            if galfit_path is None:
+                raise KeyError("Terminating - GALFIT binary not provided.")
+            elif not galfit_path.exists():
+                raise FileNotFoundError("Terminating - GALFIT binary not found.")
+            else:
+                return GALFITSettings(binary=galfit_path)
+
+        case "imcascade":
+            raise NotImplementedError("Terminating - not yet implemented.")
+        case "pysersic":
+            raise NotImplementedError("Terminating - not yet implemented.")
+        case _:
+            raise KeyError("Terminating - unknown morphology fitter.")
 
 
 ## Primary
@@ -615,6 +1109,9 @@ def get_path(
         if run_root is None:
             run_root = path_settings.run
 
+    # Get path as str template from dict
+    path = FILESYSTEM[name]
+
     # Input PSFs - STSci names with uppercase filter names
     if name == "input_psf":
         # Get main filter from pairs like 'f140w-clear'
@@ -623,22 +1120,37 @@ def get_path(
             filter = filter_1 if "clear" in filter_2 else filter_2
 
         # Replace filter template with uppercase main filter name
-        path.replace("{L}", filter.upper())
+        path = path.replace("{L}", filter.upper())
 
     # Replace template in path str with passed value
-    path = FILESYSTEM[name]
-    path.replace("[root]", str(morphfits_root))
-    path.replace("[i]", input_root.name)
-    path.replace("[o]", output_root.name)
-    path.replace("[p]", product_root.name)
-    path.replace("[r]", run_root.name)
-    path.replace("{F}", field)
-    path.replace("{I}", image_version)
-    path.replace("{C}", catalog_version)
-    path.replace("{L}", filter)
-    path.replace("{O}", object)
-    path.replace("{D}", misc.get_str_from_datetime(date_time=date_time))
-    path.replace("{N}", misc.get_str_from_run_number(run_number=run_number))
+    if morphfits_root is not None:
+        path = path.replace("[root]", str(morphfits_root))
+    if input_root is not None:
+        path = path.replace("[i]", input_root.name)
+        path = path.replace("[root]", str(input_root.parent))
+    if output_root is not None:
+        path = path.replace("[o]", output_root.name)
+        path = path.replace("[root]", str(output_root.parent))
+    if product_root is not None:
+        path = path.replace("[p]", product_root.name)
+        path = path.replace("[root]", str(product_root.parent))
+    if run_root is not None:
+        path = path.replace("[r]", run_root.name)
+        path = path.replace("[root]", str(run_root.parent))
+    if field is not None:
+        path = path.replace("{F}", field)
+    if image_version is not None:
+        path = path.replace("{I}", image_version)
+    if catalog_version is not None:
+        path = path.replace("{C}", catalog_version)
+    if filter is not None:
+        path = path.replace("{L}", filter)
+    if object is not None:
+        path = path.replace("{O}", str(object))
+    if date_time is not None:
+        path = path.replace("{D}", misc.get_str_from_datetime(date_time=date_time))
+    if run_number is not None:
+        path = path.replace("{N}", misc.get_str_from_run_number(run_number=run_number))
 
     # Science, exposure, weights images - can contain either 'drc' or 'drz'
     if "{z}" in path:
@@ -661,14 +1173,14 @@ def get_path(
 
 
 def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSettings:
-    # Set initialized flag from parameter passed from main command
+    # Get initialized flag from parameter passed from main command
     initialized = cli_settings["initialized"]
 
-    # Set root paths
+    # Get root paths
     roots = get_path_settings(cli_settings, file_settings)
 
-    # Set primitive runtime setting attributes
-    date_time = misc.get_str_from_datetime(datetime.now())
+    # Get primitive type runtime setting attributes
+    date_time = datetime.now()
     progress_bar = get_priority_setting("progress_bar", cli_settings, file_settings)
     log_level = get_priority_setting("log_level", cli_settings, file_settings)
     process_count = get_priority_setting("batch_n_process", cli_settings, file_settings)
@@ -676,38 +1188,46 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
     first_object = get_priority_setting("first_object", cli_settings, file_settings)
     last_object = get_priority_setting("last_object", cli_settings, file_settings)
 
-    #
-    ficls = get_ficls(
-        cli_settings=cli_settings,
-        file_settings=file_settings,
-        process_count=process_count,
-        process_id=process_id,
-        first_object=first_object,
-        last_object=last_object,
-    )
+    # Validate batch mode settings
+    validate_batch_settings(process_count, process_id, first_object, last_object)
 
-    #
-    run_number = get_run_number(
-        path_settings=roots, field=ficls[0].field, date_time=date_time
-    )
+    # Get list of FICLs
+    if initialized:
+        ficls = get_ficls(
+            cli_settings=cli_settings,
+            file_settings=file_settings,
+            input_root=roots.input,
+            process_count=process_count,
+            process_id=process_id,
+            first_object=first_object,
+            last_object=last_object,
+        )
+    else:
+        ficls = get_ficls_to_initialize(cli_settings, file_settings)
 
-    #
+    # Get run number from field and date time
+    run_number = get_run_number(roots, ficls[0].field, date_time)
+
+    # Get list of stages to run
     stages = get_stage_settings(cli_settings, file_settings)
 
-    #
+    # Get list of products to remake
     remake = get_product_settings(cli_settings, file_settings)
 
-    #
+    # Get settings for morphology fitter
     morphology = get_morphology_settings(cli_settings, file_settings)
 
     # Create object dict from settings that have been set
     ## Set attributes which have definitely been set by this point
-    runtime_dict = {"roots": roots, "date_time": date_time, "ficls": ficls}
+    runtime_dict = {
+        "roots": roots,
+        "date_time": date_time,
+        "run_number": run_number,
+        "ficls": ficls,
+    }
 
     ## Set attributes which may be None at this point, if they are set
     ## Otherwise they will be set to default as per the class definition
-    if run_number is not None:
-        runtime_dict["run_number"] = run_number
     if process_count is not None:
         runtime_dict["process_count"] = process_count
     if process_id is not None:
@@ -726,17 +1246,14 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
     # Create class instance from settings
     runtime_settings = RuntimeSettings(**runtime_dict)
 
-    #
-    runtime_settings.setup_directories(initialized=initialized)
+    # Create directories from path settings and FICLs
+    runtime_settings.setup_directories(initialized)
 
-    #
-    runtime_settings.setup_loggers()
-
-    #
+    # Return runtime settings object
     return runtime_settings
 
 
-def get_science_settings() -> ScienceSettings:
+def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSettings:
     pass
 
 
@@ -757,7 +1274,7 @@ def get_settings(
     first_object: int | None = None,
     last_object: int | None = None,
     progress_bar: bool | None = None,
-    log_level: int | None = None,
+    log_level: str | None = None,
     skip_unzip: bool | None = None,
     skip_product: bool | None = None,
     skip_morphology: bool | None = None,
@@ -776,8 +1293,9 @@ def get_settings(
     initialized: bool | None = None,
 ) -> tuple[RuntimeSettings, ScienceSettings]:
     # Create a temporary logger
-    pre_log = tempfile.NamedTemporaryFile()
-    base_logger = logs.create_logger(filename=pre_log.name)
+    pre_log_file = tempfile.NamedTemporaryFile()
+    base_logger = logs.create_logger(filename=pre_log_file.name)
+    global pre_logger
     pre_logger = logging.getLogger("CONFIG")
     pre_logger.info("Loading runtime settings.")
 
@@ -798,7 +1316,10 @@ def get_settings(
     # Remove pre-program loggers
     base_logger.handlers.clear()
     pre_logger.handlers.clear()
-    pre_log.close()
+    pre_log_file.close()
+
+    # Create logging objects
+    runtime_settings.setup_loggers()
 
     # Return runtime and science settings
     return runtime_settings, science_settings

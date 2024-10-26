@@ -25,8 +25,8 @@ from scipy import ndimage
 
 from tqdm import tqdm
 
-from .settings import MorphFITSConfig, FICL
-from .utils import paths, science
+from .settings import RuntimeSettings, FICL
+from .utils import science
 
 
 # Constants
@@ -327,7 +327,7 @@ def make_mask(
 
 
 def make_ficl_stamps(
-    morphfits_config: MorphFITSConfig,
+    morphfits_config: RuntimeSettings,
     ficl: FICL,
     input_catalog: Table,
     remake: bool = False,
@@ -342,7 +342,7 @@ def make_ficl_stamps(
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
+    morphfits_config : RuntimeSettings
         Configuration settings for this program run.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
@@ -427,7 +427,7 @@ def make_ficl_stamps(
 
 
 def make_ficl_sigmas(
-    morphfits_config: MorphFITSConfig,
+    morphfits_config: RuntimeSettings,
     ficl: FICL,
     input_catalog: Table,
     remake: bool = False,
@@ -442,7 +442,7 @@ def make_ficl_sigmas(
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
+    morphfits_config : RuntimeSettings
         Configuration settings for this program run.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
@@ -540,7 +540,7 @@ def make_ficl_sigmas(
 
 
 def make_ficl_psfs(
-    morphfits_config: MorphFITSConfig,
+    morphfits_config: RuntimeSettings,
     ficl: FICL,
     input_catalog: Table,
     remake: bool = False,
@@ -556,7 +556,7 @@ def make_ficl_psfs(
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
+    morphfits_config : RuntimeSettings
         Configuration settings for this program run.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
@@ -638,7 +638,7 @@ def make_ficl_psfs(
 
 
 def make_ficl_masks(
-    morphfits_config: MorphFITSConfig,
+    morphfits_config: RuntimeSettings,
     ficl: FICL,
     input_catalog: Table,
     remake: bool = False,
@@ -653,7 +653,7 @@ def make_ficl_masks(
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
+    morphfits_config : RuntimeSettings
         Configuration settings for this program run.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
@@ -752,7 +752,7 @@ def make_ficl_masks(
 
 
 def make_all(
-    morphfits_config: MorphFITSConfig,
+    morphfits_config: RuntimeSettings,
     remake_all: bool = False,
     remake_stamps: bool = False,
     remake_sigmas: bool = False,
@@ -775,7 +775,7 @@ def make_all(
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
+    morphfits_config : RuntimeSettings
         Configuration settings for this program run.
     remake_all : bool, optional
          Remake and overwrite all products if existent, by default False.

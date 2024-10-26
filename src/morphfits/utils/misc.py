@@ -90,17 +90,6 @@ def get_str_from_run_number(run_number: int) -> str:
     return str(run_number).rjust(2, "0")
 
 
-def get_preferred_setting(
-    name: str, file_settings: dict, cli_settings: dict
-) -> Path | str | int | bool:
-    if name in cli_settings:
-        return cli_settings[name]
-    elif name in file_settings:
-        return file_settings[name]
-    else:
-        raise KeyError(f"Setting {name} not found.")
-
-
 def get_unique_batch_limits(
     process_id: int, n_process: int, n_items: int
 ) -> tuple[int, int]:

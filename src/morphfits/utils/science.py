@@ -11,10 +11,6 @@ import numpy as np
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy.table import Table
-from astropy.wcs import WCS
-from astropy.wcs import utils as wcs_utils
-
-from . import paths
 
 
 # Constants
@@ -37,43 +33,23 @@ KRON_SCALE_FACTOR = 3
 # Functions
 
 
-def get_fits_data(
-    name: str,
-    morphfits_config,
-    ficl,
-    object: int | None = None,
-) -> tuple[np.ndarray, fits.Header]:
+def get_fits_data(path: Path) -> tuple[np.ndarray, fits.Header]:
     """Get the image data and headers from a FITS file.
 
     Closes the file so the limit of open files is not encountered.
 
     Parameters
     ----------
-    name : str
-        MorphFITS path name of FITS file.
-    morphfits_config : MorphFITSConfig
-        Config object for this program run.
-    ficl : FICL
-        The field, image version, catalog version, filter, and other details of
-        a single observation.
-    object : int | None, optional
-        Integer ID of object in its catalog, by default None (N/A).
+    path : Path
+        Path to FITS file.
 
     Returns
     -------
     tuple[np.ndarray, fits.Header]
         The image as a 2D float array, and its corresponding header object.
     """
-    # Get path to FITS file
-    fits_path = paths.get_path(
-        name=name,
-        morphfits_config=morphfits_config,
-        ficl=ficl,
-        object=object,
-    )
-
     # Open FITS file
-    fits_file = fits.open(fits_path)
+    fits_file = fits.open(path)
 
     # Get data and headers from file
     image, headers = fits_file["PRIMARY"].data, fits_file["PRIMARY"].header
@@ -81,6 +57,14 @@ def get_fits_data(
     # Close file and return
     fits_file.close()
     return image, headers
+
+
+def get_all_objects(input_catalog_path: Path) -> list[int]:
+    # Read input catalog
+    input_catalog = Table.read(input_catalog_path)
+
+    # Return list of IDs as integers
+    return [int(id_object) - 1 for id_object in input_catalog["id"]]
 
 
 def get_zeropoint(headers: fits.Header, magnitude_system: str = "AB") -> float:
@@ -242,7 +226,7 @@ def get_surface_brightness(
     return np.nan_to_num(-2.5 * np.log10(flux_per_pixel) + zeropoint)
 
 
-def get_pixscale(fits_path: Path):
+def get_pixscale(path: Path):
     """Get an observation's pixscale from its FITS image frame.
 
     Used because not every frame has the same pixel scale. For the most
@@ -251,8 +235,8 @@ def get_pixscale(fits_path: Path):
 
     Parameters
     ----------
-    science_path : Path
-        Path to science frame.
+    path : Path
+        Path to FITS frame.
 
     Raises
     ------
@@ -260,12 +244,12 @@ def get_pixscale(fits_path: Path):
         Coordinate transformation matrix element headers missing from frame.
     """
     # Get headers from FITS file
-    headers = fits.getheader(fits_path)
+    headers = fits.getheader(path)
 
     # Raise error if keys not found in header
     if any([header not in headers for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]]):
         raise KeyError(
-            f"Science frame for science frame {fits_path.name} "
+            f"Science frame for science frame {path.name} "
             + "missing coordinate transformation matrix element header."
         )
 

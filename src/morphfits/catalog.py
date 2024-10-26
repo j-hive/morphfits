@@ -12,8 +12,6 @@ from pathlib import Path
 
 from astropy.io import fits
 
-from .utils import paths
-
 
 # Constants
 

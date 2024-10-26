@@ -12,7 +12,7 @@ import typer
 
 from . import download, plot, products, settings
 from .wrappers import galfit
-from .utils import logs, paths
+from .utils import logs
 
 
 # App Instantiation
@@ -341,6 +341,7 @@ def galwrap(
             "--log-level",
             help="Logging level at which to write logs to file, "
             + "one of the standard Python levels.",
+            show_default=False,
         ),
     ] = None,
     progress_bar: Annotated[
@@ -392,7 +393,7 @@ def galwrap(
     # Display status
     logger = logging.getLogger("MORPHFITS")
     logger.info("Starting MorphFITS.")
-    if batch_n_process > 1:
+    if runtime_settings.process_count > 1:
         logger.info("Running in batch mode.")
         logger.info(
             f"Batch process: {runtime_settings.process_id} "
@@ -400,16 +401,16 @@ def galwrap(
         )
 
     # Unzip zipped files
-    download.unzip_files(path_settings=runtime_settings.roots)
+    # download.unzip_files(path_settings=runtime_settings.roots)
 
     # Create product files
-    products.make_all(runtime_settings=runtime_settings)
+    # products.make_all(runtime_settings=runtime_settings)
 
     # Create feedfiles
-    galfit.make_all_feedfiles(runtime_settings=runtime_settings)
+    # galfit.make_all_feedfiles(runtime_settings=runtime_settings)
 
     # Run GALFIT
-    galfit.run_all_galfit(runtime_settings=runtime_settings)
+    # galfit.run_all_galfit(runtime_settings=runtime_settings)
 
     # Write catalogs
 

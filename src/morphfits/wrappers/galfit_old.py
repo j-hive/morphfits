@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from . import GALFIT_DATA_ROOT
 from .. import catalog, plot, products, settings
-from ..utils import paths, science
+from ..utils import science
 
 
 # Constants
@@ -101,8 +101,8 @@ def generate_feedfiles(
     product_path_names = ["model_galfit", "stamp", "sigma", "psf", "mask"]
 
     # Load in catalog
-    input_catalog_path = paths.get_path(
-        "input_catalog",
+    input_catalog_path = settings.get_path(
+        name="input_catalog",
         input_root=input_root,
         field=field,
         image_version=image_version,

@@ -19,7 +19,6 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from tqdm import tqdm
 
-from .utils import paths
 from .utils import misc
 
 
