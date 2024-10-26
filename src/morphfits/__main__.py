@@ -404,7 +404,7 @@ def galwrap(
     # download.unzip_files(path_settings=runtime_settings.roots)
 
     # Create product files
-    # products.make_all(runtime_settings=runtime_settings)
+    products.make_all(runtime_settings=runtime_settings)
 
     # Create feedfiles
     # galfit.make_all_feedfiles(runtime_settings=runtime_settings)
@@ -470,7 +470,7 @@ def pysersic():
     + "For further details, consult the README.",
     rich_help_panel="Tools",
 )
-def initialize(
+def download(
     config_path: Annotated[
         typer.FileText,
         typer.Option(

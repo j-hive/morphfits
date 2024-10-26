@@ -25,6 +25,7 @@ from scipy import ndimage
 
 from tqdm import tqdm
 
+from . import settings
 from .settings import RuntimeSettings, FICL
 from .utils import science
 
@@ -257,6 +258,7 @@ def make_mask(
     image: np.ndarray,
     wcs: WCS,
     expand: bool,
+    object: int,
     position: SkyCoord,
     image_size: int,
 ):
@@ -282,6 +284,8 @@ def make_mask(
         Expand the segmentation map to twice its size. Used for shorter
         wavelength observations, due to them having half the pixel scale of
         longer wavelength observations.
+    object : int
+        Integer ID of object in catalog.
     position : SkyCoord
         Coordinates of object in sky.
     image_size : int
@@ -327,11 +331,7 @@ def make_mask(
 
 
 def make_ficl_stamps(
-    morphfits_config: RuntimeSettings,
-    ficl: FICL,
-    input_catalog: Table,
-    remake: bool = False,
-    progress_bar: bool = False,
+    runtime_settings: RuntimeSettings, ficl: FICL, input_catalog: Table
 ):
     """Create the stamps for every object in a FICL.
 
@@ -342,24 +342,21 @@ def make_ficl_stamps(
 
     Parameters
     ----------
-    morphfits_config : RuntimeSettings
-        Configuration settings for this program run.
+    runtime_settings : RuntimeSettings
+        Settings for the runtime of this program execution.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
     input_catalog : Table
         Catalog detailing each object in a field.
-    remake : bool, optional
-        Remake and overwrite if exists, by default False.
-    progress_bar : bool, optional
-        Display a loading bar and suppress logging, by default False.
     """
     logger.info(f"FICL {ficl}: Making stamps.")
 
     # Try loading image and header data
     try:
-        image, headers = science.get_fits_data(
-            name="science", morphfits_config=morphfits_config, ficl=ficl
+        science_path = settings.get_path(
+            name="science", path_settings=runtime_settings.roots, ficl=ficl
         )
+        image, headers = science.get_fits_data(path=science_path)
         zeropoint = science.get_zeropoint(headers=headers)
         wcs = WCS(header=headers)
     except Exception as e:
@@ -368,7 +365,7 @@ def make_ficl_stamps(
         return
 
     # Get iterable object list, displaying progress bar if flagged
-    if progress_bar:
+    if runtime_settings.progress_bar:
         objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
     else:
         objects = ficl.objects
@@ -379,16 +376,16 @@ def make_ficl_stamps(
         # Try making stamp for object
         try:
             # Get path to stamp
-            stamp_path = paths.get_path(
+            stamp_path = settings.get_path(
                 name="stamp",
-                morphfits_config=morphfits_config,
+                path_settings=runtime_settings.roots,
                 ficl=ficl,
                 object=object,
             )
 
             # Skip existing stamps unless requested
-            if stamp_path.exists() and not remake:
-                if not progress_bar:
+            if stamp_path.exists() and not runtime_settings.remake.stamps:
+                if not runtime_settings.progress_bar:
                     logger.debug(f"Object {object}: Skipping stamp - exists.")
                 skipped += 1
                 continue
@@ -403,7 +400,7 @@ def make_ficl_stamps(
             )
 
             # Make stamp for object
-            if not progress_bar:
+            if not runtime_settings.progress_bar:
                 logger.debug(f"Object {object}: Making stamp.")
             make_stamp(
                 path=stamp_path,
@@ -417,7 +414,7 @@ def make_ficl_stamps(
 
         # Catch any errors and skip to next object
         except Exception as e:
-            if not progress_bar:
+            if not runtime_settings.progress_bar:
                 logger.debug(f"Object {object}: Skipping stamp - {e}.")
             skipped += 1
             continue
@@ -427,11 +424,7 @@ def make_ficl_stamps(
 
 
 def make_ficl_sigmas(
-    morphfits_config: RuntimeSettings,
-    ficl: FICL,
-    input_catalog: Table,
-    remake: bool = False,
-    progress_bar: bool = False,
+    runtime_settings: RuntimeSettings, ficl: FICL, input_catalog: Table
 ):
     """Create the sigma maps for every object in a FICL.
 
@@ -442,28 +435,26 @@ def make_ficl_sigmas(
 
     Parameters
     ----------
-    morphfits_config : RuntimeSettings
-        Configuration settings for this program run.
+    runtime_settings : RuntimeSettings
+        Settings for the runtime of this program execution.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
     input_catalog : Table
         Catalog detailing each object in a field.
-    remake : bool, optional
-        Remake and overwrite if exists, by default False.
-    progress_bar : bool, optional
-        Display a loading bar and suppress logging, by default False.
     """
     logger.info(f"FICL {ficl}: Making sigma maps.")
 
     # Try loading image and header data
     try:
-        exposure_image, exposure_headers = science.get_fits_data(
-            name="exposure", morphfits_config=morphfits_config, ficl=ficl
+        exposure_path = settings.get_path(
+            name="exposure", path_settings=runtime_settings.roots, ficl=ficl
         )
+        exposure_image, exposure_headers = science.get_fits_data(exposure_path)
         exposure_wcs = WCS(header=exposure_headers)
-        weights_image, weights_headers = science.get_fits_data(
-            name="weights", morphfits_config=morphfits_config, ficl=ficl
+        weights_path = settings.get_path(
+            name="weights", path_settings=runtime_settings.roots, ficl=ficl
         )
+        weights_image, weights_headers = science.get_fits_data(weights_path)
         weights_wcs = WCS(header=weights_headers)
     except Exception as e:
         logger.error(f"FICL {ficl}: Skipping sigma maps - failed loading input.")
@@ -471,7 +462,7 @@ def make_ficl_sigmas(
         return
 
     # Get iterable object list, displaying progress bar if flagged
-    if progress_bar:
+    if runtime_settings.progress_bar:
         objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
     else:
         objects = ficl.objects
@@ -482,16 +473,16 @@ def make_ficl_sigmas(
         # Try making sigma map for object
         try:
             # Get path to sigma map
-            sigma_path = paths.get_path(
+            sigma_path = settings.get_path(
                 name="sigma",
-                morphfits_config=morphfits_config,
+                path_settings=runtime_settings.roots,
                 ficl=ficl,
                 object=object,
             )
 
             # Skip existing sigmas unless requested
-            if sigma_path.exists() and not remake:
-                if not progress_bar:
+            if sigma_path.exists() and not runtime_settings.remake.sigmas:
+                if not runtime_settings.progress_bar:
                     logger.debug(f"Object {object}: Skipping sigma map - exists.")
                 skipped += 1
                 continue
@@ -506,15 +497,16 @@ def make_ficl_sigmas(
             )
 
             # Get stamp of this object
-            stamp_image, stamp_headers = science.get_fits_data(
+            stamp_path = settings.get_path(
                 name="stamp",
-                morphfits_config=morphfits_config,
+                path_settings=runtime_settings.roots,
                 ficl=ficl,
                 object=object,
             )
+            stamp_image, stamp_headers = science.get_fits_data(stamp_path)
 
             # Make sigma map for object
-            if not progress_bar:
+            if not runtime_settings.progress_bar:
                 logger.debug(f"Object {object}: Making sigma map.")
             make_sigma(
                 path=sigma_path,
@@ -530,7 +522,7 @@ def make_ficl_sigmas(
 
         # Catch any errors and skip to next object
         except Exception as e:
-            if not progress_bar:
+            if not runtime_settings.progress_bar:
                 logger.debug(f"Object {object}: Skipping sigma map - {e}.")
             skipped += 1
             continue
@@ -539,13 +531,7 @@ def make_ficl_sigmas(
     logger.info(f"FICL {ficl}: Made sigma maps - skipped {skipped} objects.")
 
 
-def make_ficl_psfs(
-    morphfits_config: RuntimeSettings,
-    ficl: FICL,
-    input_catalog: Table,
-    remake: bool = False,
-    progress_bar: bool = False,
-):
+def make_ficl_psfs(runtime_settings: RuntimeSettings, ficl: FICL, input_catalog: Table):
     """Create the PSF crops for every object in a FICL.
 
     Skips the FICL if any error occurs during opening the corresponding
@@ -556,24 +542,21 @@ def make_ficl_psfs(
 
     Parameters
     ----------
-    morphfits_config : RuntimeSettings
-        Configuration settings for this program run.
+    runtime_settings : RuntimeSettings
+        Settings for the runtime of this program execution.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
     input_catalog : Table
         Catalog detailing each object in a field.
-    remake : bool, optional
-        Remake and overwrite if exists, by default False.
-    progress_bar : bool, optional
-        Display a loading bar and suppress logging, by default False.
     """
     logger.info(f"FICL {ficl}: Making PSF crops.")
 
     # Try opening PSF and getting information from headers
     try:
-        input_psf_image, input_psf_headers = science.get_fits_data(
-            name="input_psf", morphfits_config=morphfits_config, ficl=ficl
+        input_psf_path = settings.get_path(
+            name="input_psf", path_settings=runtime_settings.roots, ficl=ficl
         )
+        input_psf_image, input_psf_headers = science.get_fits_data(input_psf_path)
         input_psf_pixscale = input_psf_headers["PIXELSCL"]
         input_psf_length = input_psf_headers["NAXIS1"]
     except Exception as e:
@@ -582,7 +565,7 @@ def make_ficl_psfs(
         return
 
     # Get iterable object list, displaying progress bar if flagged
-    if progress_bar:
+    if runtime_settings.progress_bar:
         objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
     else:
         objects = ficl.objects
@@ -593,13 +576,16 @@ def make_ficl_psfs(
         # Try making PSF crop for object
         try:
             # Get path to PSF crop
-            psf_path = paths.get_path(
-                name="psf", morphfits_config=morphfits_config, ficl=ficl, object=object
+            psf_path = settings.get_path(
+                name="psf",
+                path_settings=runtime_settings.roots,
+                ficl=ficl,
+                object=object,
             )
 
             # Skip existing PSF crops unless requested
-            if psf_path.exists() and not remake:
-                if not progress_bar:
+            if psf_path.exists() and not runtime_settings.remake.psfs:
+                if not runtime_settings.progress_bar:
                     logger.debug(f"Object {object}: Skipping PSF crop - exists.")
                 skipped += 1
                 continue
@@ -617,7 +603,7 @@ def make_ficl_psfs(
             center = int(input_psf_length / 2)
 
             # Make PSF crop for object
-            if not progress_bar:
+            if not runtime_settings.progress_bar:
                 logger.debug(f"Object {object}: Making PSF crop.")
             make_psf(
                 path=psf_path,
@@ -628,7 +614,7 @@ def make_ficl_psfs(
 
         # Catch any errors and skip to next object
         except Exception as e:
-            if not progress_bar:
+            if not runtime_settings.progress_bar:
                 logger.debug(f"Object {object}: Skipping PSF crop - {e}.")
             skipped += 1
             continue
@@ -638,11 +624,7 @@ def make_ficl_psfs(
 
 
 def make_ficl_masks(
-    morphfits_config: RuntimeSettings,
-    ficl: FICL,
-    input_catalog: Table,
-    remake: bool = False,
-    progress_bar: bool = False,
+    runtime_settings: RuntimeSettings, ficl: FICL, input_catalog: Table
 ):
     """Create the masks for every object in a FICL.
 
@@ -653,33 +635,23 @@ def make_ficl_masks(
 
     Parameters
     ----------
-    morphfits_config : RuntimeSettings
-        Configuration settings for this program run.
+    runtime_settings : RuntimeSettings
+        Settings for the runtime of this program execution.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
     input_catalog : Table
         Catalog detailing each object in a field.
-    remake : bool, optional
-        Remake and overwrite if exists, by default False.
-    progress_bar : bool, optional
-        Display a loading bar and suppress logging, by default False.
     """
     logger.info(f"FICL {ficl}: Making masks.")
 
     # Try opening segmentation map and getting information from headers
     try:
-        segmap_image, segmap_headers = science.get_fits_data(
-            name="input_segmap",
-            morphfits_config=morphfits_config,
-            ficl=ficl,
+        segmap_path = settings.get_path(
+            name="input_segmap", path_settings=runtime_settings.roots, ficl=ficl
         )
+        segmap_image, segmap_headers = science.get_fits_data(segmap_path)
         segmap_wcs = WCS(segmap_headers)
-        segmap_path = paths.get_path(
-            name="input_segmap",
-            morphfits_config=morphfits_config,
-            ficl=ficl,
-        )
-        segmap_pixscale = science.get_pixscale(fits_path=segmap_path)
+        segmap_pixscale = science.get_pixscale(segmap_path)
 
         # Set flag to expand data if pixscales are not equal
         # As a result of short wavelength observations having half the pixscale
@@ -691,7 +663,7 @@ def make_ficl_masks(
         return
 
     # Get iterable object list, displaying progress bar if flagged
-    if progress_bar:
+    if runtime_settings.progress_bar:
         objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
     else:
         objects = ficl.objects
@@ -702,16 +674,16 @@ def make_ficl_masks(
         # Try making mask for object
         try:
             # Get path to mask
-            mask_path = paths.get_path(
+            mask_path = settings.get_path(
                 name="mask",
-                morphfits_config=morphfits_config,
+                path_settings=runtime_settings.roots,
                 ficl=ficl,
                 object=object,
             )
 
             # Skip existing masks unless requested
-            if mask_path.exists() and not remake:
-                if not progress_bar:
+            if mask_path.exists() and not runtime_settings.remake.masks:
+                if not runtime_settings.progress_bar:
                     logger.debug(f"Object {object}: Skipping mask - exists.")
                 skipped += 1
                 continue
@@ -726,20 +698,21 @@ def make_ficl_masks(
             )
 
             # Make mask for object
-            if not progress_bar:
+            if not runtime_settings.progress_bar:
                 logger.debug(f"Object {object}: Making mask.")
             make_mask(
                 path=mask_path,
                 image=segmap_image,
                 wcs=segmap_wcs,
                 expand=expand_segmap,
+                object=object,
                 position=position,
                 image_size=image_size,
             )
 
         # Catch any errors and skip to next object
         except Exception as e:
-            if not progress_bar:
+            if not runtime_settings.progress_bar:
                 logger.debug(f"Object {object}: Skipping mask - {e}.")
             skipped += 1
             continue
@@ -751,15 +724,7 @@ def make_ficl_masks(
 ## Main
 
 
-def make_all(
-    morphfits_config: RuntimeSettings,
-    remake_all: bool = False,
-    remake_stamps: bool = False,
-    remake_sigmas: bool = False,
-    remake_psfs: bool = False,
-    remake_masks: bool = False,
-    progress_bar: bool = False,
-):
+def make_all(runtime_settings: RuntimeSettings):
     """Create each product for each FICL in this program run.
 
     A product is an intermediate FITS file isolating an object within its field.
@@ -775,23 +740,11 @@ def make_all(
 
     Parameters
     ----------
-    morphfits_config : RuntimeSettings
-        Configuration settings for this program run.
-    remake_all : bool, optional
-         Remake and overwrite all products if existent, by default False.
-    remake_stamps : bool, optional
-         Remake and overwrite stamps if existent, by default False.
-    remake_sigmas : bool, optional
-         Remake and overwrite sigma maps if existent, by default False.
-    remake_psfs : bool, optional
-         Remake and overwrite PSF crops if existent, by default False.
-    remake_masks : bool, optional
-         Remake and overwrite masks if existent, by default False.
-    progress_bar : bool, optional
-        Display a loading bar and suppress logging, by default False.
+    runtime_settings : RuntimeSettings
+        Settings for the runtime of this program execution.
     """
     # Iterate over each FICL in this run
-    for ficl in morphfits_config.ficls:
+    for ficl in runtime_settings.ficls:
         # Try to make all products for FICL
         try:
             logger.info(f"FICL {ficl}: Making products.")
@@ -801,49 +754,22 @@ def make_all(
             )
 
             # Open input catalog
-            input_catalog_path = paths.get_path(
-                "input_catalog",
-                input_root=morphfits_config.input_root,
-                field=ficl.field,
-                image_version=ficl.image_version,
+            input_catalog_path = settings.get_path(
+                name="input_catalog", path_settings=runtime_settings.roots, ficl=ficl
             )
             input_catalog = Table.read(input_catalog_path)
 
             # Make stamps for all objects in FICL
-            make_ficl_stamps(
-                morphfits_config=morphfits_config,
-                ficl=ficl,
-                input_catalog=input_catalog,
-                remake=remake_all or remake_stamps,
-                progress_bar=progress_bar,
-            )
+            make_ficl_stamps(runtime_settings, ficl, input_catalog)
 
             # Make sigma map stamps for all objects in FICL
-            make_ficl_sigmas(
-                morphfits_config=morphfits_config,
-                ficl=ficl,
-                input_catalog=input_catalog,
-                remake=remake_all or remake_sigmas,
-                progress_bar=progress_bar,
-            )
+            make_ficl_sigmas(runtime_settings, ficl, input_catalog)
 
             # Make PSF crops for all objects in FICL
-            make_ficl_psfs(
-                morphfits_config=morphfits_config,
-                ficl=ficl,
-                input_catalog=input_catalog,
-                remake=remake_all or remake_psfs,
-                progress_bar=progress_bar,
-            )
+            make_ficl_psfs(runtime_settings, ficl, input_catalog)
 
             # Make mask stamps for all objects in FICL
-            make_ficl_masks(
-                morphfits_config=morphfits_config,
-                ficl=ficl,
-                input_catalog=input_catalog,
-                remake=remake_all or remake_masks,
-                progress_bar=progress_bar,
-            )
+            make_ficl_masks(runtime_settings, ficl, input_catalog)
 
         # Catch any error opening FICL or input catalog
         except Exception as e:

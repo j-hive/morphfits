@@ -121,7 +121,7 @@ REQUIRED_FICL_INPUTS = ["input_psf", "exposure", "science", "weights"]
 """
 
 
-REQUIRED_PRODUCT_FILES = ["stamp", "sigma", "psf", "mask"]
+REQUIRED_PRODUCT_FILES = ["stamp"]
 REQUIRED_GALFIT_OUTPUT_FILES = ["model_galfit"]
 REQUIRED_IMCASCADE_OUTPUT_FILES = ["model_imcascade"]
 REQUIRED_PYSERSIC_OUTPUT_FILES = ["model_pysersic"]
@@ -288,7 +288,7 @@ class RuntimeSettings(BaseModel):
         logger = logging.getLogger("CONFIG")
 
     def cleanup_directories(self):
-        logger.info("Removing skipped directories.")
+        logger.info("Removing failed directories.")
 
         # Iterate over each FICL
         for ficl in self.ficls:
@@ -614,7 +614,7 @@ def clean_filter(
 
         # Return new filter name if matching file found
         if possible_science_path.exists():
-            pre_logger.debug(f"Filter {possible_filter} - found from {filter}.")
+            pre_logger.debug(f"Filter {possible_filter}: Changing from {filter}.")
             return possible_filter
 
 
@@ -753,8 +753,8 @@ def get_ficls(
                     catalog_version=catver,
                 ):
                     pre_logger.warning(
-                        f"FIC {'_'.join([f_path.name,fi_path.name,catver])} "
-                        + "- skipping, missing input files."
+                        f"FIC {'_'.join([f_path.name,fi_path.name,catver])}: "
+                        + "Skipping - missing input files."
                     )
                     continue
 
@@ -801,8 +801,8 @@ def get_ficls(
                         filter=cleaned_filter,
                     ):
                         pre_logger.warning(
-                            f"FICL {'_'.join([f_path.name,fi_path.name,catver,cleaned_filter])} "
-                            + "- skipping, missing input files."
+                            f"FICL {'_'.join([f_path.name,fi_path.name,catver,cleaned_filter])}: "
+                            + "Skipping - missing input files."
                         )
                         continue
 
@@ -830,7 +830,7 @@ def get_ficls(
                         objects=objects,
                         pixscale=pixscale,
                     )
-                    pre_logger.info(f"FICL {ficl} - adding.")
+                    pre_logger.info(f"FICL {ficl}: Adding.")
                     ficls.append(ficl)
 
     # Return list of FICLs
@@ -862,7 +862,7 @@ def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FIC
                     objects=[-1],
                     pixscale=[-1, -1],
                 )
-                pre_logger.info(f"FICL {ficl} - adding.")
+                pre_logger.info(f"FICL {ficl}: Adding.")
                 ficls.append(ficl)
 
     # Return list of FICLs
@@ -1159,14 +1159,10 @@ def get_path(
         path_z = misc.get_path_obj(path_like=path.replace("{z}", "z"))
 
         # Return option that exists
-        if path_c.exists():
-            return path_c
-        elif path_z.exists():
+        if path_z.exists():
             return path_z
         else:
-            raise FileNotFoundError(
-                f"Input file '{name}' found with neither 'drc' nor 'drz'."
-            )
+            return path_c
 
     # Return resolved path object
     return misc.get_path_obj(path_like=path)
@@ -1292,13 +1288,6 @@ def get_settings(
     galfit_path: Path | None = None,
     initialized: bool | None = None,
 ) -> tuple[RuntimeSettings, ScienceSettings]:
-    # Create a temporary logger
-    pre_log_file = tempfile.NamedTemporaryFile()
-    base_logger = logs.create_logger(filename=pre_log_file.name)
-    global pre_logger
-    pre_logger = logging.getLogger("CONFIG")
-    pre_logger.info("Loading runtime settings.")
-
     # Get CLI settings as dict from passed parameters
     cli_settings = locals()
 
@@ -1306,8 +1295,15 @@ def get_settings(
     if config_path is None:
         file_settings = {}
     else:
-        pre_logger.info(f"Loading runtime settings from {config_path}.")
         file_settings = yaml.safe_load(open(config_path, mode="r"))
+
+    # Create a temporary logger
+    pre_log_file = tempfile.NamedTemporaryFile()
+    log_level = get_priority_setting("log_level", cli_settings, file_settings)
+    base_logger = logs.create_logger(filename=pre_log_file.name, level=log_level)
+    global pre_logger
+    pre_logger = logging.getLogger("CONFIG")
+    pre_logger.info("Loading runtime settings.")
 
     # Get runtime and science settings from file and CLI settings
     runtime_settings = get_runtime_settings(cli_settings, file_settings)
