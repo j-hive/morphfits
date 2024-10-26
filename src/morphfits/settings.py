@@ -347,6 +347,23 @@ class RuntimeSettings(BaseModel):
         for root_name in self.roots.__dict__:
             settings["roots"][root_name] = str(self.roots.__dict__[root_name])
 
+        # Add run details
+        settings["date_time"] = self.date_time
+        settings["run_number"] = self.run_number
+        settings["progress_bar"] = self.progress_bar
+        settings["log_level"] = self.log_level
+        settings["process_count"] = self.process_count
+        settings["process_id"] = self.process_id
+
+        # Add morphology wrapper as a str
+        if self.morphology is not None:
+            if isinstance(self.morphology, GALFITSettings):
+                settings["morphology"] = "GALFIT"
+            elif isinstance(self.morphology, ImcascadeSettings):
+                settings["morphology"] = "imcascade"
+            else:
+                settings["morphology"] = "pysersic"
+
         # Add stages as a list of stages ran
         if self.stages is not None:
             settings["stages"] = []
@@ -360,23 +377,6 @@ class RuntimeSettings(BaseModel):
             for product in self.remake.__dict__:
                 if self.remake.__dict__[product]:
                     settings["remake"].append(product)
-
-        # Add morphology wrapper as a str
-        if self.morphology is not None:
-            if isinstance(self.morphology, GALFITSettings):
-                settings["morphology"] = "GALFIT"
-            elif isinstance(self.morphology, ImcascadeSettings):
-                settings["morphology"] = "imcascade"
-            else:
-                settings["morphology"] = "pysersic"
-
-        # Add run details
-        settings["date_time"] = self.date_time
-        settings["run_number"] = self.run_number
-        settings["process_count"] = self.process_count
-        settings["process_id"] = self.process_id
-        settings["progress_bar"] = self.progress_bar
-        settings["log_level"] = self.log_level
 
         # Add FICLs as a list of dicts
         settings["ficls"] = []
