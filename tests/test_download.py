@@ -4,7 +4,7 @@
 # Imports
 
 
-from morphfits import download
+from morphfits import initialize
 
 
 # Tests

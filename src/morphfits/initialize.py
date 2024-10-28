@@ -13,13 +13,15 @@ References
 import logging
 import gzip
 import shutil
+import tempfile, os
 from urllib import request
 from pathlib import Path
 import csv
 
 from tqdm import tqdm
 
-from morphfits import ROOT, settings
+from . import settings
+from .settings import RuntimeSettings
 
 
 # Constants
@@ -42,11 +44,6 @@ LIST_DJA_ENDPOINT = "index.csv"
 """
 
 
-LIST_DJA_PATH = ROOT / "index.csv"
-"""Path to downloaded filelist CSV.
-"""
-
-
 logger = logging.getLogger("DOWNLOAD")
 """Logger object for this module.
 """
@@ -63,16 +60,16 @@ def get_dja_list() -> dict[str, dict]:
     dict[str, dict]
         DJA file list as a dictionary with details indexed by filename.
     """
+    # Create temporary file to store index CSV
+    temp_csv = tempfile.NamedTemporaryFile(delete=False)
 
     # Download file list CSV from DJA index
     logger.info("Downloading file list from DJA.")
-    request.urlretrieve(
-        url=BASE_URL + "/" + LIST_DJA_ENDPOINT, filename=str(LIST_DJA_PATH)
-    )
+    request.urlretrieve(url=BASE_URL + "/" + LIST_DJA_ENDPOINT, filename=temp_csv.name)
 
     # Add each file and corresponding details to a dictionary
     list_dja = {}
-    with open(LIST_DJA_PATH, mode="r", newline="") as csv_file:
+    with open(temp_csv.name, mode="r", newline="") as csv_file:
         reader = csv.reader(csv_file)
         skipped_headers = False
         for line in reader:
@@ -88,12 +85,13 @@ def get_dja_list() -> dict[str, dict]:
             }
 
     # Delete CSV and return dictionary
-    LIST_DJA_PATH.unlink()
+    temp_csv.close()
+    os.unlink(temp_csv.name)
     return list_dja
 
 
 def get_download_list(
-    morphfits_config: settings.RuntimeSettings,
+    runtime_settings: RuntimeSettings,
     list_dja: dict[str, dict],
     overwrite: bool = False,
 ) -> list[tuple[str, str]]:
@@ -101,7 +99,7 @@ def get_download_list(
 
     Parameters
     ----------
-    morphfits_config : config.MorphFITSConfig
+    runtime_settings : RuntimeSettings
         Configuration object for this program run.
     list_dja : dict[str, dict]
         DJA file list as a dictionary with details indexed by filename.
@@ -117,72 +115,42 @@ def get_download_list(
     # Get filenames of all required files from configuration
     logger.info("Getting list of files to download from configuration.")
     list_download = []
-    for ficl in morphfits_config.ficls:
+    for ficl in runtime_settings.ficls:
         # Get required destination paths for FICL
         required_paths: list[Path] = [
             settings.get_path(
-                name="input_segmap",
-                input_root=morphfits_config.input_root,
-                field=ficl.field,
-                image_version=ficl.image_version,
+                name="input_segmap", path_settings=runtime_settings.roots, ficl=ficl
             ),
             settings.get_path(
-                name="input_catalog",
-                input_root=morphfits_config.input_root,
-                field=ficl.field,
-                image_version=ficl.image_version,
+                name="input_catalog", path_settings=runtime_settings.roots, ficl=ficl
             ),
             settings.get_path(
-                name="exposure",
-                input_root=morphfits_config.input_root,
-                field=ficl.field,
-                image_version=ficl.image_version,
-                filter=ficl.filter,
+                name="exposure", path_settings=runtime_settings.roots, ficl=ficl
             ),
             Path(
                 str(
                     settings.get_path(
-                        name="exposure",
-                        input_root=morphfits_config.input_root,
-                        field=ficl.field,
-                        image_version=ficl.image_version,
-                        filter=ficl.filter,
+                        name="exposure", path_settings=runtime_settings.roots, ficl=ficl
                     )
                 ).replace("drc", "drz")
             ).resolve(),
             settings.get_path(
-                name="science",
-                input_root=morphfits_config.input_root,
-                field=ficl.field,
-                image_version=ficl.image_version,
-                filter=ficl.filter,
+                name="science", path_settings=runtime_settings.roots, ficl=ficl
             ),
             Path(
                 str(
                     settings.get_path(
-                        name="science",
-                        input_root=morphfits_config.input_root,
-                        field=ficl.field,
-                        image_version=ficl.image_version,
-                        filter=ficl.filter,
+                        name="science", path_settings=runtime_settings.roots, ficl=ficl
                     )
                 ).replace("drc", "drz")
             ).resolve(),
             settings.get_path(
-                name="weights",
-                input_root=morphfits_config.input_root,
-                field=ficl.field,
-                image_version=ficl.image_version,
-                filter=ficl.filter,
+                name="weights", path_settings=runtime_settings.roots, ficl=ficl
             ),
             Path(
                 str(
                     settings.get_path(
-                        name="weights",
-                        input_root=morphfits_config.input_root,
-                        field=ficl.field,
-                        image_version=ficl.image_version,
-                        filter=ficl.filter,
+                        name="weights", path_settings=runtime_settings.roots, ficl=ficl
                     )
                 ).replace("drc", "drz")
             ).resolve(),
@@ -306,17 +274,17 @@ def download_files(
         logger.info(f"Downloaded '{filename}' ({size_file}).")
 
 
-def unzip_files(morphfits_config: settings.RuntimeSettings):
+def unzip_files(runtime_settings: RuntimeSettings):
     """Unzip downloaded files.
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
+    runtime_settings : RuntimeSettings
         Configuration object for this program run.
     """
     # Get list of paths to zipped files
     logger.info("Getting list of files to unzip.")
-    list_zip = get_zip_list(node=morphfits_config.input_root)
+    list_zip = get_zip_list(node=runtime_settings.roots.input)
 
     # Get list of zipped files to unzip and return if there are none
     n_zip = len(list_zip)
@@ -355,17 +323,15 @@ def unzip_files(morphfits_config: settings.RuntimeSettings):
     logger.info(f"Unzipped {n_zip} files ({str_total_original} -> {str_total_new}).")
 
 
-def main(
-    morphfits_config: settings.RuntimeSettings,
-    skip_download: bool = False,
-    skip_unzip: bool = False,
+def initialize(
+    runtime_settings: RuntimeSettings,
     overwrite: bool = False,
 ):
     """Identify, download, and unzip files from the DJA archive for given FICLs.
 
     Parameters
     ----------
-    morphfits_config : config.MorphFITSConfig
+    runtime_settings : RuntimeSettings
         Configuration object for this program run.
     skip_download : bool, optional
         Skip downloading files, i.e. only unzip files, by default False.
@@ -375,13 +341,11 @@ def main(
         Overwrite existing input files with new downloads, by default False.
     """
     list_dja = get_dja_list()
-    list_download = get_download_list(
-        morphfits_config=morphfits_config, list_dja=list_dja, overwrite=overwrite
-    )
+    list_download = get_download_list(runtime_settings, list_dja, overwrite)
     if not skip_download:
         if len(list_download) > 0:
-            download_files(list_download=list_download, list_dja=list_dja)
+            download_files(list_download, list_dja)
         else:
             logger.info("No files to download.")
     if not skip_unzip:
-        unzip_files(morphfits_config=morphfits_config)
+        unzip_files(runtime_settings)

@@ -10,7 +10,7 @@ from typing import Annotated, Optional, List
 
 import typer
 
-from . import download, plot, products, settings
+from . import initialize, plot, products, settings
 from .wrappers import galfit
 from .utils import logs
 
@@ -401,7 +401,7 @@ def galwrap(
         )
 
     # Unzip zipped files
-    # download.unzip_files(path_settings=runtime_settings.roots)
+    # download.unzip_files()
 
     # Create product files
     products.make_all(runtime_settings=runtime_settings)
@@ -460,6 +460,7 @@ def pysersic():
 
 
 @app.command(
+    name="initialize",
     short_help="Download and unzip input files from the DJA archive.",
     help="Download input files required for a morphology fitting run, "
     + "unzip them, and organize them as per the MorphFITS directory structure. "
@@ -470,9 +471,10 @@ def pysersic():
     + "For further details, consult the README.",
     rich_help_panel="Tools",
 )
-def download(
+def initialize_command(
+    
     config_path: Annotated[
-        typer.FileText,
+        Optional[typer.FileText],
         typer.Option(
             "--config",
             "-c",
@@ -484,16 +486,69 @@ def download(
             resolve_path=True,
         ),
     ] = None,
+    morphfits_root: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--root",
+            "-r",
+            help="Path to MorphFITS filesystem root.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
     input_root: Annotated[
         Optional[Path],
         typer.Option(
             "--input",
             "-i",
-            help="Path to root input directory. Must be set here or in --config-path.",
+            help="Path to root input directory.",
             rich_help_panel="Paths",
+            exists=True,
             file_okay=False,
             show_default=False,
             resolve_path=True,
+        ),
+    ] = None,
+    output_root: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output",
+            help="Path to root output directory.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+            writable=True,
+        ),
+    ] = None,
+    product_root: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--product",
+            help="Path to root products directory.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+            writable=True,
+        ),
+    ] = None,
+    run_root: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--run",
+            help="Path to root runs directory.",
+            rich_help_panel="Paths",
+            exists=True,
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+            writable=True,
         ),
     ] = None,
     fields: Annotated[
@@ -516,6 +571,16 @@ def download(
             show_default=False,
         ),
     ] = None,
+    catalog_versions: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--catalog-version",
+            "-C",
+            help="Catalog versions over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
     filters: Annotated[
         Optional[List[str]],
         typer.Option(
@@ -526,33 +591,41 @@ def download(
             show_default=False,
         ),
     ] = None,
-    skip_download: Annotated[
-        Optional[bool],
-        typer.Option(
-            "--skip-download",
-            help="Skip downloading files (only unzip existing files).",
-            rich_help_panel="Stages",
-            show_default=False,
-        ),
-    ] = False,
     skip_unzip: Annotated[
         Optional[bool],
         typer.Option(
             "--skip-unzip",
-            help="Skip unzipping files (only download files).",
+            help="Skip unzipping any zipped observation files.",
             rich_help_panel="Stages",
-            show_default=False,
+            is_flag=True,
         ),
-    ] = False,
-    overwrite: Annotated[
+    ] = None,
+    remake_feedfiles: Annotated[
         Optional[bool],
         typer.Option(
-            "--overwrite",
-            help="Overwrite existing downloads.",
-            rich_help_panel="Stages",
+            "--remake-feedfiles",
+            help="Remake GALFIT feedfiles and overwrite existing.",
+            rich_help_panel="Products",
+            is_flag=True,
+        ),
+    ] = None,
+    log_level: Annotated[
+        Optional[str],
+        typer.Option(
+            "--log-level",
+            help="Logging level at which to write logs to file, "
+            + "one of the standard Python levels.",
             show_default=False,
         ),
-    ] = False,
+    ] = None,
+    progress_bar: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--progress",
+            help="Display progress as a loading bar and suppress per-object logging.",
+            is_flag=True,
+        ),
+    ] = None,
 ):
     # Create configuration object
     morphfits_config = settings.create_config(
@@ -571,7 +644,7 @@ def download(
     logger = logging.getLogger("MORPHFITS")
 
     # Download and unzip files
-    download.main(
+    initialize.main(
         morphfits_config=morphfits_config,
         skip_download=skip_download,
         skip_unzip=skip_unzip,
