@@ -207,13 +207,18 @@ class ProductSettings(BaseModel):
 class GALFITSettings(BaseModel):
     binary: Path
 
+    def _name():
+        return "galfit"
+
 
 class ImcascadeSettings(BaseModel):
-    pass
+    def _name():
+        return "imcascade"
 
 
 class PysersicSettings(BaseModel):
-    pass
+    def _name():
+        return "pysersic"
 
 
 class PathSettings(BaseModel):
@@ -640,11 +645,12 @@ def get_path_settings(cli_settings: dict, file_settings: dict) -> PathSettings:
     initialized = cli_settings["initialized"]
 
     # Get either path objects or None
-    root = get_priority_path("morphfits_root", cli_settings, file_settings)
-    input = get_priority_path("input_root", cli_settings, file_settings)
-    output = get_priority_path("output_root", cli_settings, file_settings)
-    product = get_priority_path("product_root", cli_settings, file_settings)
-    run = get_priority_path("run_root", cli_settings, file_settings)
+    settings_pack = [cli_settings, file_settings]
+    root = get_priority_path("morphfits_root", *settings_pack)
+    input = get_priority_path("input_root", *settings_pack)
+    output = get_priority_path("output_root", *settings_pack)
+    product = get_priority_path("product_root", *settings_pack)
+    run = get_priority_path("run_root", *settings_pack)
 
     # Input root must be set
     if input is None:
@@ -693,11 +699,12 @@ def get_ficls(
     last_object: int | None,
 ) -> list[FICL]:
     # Get preferred FICLO settings
-    fields = get_priority_setting("fields", cli_settings, file_settings)
-    imvers = get_priority_setting("image_versions", cli_settings, file_settings)
-    catvers = get_priority_setting("catalog_versions", cli_settings, file_settings)
-    filters = get_priority_setting("filters", cli_settings, file_settings)
-    objects = get_priority_setting("objects", cli_settings, file_settings)
+    settings_pack = [cli_settings, file_settings]
+    fields = get_priority_setting("fields", *settings_pack)
+    imvers = get_priority_setting("image_versions", *settings_pack)
+    catvers = get_priority_setting("catalog_versions", *settings_pack)
+    filters = get_priority_setting("filters", *settings_pack)
+    objects = get_priority_setting("objects", *settings_pack)
 
     # Display settings to be searched for from input
     log_str = "Searching for missing settings -"
@@ -839,9 +846,10 @@ def get_ficls(
 
 def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FICL]:
     # Get preferred FIL settings
-    fields = get_priority_setting("fields", cli_settings, file_settings)
-    imvers = get_priority_setting("image_versions", cli_settings, file_settings)
-    filters = get_priority_setting("filters", cli_settings, file_settings)
+    settings_pack = [cli_settings, file_settings]
+    fields = get_priority_setting("fields", *settings_pack)
+    imvers = get_priority_setting("image_versions", *settings_pack)
+    filters = get_priority_setting("filters", *settings_pack)
 
     # NOTE Terminates if any of FIL unset, in future can implement discovery
     if (fields is None) or (imvers is None) or (filters is None):
@@ -894,13 +902,14 @@ def get_stage_settings(cli_settings: dict, file_settings: dict) -> StageSettings
         return
 
     # Get skip stage flags from CLI call or YAML file
-    unzip = get_priority_stage("unzip", cli_settings, file_settings)
-    product = get_priority_stage("product", cli_settings, file_settings)
-    morphology = get_priority_stage("morphology", cli_settings, file_settings)
-    catalog = get_priority_stage("catalog", cli_settings, file_settings)
-    histogram = get_priority_stage("histogram", cli_settings, file_settings)
-    plot = get_priority_stage("plot", cli_settings, file_settings)
-    cleanup = get_priority_stage("cleanup", cli_settings, file_settings)
+    settings_pack = [cli_settings, file_settings]
+    unzip = get_priority_stage("unzip", *settings_pack)
+    product = get_priority_stage("product", *settings_pack)
+    morphology = get_priority_stage("morphology", *settings_pack)
+    catalog = get_priority_stage("catalog", *settings_pack)
+    histogram = get_priority_stage("histogram", *settings_pack)
+    plot = get_priority_stage("plot", *settings_pack)
+    cleanup = get_priority_stage("cleanup", *settings_pack)
 
     # Create object dict from settings that have been set
     # Set attributes which may be None at this point, if they are set
@@ -933,12 +942,13 @@ def get_product_settings(
         return
 
     # Get remake product flags from CLI call or YAML file
-    remake_all = get_priority_remake("all", cli_settings, file_settings)
-    stamps = get_priority_remake("stamps", cli_settings, file_settings)
-    sigmas = get_priority_remake("sigmas", cli_settings, file_settings)
-    psfs = get_priority_remake("psfs", cli_settings, file_settings)
-    masks = get_priority_remake("masks", cli_settings, file_settings)
-    others = get_priority_remake("others", cli_settings, file_settings)
+    settings_pack = [cli_settings, file_settings]
+    remake_all = get_priority_remake("all", *settings_pack)
+    stamps = get_priority_remake("stamps", *settings_pack)
+    sigmas = get_priority_remake("sigmas", *settings_pack)
+    psfs = get_priority_remake("psfs", *settings_pack)
+    masks = get_priority_remake("masks", *settings_pack)
+    others = get_priority_remake("others", *settings_pack)
 
     # Create object dict from settings that have been set
     # Set attributes which may be None at this point, if they are set
@@ -1172,17 +1182,20 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
     # Get initialized flag from parameter passed from main command
     initialized = cli_settings["initialized"]
 
+    # Get settings list to unpack for function calls
+    settings_pack = [cli_settings, file_settings]
+
     # Get root paths
-    roots = get_path_settings(cli_settings, file_settings)
+    roots = get_path_settings(*settings_pack)
 
     # Get primitive type runtime setting attributes
     date_time = datetime.now()
-    progress_bar = get_priority_setting("progress_bar", cli_settings, file_settings)
-    log_level = get_priority_setting("log_level", cli_settings, file_settings)
-    process_count = get_priority_setting("batch_n_process", cli_settings, file_settings)
-    process_id = get_priority_setting("batch_process_id", cli_settings, file_settings)
-    first_object = get_priority_setting("first_object", cli_settings, file_settings)
-    last_object = get_priority_setting("last_object", cli_settings, file_settings)
+    progress_bar = get_priority_setting("progress_bar", *settings_pack)
+    log_level = get_priority_setting("log_level", *settings_pack)
+    process_count = get_priority_setting("batch_n_process", *settings_pack)
+    process_id = get_priority_setting("batch_process_id", *settings_pack)
+    first_object = get_priority_setting("first_object", *settings_pack)
+    last_object = get_priority_setting("last_object", *settings_pack)
 
     # Validate batch mode settings
     validate_batch_settings(process_count, process_id, first_object, last_object)
@@ -1199,19 +1212,19 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
             last_object=last_object,
         )
     else:
-        ficls = get_ficls_to_initialize(cli_settings, file_settings)
+        ficls = get_ficls_to_initialize(*settings_pack)
 
     # Get run number from field and date time
     run_number = get_run_number(roots, ficls[0].field, date_time)
 
     # Get list of stages to run
-    stages = get_stage_settings(cli_settings, file_settings)
+    stages = get_stage_settings(*settings_pack)
 
     # Get list of products to remake
-    remake = get_product_settings(cli_settings, file_settings)
+    remake = get_product_settings(*settings_pack)
 
     # Get settings for morphology fitter
-    morphology = get_morphology_settings(cli_settings, file_settings)
+    morphology = get_morphology_settings(*settings_pack)
 
     # Create object dict from settings that have been set
     ## Set attributes which have definitely been set by this point
@@ -1297,17 +1310,20 @@ def get_settings(
     else:
         file_settings = yaml.safe_load(open(config_path, mode="r"))
 
+    # Get settings list to unpack for function calls
+    settings_pack = [cli_settings, file_settings]
+
     # Create a temporary logger
     pre_log_file = tempfile.NamedTemporaryFile()
-    log_level = get_priority_setting("log_level", cli_settings, file_settings)
+    log_level = get_priority_setting("log_level", *settings_pack)
     base_logger = logs.create_logger(filename=pre_log_file.name, level=log_level)
     global pre_logger
     pre_logger = logging.getLogger("CONFIG")
     pre_logger.info("Loading runtime settings.")
 
     # Get runtime and science settings from file and CLI settings
-    runtime_settings = get_runtime_settings(cli_settings, file_settings)
-    science_settings = get_science_settings(cli_settings, file_settings)
+    runtime_settings = get_runtime_settings(*settings_pack)
+    science_settings = get_science_settings(*settings_pack)
 
     # Remove pre-program loggers
     base_logger.handlers.clear()
