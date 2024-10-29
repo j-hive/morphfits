@@ -721,7 +721,7 @@ def make_ficl_masks(
     logger.info(f"FICL {ficl}: Made masks - skipped {skipped} objects.")
 
 
-## Main
+## Primary
 
 
 def make_all(runtime_settings: RuntimeSettings):

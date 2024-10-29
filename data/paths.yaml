@@ -18,8 +18,12 @@ morphfits_root:
           weights: "{F}-{I}-{L}_dr{z}_wht.fits"
   output_root:
     _name: "[o]"
-    catalog: catalog.csv
-    histogram: histogram.png
+    output_catalogs:
+      _name: catalogs
+      catalog: "{D}_{N}_catalog.csv"
+    output_histograms:
+      _name: histograms
+      histogram: "{D}_{N}_histogram.png"
     output_f:
       _name: "{F}"
       output_fi:

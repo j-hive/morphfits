@@ -14,8 +14,7 @@ from astropy.table import Table
 from jinja2 import Template
 from tqdm import tqdm
 
-from . import GALFIT_DATA_ROOT
-from .. import settings
+from .. import settings, DATA_ROOT
 from ..settings import RuntimeSettings
 from ..utils import science
 
@@ -25,6 +24,17 @@ from ..utils import science
 
 logger = logging.getLogger("GALWRAP")
 """Logging object for this module.
+"""
+
+
+GALFIT_DATA_ROOT = DATA_ROOT / "galfit"
+"""Path to root directory of GALFIT data standards.
+"""
+
+
+GALWRAP_OUTPUT_START = "GALWRAP OUTPUT:\n"
+GALWRAP_OUTPUT_END = "RETURN CODE: "
+"""Strings to append to the start and end of a GALFIT output log file.
 """
 
 
@@ -129,6 +139,7 @@ def run_galfit(
 
     # Write captured output to GALFIT log file
     with open(galfit_log_path, mode="w") as galfit_log_file:
+        galfit_log_file.write(GALWRAP_OUTPUT_START)
         for line in galfit_lines:
             galfit_log_file.write(line + "\n")
 
@@ -155,11 +166,11 @@ def run_galfit(
 
     # Write return code to end of GALFIT log file
     with open(galfit_log_path, mode="a") as galfit_log_file:
-        galfit_log_file.write(f"RETURN CODE: {return_code}")
+        galfit_log_file.write(GALWRAP_OUTPUT_END + str(return_code))
 
     # Raise error if GALFIT did not return successful
     if return_code != 0:
-        raise RuntimeError(f"failed with return code {return_code}.")
+        raise RuntimeError(f"failed with return code {return_code}")
 
 
 ## Multiple FICLs
@@ -179,9 +190,10 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
             input_catalog = Table.read(input_catalog_path)
 
             # Open science frame
-            science_image, science_headers = science.get_fits_data(
+            science_path = settings.get_path(
                 name="science", path_settings=runtime_settings.roots, ficl=ficl
             )
+            science_image, science_headers = science.get_fits_data(science_path)
             zeropoint = science.get_zeropoint(headers=science_headers)
 
             # Get iterable object list, displaying progress bar if flagged
@@ -203,8 +215,8 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
             try:
                 # Get path to feedfile
                 feedfile_path = settings.get_path(
-                    name="mask",
-                    runtime_settings=runtime_settings,
+                    name="feedfile",
+                    path_settings=runtime_settings.roots,
                     ficl=ficl,
                     object=object,
                 )
@@ -264,17 +276,18 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
                     continue
 
                 # Get science details for object
+                stamp_path = settings.get_path(
+                    name="stamp",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                stamp_image, stamp_headers = science.get_fits_data(stamp_path)
                 image_size = science.get_image_size(
                     input_catalog=input_catalog,
                     catalog_version=ficl.catalog_version,
                     object=object,
                     pixscale=ficl.pixscale,
-                )
-                stamp_image, stamp_headers = science.get_fits_data(
-                    name="stamp",
-                    path_settings=runtime_settings.roots,
-                    ficl=ficl,
-                    object=object,
                 )
                 magnitude = science.get_magnitude(
                     runtime_settings=runtime_settings, headers=stamp_headers
@@ -353,7 +366,7 @@ def run_all_galfit(runtime_settings: RuntimeSettings):
                 )
 
                 # Skip previously fitted objects unless requested
-                if model_path.exists() and not runtime_settings.stages.morphology:
+                if model_path.exists() and not runtime_settings.morphology.refit:
                     if not runtime_settings.progress_bar:
                         logger.debug(f"Object {object}: Skipping GALFIT - exists.")
                     skipped += 1
@@ -402,6 +415,7 @@ def run_all_galfit(runtime_settings: RuntimeSettings):
                     constraints_path=constraints_path,
                     feedfile_path=feedfile_path,
                     galfit_log_path=galfit_log_path,
+                    galfit_model_path=model_path,
                 )
 
             # Catch any errors and skip to next object

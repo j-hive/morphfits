@@ -1,4 +1,5 @@
-"""Utility functions for writing MorphFITS catalogs.
+"""Write a morphology fitting catalog for the current MorphFITS program
+execution.
 """
 
 # Imports
@@ -6,22 +7,33 @@
 
 import logging
 import re
-import csv
-from datetime import datetime as dt
+from datetime import datetime
 from pathlib import Path
 
-from astropy.io import fits
+import pandas as pd
+from tqdm import tqdm
+
+from . import settings
+from .settings import (
+    FICL,
+    RuntimeSettings,
+    GALFITSettings,
+    ImcascadeSettings,
+    PysersicSettings,
+)
+from .utils import misc, science
+from .wrappers.galfit import GALWRAP_OUTPUT_END
 
 
 # Constants
 
 
 logger = logging.getLogger("CATALOG")
-"""Logger object for this module.
+"""Logging object for this module.
 """
 
 
-HEADERS = [
+CATALOG_COLUMN_NAMES = [
     "use",
     "field",
     "image version",
@@ -46,7 +58,36 @@ HEADERS = [
     "axis ratio error",
     "position angle error",
 ]
-"""Headers for the MorphFITS catalog CSV.
+"""Column names for a MorphFITS catalog.
+"""
+
+CATALOG_ROW_TYPE = tuple[
+    bool,
+    str,
+    str,
+    str,
+    str,
+    int,
+    int,
+    int,
+    int,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+]
+PARAMETER_LIST_TYPE = tuple[float, float, float, float, float, float, float]
+"""Column types for a MorphFITS catalog, and parameter types, as types.
 """
 
 
@@ -54,6 +95,12 @@ GALFIT_LOG_REGEX = "[\*|\[]?\d{1,10}[\.]\d{1,2}[\*|\[]?"
 GALFIT_LOG_FLOAT_REGEX = "\d{1,10}[\.]\d{1,2}"
 """Regex for seven .2f numbers found in GALFIT logs, which may or may not be
 enveloped by * or [] characters.
+"""
+
+
+GALFIT_PARAMETER_FAIL_INDICATORS = ["[", "]", "*"]
+"""Characters encasing a parameter in the GALFIT fit log file if its convergence
+failed.
 """
 
 
@@ -96,31 +143,17 @@ README.md
 # Functions
 
 
-def get_galfit_flags(
-    output_root: Path,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    object: int,
-) -> int:
+## Tertiary
+
+
+def get_galfit_flags(model_path: Path) -> int:
     """Calculate and return the GALFIT flags bitmask from the raised flags
     during a GALFIT fitting for a given FICLO with a successful fit.
 
     Parameters
     ----------
-    output_root : Path
-        Path to root MorphFITS output directory.
-    field : str
-        Field of observation.
-    image_version : str
-        Version of image processing used for observation.
-    catalog_version : str
-        Version of cataloging used for observation.
-    filter : str
-        Filter used for observation.
-    object : int
-        Integer ID of object in catalog for observation.
+    model_path : Path
+        Path to model FITS file.
 
     Returns
     -------
@@ -128,18 +161,7 @@ def get_galfit_flags(
         Flag bitmask for raised GALFIT flags.
     """
     # Get headers from model FITS file
-    model_path = paths.get_path(
-        "model_galfit",
-        output_root=output_root,
-        field=field,
-        image_version=image_version,
-        catalog_version=catalog_version,
-        filter=filter,
-        object=object,
-    )
-    model = fits.open(model_path)
-    headers = model[2].header
-    model.close()
+    image, headers = science.get_fits_data(path=model_path, hdu=2)
 
     # Add to flags bitmask from 'FLAGS' header
     flags = 0
@@ -149,51 +171,27 @@ def get_galfit_flags(
     return flags
 
 
-def get_galfit_parameters(
-    output_root: Path,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    object: int,
-) -> list[str]:
+def get_parameters(
+    fit_log_path: Path,
+) -> tuple[int, int, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]:
     """Find and return the fitted parameters from a GALFIT log for a given FICLO with a
     successful fit.
 
     Parameters
     ----------
-    output_root : Path
-        Path to root MorphFITS output directory.
-    field : str
-        Field of observation.
-    image_version : str
-        Version of image processing used for observation.
-    catalog_version : str
-        Version of cataloging used for observation.
-    filter : str
-        Filter used for observation.
-    object : int
-        Integer ID of object in catalog for observation.
+    fit_log_path : Path
+        Path to GalWrap output fitting log file.
 
     Returns
     -------
-    tuple[int, list[str], list[str]]
-        Parameter convergence bitmask, list of GALFIT-fitted float
-        morphology parameters with .2f precision, as strings, and their
-        associated errors, also as strings.
+    tuple[int, int, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]
+        Fitting return code, parameter convergence bitmask, .2f precision
+        morphology fitting parameters as strings, and their associated errors
+        as strings.
     """
     # Open log as text file
-    log_path = paths.get_path(
-        "log_galfit",
-        output_root=output_root,
-        field=field,
-        image_version=image_version,
-        catalog_version=catalog_version,
-        filter=filter,
-        object=object,
-    )
-    with open(log_path, mode="r") as log_file:
-        lines = log_file.readlines()
+    with open(fit_log_path, mode="r") as fit_log_file:
+        lines = fit_log_file.readlines()
 
         # Find parameters and errors from specific line in log via regex
         i = 0
@@ -204,26 +202,38 @@ def get_galfit_parameters(
                 and ("Input image" in lines[i + 2])
             ):
                 raw_parameters = re.findall(GALFIT_LOG_REGEX, lines[i + 7])
-                errors = re.findall(GALFIT_LOG_FLOAT_REGEX, lines[i + 8])
+                raw_errors = re.findall(GALFIT_LOG_FLOAT_REGEX, lines[i + 8])
                 break
             else:
                 i += 1
 
-        # Strip parameters of non-digit characters
-        convergence, parameters = 0, []
-        for i in range(len(raw_parameters)):
-            parameter = raw_parameters[i]
+        # Find return code from last line
+        return_code = int(lines[-1].split(GALWRAP_OUTPUT_END)[-1].strip())
 
-            #### Only care about convergence of size, sersic, and ratio
-            if i in [3, 4, 5]:
-                for fail_indicator in ["[", "]", "*"]:
-                    if fail_indicator in parameter:
-                        convergence += 2 ** (i - 3)
-                        parameter = parameter.replace(fail_indicator, "")
-            parameters.append(parameter)
+    # Strip parameters of non-digit characters
+    convergence, parameters, errors = 0, [], []
+    for i in range(len(raw_parameters)):
+        parameter = raw_parameters[i]
+
+        # Only care about convergence of size, sersic, and ratio
+        if i in [3, 4, 5]:
+            for fail_indicator in GALFIT_PARAMETER_FAIL_INDICATORS:
+                if fail_indicator in parameter:
+                    convergence += 2 ** (i - 3)
+                    parameter = parameter.replace(fail_indicator, "")
+
+        # Try casting to float and add to lists
+        try:
+            parameters.append(float(parameter))
+        except:
+            parameters.append(None)
+        try:
+            errors.append(float(raw_errors[i]))
+        except:
+            errors.append(None)
 
     # Return convergence bitmask, cleaned parameters, and their errors
-    return convergence, parameters, errors
+    return return_code, convergence, parameters, errors
 
 
 def get_usability(return_code: int, flags: int, convergence: int) -> bool:
@@ -249,288 +259,250 @@ def get_usability(return_code: int, flags: int, convergence: int) -> bool:
     return (return_code == 0) and ((flags & FAIL) == 0) and (convergence == 0)
 
 
-def get_csv_row(
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
+## Secondary
+
+
+def get_catalog_row(
+    model_path: Path,
+    fit_log_path: Path,
+    ficl: FICL,
     object: int,
-    return_code: int,
-    use: bool | None = None,
-    flags: int | None = None,
-    convergence: int | None = None,
-    parameters: list[str] | None = None,
-    errors: list[str] | None = None,
-) -> list[str]:
-    """Get a row of CSV data as a list of strings, with which to append to or
-    update a MorphFITS catalog.
+    morphology: GALFITSettings | ImcascadeSettings | PysersicSettings,
+) -> CATALOG_ROW_TYPE:
+    # Fitting log should always exist
+    if fit_log_path.exists():
+        # Get catalog row from model file and fit log file if successful fitting
+        if model_path.exists():
+            # Get catalog row for each morphology
+            if isinstance(morphology, GALFITSettings):
+                # Get GALFIT flags from model file
+                flags = get_galfit_flags(model_path)
 
-    Parameters
-    ----------
-    field : str
-        Field of observation.
-    image_version : str
-        Version of image processing used for observation.
-    catalog_version : str
-        Version of cataloging used for observation.
-    filter : str
-        Filter used for observation.
-    object : int
-        Integer ID of object in catalog for observation.
-    return_code : int
-        Integer return code of GALFIT when run in a subprocess.
-    use : bool | None, optional
-        Whether the model is recommended for use, by default None (failed fit).
-    flags : int | None, optional
-        Integer bitmask of raised GALFIT flags as found in the model headers, by
-        default None (failed fit).
-    convergence : int | None, optional
-        Integer bitmask of primary fitting parameters which failed to converge,
-        by default None (failed fit).
-    parameters : list[str] | None, optional
-        List of GALFIT-fitted float morphology parameters with .2f precision, as
-        strings, by default None (failed fit).
-    errors : list[str] | None, optional
-        List of .2f precision float errors associated with above morphology
-        parameters, also as strings, by default None (failed fit).
+                # Get fitting parameters from fit log file
+                return_code, convergence, parameters, errors = get_parameters(
+                    fit_log_path
+                )
 
-    Returns
-    -------
-    list[str]
-        _description_
-    """
-    # If use flag has not been passed, the fit failed
-    # Thus, return a row of empty data
-    if use is None:
-        csv_row = [
-            False,
-            field,
-            image_version,
-            catalog_version,
-            filter,
-            object,
-            return_code,
-            0,
-            0,
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-        ]
-        return csv_row
+                # Get fitting usability from return code, flags, and convergence
+                use = get_usability(return_code, flags, convergence)
 
-    # If the use flag has been passed, the fit was successful
+                # Make catalog row from data
+                catalog_row = [
+                    use,
+                    ficl.field,
+                    ficl.image_version,
+                    ficl.catalog_version,
+                    ficl.filter,
+                    object,
+                    return_code,
+                    flags,
+                    convergence,
+                ]
+
+                # Add each parameter and error to row
+                for parameter in parameters:
+                    catalog_row.append(parameter)
+                for error in errors:
+                    catalog_row.append(error)
+
+            elif isinstance(morphology, ImcascadeSettings):
+                raise NotImplementedError("unimplemented morphology method")
+            elif isinstance(morphology, PysersicSettings):
+                raise NotImplementedError("unimplemented morphology method")
+            else:
+                raise NotImplementedError("unknown morphology method")
+
+        # Get catalog row with empty parameters if failed fitting
+        else:
+            # Get return code from fit log file
+            with open(fit_log_path, mode="r") as fit_log_file:
+                lines = fit_log_file.readlines()
+
+                # Return code should be last line of file
+                return_code = None
+                for line in lines:
+                    if GALWRAP_OUTPUT_END in line:
+                        return_code = int(line.split(GALWRAP_OUTPUT_END)[-1].strip())
+
+                # Raise error if return code not found from file
+                if return_code is None:
+                    raise FileNotFoundError("return code missing")
+
+            # Set catalog row as failed row with no parameters
+            catalog_row = [
+                False,
+                ficl.field,
+                ficl.image_version,
+                ficl.catalog_version,
+                ficl.filter,
+                object,
+                return_code,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ]
+
+        # Return catalog row
+        return tuple(catalog_row)
+
+    # Raise error if fitting log does not exist
     else:
-        csv_row = [
-            use,
-            field,
-            image_version,
-            catalog_version,
-            filter,
-            object,
-            return_code,
-            flags,
-            convergence,
-        ]
-        for parameter in parameters:
-            csv_row.append(parameter)
-        for error in errors:
-            csv_row.append(error)
-        return csv_row
+        raise FileNotFoundError(f"fit log missing")
 
 
-## Main
+## Primary
 
 
-def write(
-    output_root: Path,
-    run_root: Path,
-    datetime: dt,
-    run_number: int,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    object: int,
-    return_code: int,
-):
-    """Append to the run catalog and update the main catalog after each FICLO
-    fitting.
+def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
+    # Initialize catalog as dict with empty columns
+    catalog_data = {name: [] for name in CATALOG_COLUMN_NAMES}
 
-    Parameters
-    ----------
-    output_root : Path
-        Path to root MorphFITS output directory.
-    run_root : Path
-        Path to root MorphFITS runs directory.
-    datetime : datetime
-        Datetime of start of run.
-    run_number : int
-        Number of run in runs directory when other runs have the same datetime.
-    field : str
-        Field of observation.
-    image_version : str
-        Version of image processing used for observation.
-    catalog_version : str
-        Version of cataloging used for observation.
-    filter : str
-        Filter used for observation.
-    object : int
-        Integer ID of object in catalog for observation.
-    return_code : int
-        Integer return code of GALFIT when run in a subprocess.
-    """
-    # Create CSV if missing and write headers
-    path_catalog_run = paths.get_path(
-        "run_catalog",
-        run_root=run_root,
-        field=field,
-        datetime=datetime,
-        run_number=run_number,
-    )
-    path_catalog_morphfits = paths.get_path("catalog", output_root=output_root)
-    if not path_catalog_run.exists():
-        with open(path_catalog_run, mode="w", newline="") as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow(HEADERS)
-    if not path_catalog_morphfits.exists():
-        with open(path_catalog_morphfits, mode="w", newline="") as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow(HEADERS)
+    # Iterate over each FICL in this run
+    for ficl in runtime_settings.ficls:
+        # Try to get parameters for FICL
+        try:
+            logger.info(f"FICL {ficl}: Reading fitting parameters.")
 
-    # Copy fit parameters from GALFIT log for successful runs
-    galfit_log_path = paths.get_path(
-        "log_galfit",
-        output_root=output_root,
-        field=field,
-        image_version=image_version,
-        catalog_version=catalog_version,
-        filter=filter,
-        object=object,
-    )
-    galfit_model_path = paths.get_path(
-        "model_galfit",
-        output_root=output_root,
-        field=field,
-        image_version=image_version,
-        catalog_version=catalog_version,
-        filter=filter,
-        object=object,
+            # Get iterable object list, displaying progress bar if flagged
+            if runtime_settings.progress_bar:
+                objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
+            else:
+                objects = ficl.objects
+
+        # Catch any errors reading parameters for FICL
+        except Exception as e:
+            logger.error(f"FICL {ficl}: Skipping reading parameters - {e}.")
+
+        # Iterate over each object
+        for object in objects:
+            # Try running GALFIT for object
+            try:
+                # Get path to model and log
+                model_path = settings.get_path(
+                    name="model_" + runtime_settings.morphology._name(),
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                fit_log_path = settings.get_path(
+                    name="log_" + runtime_settings.morphology._name(),
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+
+                # Get row of catalog data from model file and fit log file
+                catalog_row = get_catalog_row(
+                    model_path=model_path,
+                    fit_log_path=fit_log_path,
+                    ficl=ficl,
+                    object=object,
+                    morphology=runtime_settings.morphology,
+                )
+
+                # Iterate over each datum in row of catalog data
+                for i in range(len(CATALOG_COLUMN_NAMES)):
+                    # Add datum to corresponding list in catalog data dict
+                    catalog_data[CATALOG_COLUMN_NAMES[i]].append(catalog_row[i])
+
+            # Catch any errors and skip to next object
+            except Exception as e:
+                if not runtime_settings.progress_bar:
+                    logger.debug(f"Object {object}: Skipping reading parameters - {e}.")
+                continue
+
+    # Return catalog as data frame
+    return pd.DataFrame(catalog_data)
+
+
+def make_run(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
+    # Get path to run catalog file
+    run_catalog_path = settings.get_path(
+        name="run_catalog",
+        runtime_settings=runtime_settings,
+        field=runtime_settings.ficls[0].field,
     )
 
-    ## Write parameters from GALFIT log for successful runs
-    if (galfit_model_path.exists()) and (galfit_log_path.exists()):
-        ### Get flags from model
-        flags = get_galfit_flags(
-            output_root=output_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
+    # Write run catalog CSV file
+    catalog_data.to_csv(run_catalog_path, index=False)
+
+
+def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
+    # Get path to merge catalog file and its parent directory
+    catalog_path = settings.get_path(name="catalog", runtime_settings=runtime_settings)
+    catalog_dir_path = settings.get_path(
+        name="output_catalogs", runtime_settings=runtime_settings
+    )
+
+    #
+    previous_catalog_paths = sorted(list(catalog_dir_path.iterdir()))
+
+    #
+    if len(previous_catalog_paths) > 0:
+        # Get first catalog sorted by date time and run number, as data frame
+        merge_catalog = pd.read_csv(previous_catalog_paths[0])
+
+        #
+        previous_catalog_paths.pop(0)
+        while len(previous_catalog_paths) > 0:
+            previous_catalog = pd.read_csv(previous_catalog_paths[0])
+            merge_catalog = pd.concat([merge_catalog, previous_catalog], join="inner")
+            previous_catalog_paths.pop(0)
+
+        #
+        merge_catalog = pd.concat([merge_catalog, previous_catalog], join="inner")
+        merge_catalog = merge_catalog.dropna()
+        merge_catalog = merge_catalog.drop_duplicates(
+            subset=["field", "image version", "catalog version", "filter", "object"],
+            keep="last",
         )
 
-        ### Get parameters from GALFIT log
-        convergence, parameters, errors = get_galfit_parameters(
-            output_root=output_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-
-        ### Get validity ("success") from return code, flags, and convergence
-        use = get_usability(
-            return_code=return_code, flags=flags, convergence=convergence
-        )
-
-        ### Get data as a CSV row of strings
-        csv_row = get_csv_row(
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-            return_code=return_code,
-            use=use,
-            flags=flags,
-            convergence=convergence,
-            parameters=parameters,
-            errors=errors,
-        )
-
-        ### Write row to run catalog
-        with open(path_catalog_run, mode="a", newline="") as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow(csv_row)
-
-        ### Read main catalog
-        rewrite = False
-        main_catalog = []
-        with open(path_catalog_morphfits, mode="r", newline="") as csv_file:
-            reader = csv.reader(csv_file)
-            reading_headers = True
-            for in_row in reader:
-                #### Skip headers
-                if reading_headers:
-                    reading_headers = False
-                    continue
-
-                #### Skip rows with invalid information
-                if len(in_row) < 6:
-                    logger.warning(
-                        f"MorphFITS catalog row {in_row} improperly formatted, removing."
-                    )
-                    continue
-
-                #### Update row with same FICLO
-                if (
-                    (field == in_row[1])
-                    and (image_version == in_row[2])
-                    and (catalog_version == in_row[3])
-                    and (filter == in_row[4])
-                    and (str(object) == in_row[5])
-                ):
-                    main_catalog.append(csv_row)
-                    rewrite = True
-                #### Nothing else changes
-                else:
-                    main_catalog.append(in_row)
-            #### If row not yet added, FICLO not yet in catalog, thus add
-            if not rewrite:
-                main_catalog.append(csv_row)
-
-        ### Rewrite main catalog
-        with open(path_catalog_morphfits, mode="w", newline="") as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow(HEADERS)
-            for out_row in main_catalog:
-                writer.writerow(out_row)
-
-    ## Write empty row for failures
+    #
     else:
-        ### Get data as a CSV row of strings
-        csv_row = get_csv_row(
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-            return_code=return_code,
-        )
+        merge_catalog = catalog_data
 
-        ### Write row to run catalog
-        with open(path_catalog_run, mode="a", newline="") as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow(csv_row)
+    #
+    merge_catalog.to_csv(catalog_path, index=False)
+
+
+# get all parameters from every ficlo log in run
+# write to run catalog
+# open every past merge catalog to update this parameter list
+# write to merge catalog
+def make_all(runtime_settings: RuntimeSettings):
+    #
+    try:
+        logger.info("Reading fitting output files for catalog.")
+        catalog_data = get_data(runtime_settings)
+
+    #
+    except Exception as e:
+        logger.error(f"Skipping making catalogs - {e}.")
+        return
+
+    #
+    try:
+        logger.info("Making catalog for run.")
+        make_run(runtime_settings, catalog_data)
+    except Exception as e:
+        logger.error(f"Skipping making run catalog - {e}.")
+
+    #
+    try:
+        logger.info("Making new merge catalog.")
+        make_merge(runtime_settings, catalog_data)
+    except Exception as e:
+        logger.error(f"Skipping making merge catalog - {e}.")

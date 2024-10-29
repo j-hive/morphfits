@@ -10,7 +10,7 @@ from typing import Annotated, Optional, List
 
 import typer
 
-from . import initialize, plot, products, settings
+from . import catalog, initialize, plot, products, settings
 from .wrappers import galfit
 from .utils import logs
 
@@ -335,6 +335,14 @@ def galwrap(
             is_flag=True,
         ),
     ] = None,
+    refit: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--refit",
+            help="Re-run morphology fitting on previously fitted objects.",
+            is_flag=True,
+        ),
+    ] = None,
     log_level: Annotated[
         Optional[str],
         typer.Option(
@@ -386,6 +394,7 @@ def galwrap(
         remake_masks=remake_masks,
         remake_others=remake_feedfiles,
         morphology="galfit",
+        refit=refit,
         galfit_path=galfit_path,
         initialized=True,
     )
@@ -401,28 +410,40 @@ def galwrap(
         )
 
     # Unzip zipped files
-    # download.unzip_files()
+    # if runtime_settings.stages.unzip:
+    #     download.unzip_files()
 
     # Create product files
-    products.make_all(runtime_settings=runtime_settings)
+    if runtime_settings.stages.product:
+        products.make_all(runtime_settings=runtime_settings)
 
     # Create feedfiles
-    # galfit.make_all_feedfiles(runtime_settings=runtime_settings)
+    if runtime_settings.stages.product:
+        galfit.make_all_feedfiles(runtime_settings=runtime_settings)
 
     # Run GALFIT
-    # galfit.run_all_galfit(runtime_settings=runtime_settings)
+    if runtime_settings.stages.morphology:
+        galfit.run_all_galfit(runtime_settings=runtime_settings)
 
     # Write catalogs
+    if runtime_settings.stages.catalog:
+        catalog.make_all(runtime_settings=runtime_settings)
 
     # Plot histograms
+    # if runtime_settings.stages.histogram:
+    #     plot.make_all_histograms(runtime_settings=runtime_settings)
 
     # Plot models
+    # if runtime_settings.stages.plot:
+    #     plot.make_all_models(runtime_settings=runtime_settings)
 
     # Remove empty directories
-    runtime_settings.cleanup_directories()
+    if runtime_settings.stages.cleanup:
+        runtime_settings.cleanup_directories()
 
     # Write configuration to file in run directory
-    runtime_settings.write()
+    if runtime_settings.stages.cleanup:
+        runtime_settings.write()
 
     # Exit
     logger.info("Exiting MorphFITS.")
@@ -472,7 +493,6 @@ def pysersic():
     rich_help_panel="Tools",
 )
 def initialize_command(
-    
     config_path: Annotated[
         Optional[typer.FileText],
         typer.Option(

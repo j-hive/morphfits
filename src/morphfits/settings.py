@@ -30,8 +30,8 @@ from .utils import logs, misc, science
 # Constants
 
 
-pre_logger = logging.getLogger("CONFIG")
-logger = logging.getLogger("CONFIG")
+pre_logger = logging.getLogger("SETTINGS")
+logger = logging.getLogger("SETTINGS")
 """Logger objects for this module.
 """
 
@@ -110,7 +110,12 @@ DEFAULT_RUN_DIRECTORY_NAME = "runs"
 
 
 REQUIRED_INPUT_DIRECTORIES = ["input_psfs", "input_fil"]
-REQUIRED_OUTPUT_DIRECTORIES = ["output_ficlo", "product_ficlo"]
+REQUIRED_OUTPUT_DIRECTORIES = [
+    "output_catalogs",
+    "output_histograms",
+    "output_ficlo",
+    "product_ficlo",
+]
 """Path names of required directories for MorphFITS to run on a FICLO.
 """
 
@@ -205,19 +210,24 @@ class ProductSettings(BaseModel):
 
 
 class GALFITSettings(BaseModel):
+    refit: bool = False
     binary: Path
 
-    def _name():
+    def _name(self):
         return "galfit"
 
 
 class ImcascadeSettings(BaseModel):
-    def _name():
+    refit: bool = False
+
+    def _name(self):
         return "imcascade"
 
 
 class PysersicSettings(BaseModel):
-    def _name():
+    refit: bool = False
+
+    def _name(self):
         return "pysersic"
 
 
@@ -290,7 +300,7 @@ class RuntimeSettings(BaseModel):
             level=self.log_level,
         )
         global logger
-        logger = logging.getLogger("CONFIG")
+        logger = logging.getLogger("SETTINGS")
 
     def cleanup_directories(self):
         logger.info("Removing failed directories.")
@@ -430,8 +440,11 @@ def get_priority_stage(
         return not cli_settings[f"skip_{stage}"]
 
     # Return flag from YAML file if set
-    elif ("stages" in file_settings) and (stage in file_settings["stages"]):
-        return True
+    elif "stages" in file_settings:
+        if stage in file_settings["stages"]:
+            return True
+        else:
+            return False
 
     # Return None if unset
 
@@ -993,8 +1006,19 @@ def get_morphology_settings(
                 raise KeyError("Terminating - GALFIT binary not provided.")
             elif not galfit_path.exists():
                 raise FileNotFoundError("Terminating - GALFIT binary not found.")
-            else:
-                return GALFITSettings(binary=galfit_path)
+
+            # Get refit flag from CLI or YAML
+            refit = get_priority_setting("refit", cli_settings, file_settings)
+
+            # Create object dict from settings that have been set
+            # Set attributes which may be None at this point, if they are set
+            # Otherwise they will be set to default as per the class definition
+            galfit_dict = {"binary":galfit_path}
+            if refit is not None:
+                galfit_dict["refit"] = refit
+            
+            # Return GALFIT settings object
+            return GALFITSettings(**galfit_dict)
 
         case "imcascade":
             raise NotImplementedError("Terminating - not yet implemented.")
@@ -1079,7 +1103,7 @@ def get_path(
     """
     # Raise error if path name unknown
     if name not in FILESYSTEM:
-        raise FileNotFoundError(f"Unknown MorphFITS path name {name}.")
+        raise FileNotFoundError(f"unknown MorphFITS path name {name}")
 
     # Resolve parameters
     # Prefer directly passed parameters to those from settings objects
@@ -1298,6 +1322,7 @@ def get_settings(
     remake_masks: bool | None = None,
     remake_others: bool | None = None,
     morphology: str | None = None,
+    refit: bool | None = None,
     galfit_path: Path | None = None,
     initialized: bool | None = None,
 ) -> tuple[RuntimeSettings, ScienceSettings]:
@@ -1318,7 +1343,7 @@ def get_settings(
     log_level = get_priority_setting("log_level", *settings_pack)
     base_logger = logs.create_logger(filename=pre_log_file.name, level=log_level)
     global pre_logger
-    pre_logger = logging.getLogger("CONFIG")
+    pre_logger = logging.getLogger("SETTINGS")
     pre_logger.info("Loading runtime settings.")
 
     # Get runtime and science settings from file and CLI settings

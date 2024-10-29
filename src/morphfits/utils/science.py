@@ -33,7 +33,9 @@ KRON_SCALE_FACTOR = 3
 # Functions
 
 
-def get_fits_data(path: Path) -> tuple[np.ndarray, fits.Header]:
+def get_fits_data(
+    path: Path, hdu: str | int = "PRIMARY"
+) -> tuple[np.ndarray, fits.Header]:
     """Get the image data and headers from a FITS file.
 
     Closes the file so the limit of open files is not encountered.
@@ -42,6 +44,8 @@ def get_fits_data(path: Path) -> tuple[np.ndarray, fits.Header]:
     ----------
     path : Path
         Path to FITS file.
+    hdu : int | str, optional
+        Index in HDU list at which to retrieve HDU, by default "PRIMARY".
 
     Returns
     -------
@@ -52,7 +56,7 @@ def get_fits_data(path: Path) -> tuple[np.ndarray, fits.Header]:
     fits_file = fits.open(path)
 
     # Get data and headers from file
-    image, headers = fits_file["PRIMARY"].data, fits_file["PRIMARY"].header
+    image, headers = fits_file[hdu].data, fits_file[hdu].header
 
     # Close file and return
     fits_file.close()
@@ -174,7 +178,7 @@ def get_image_size(
 
 
 def get_magnitude(runtime_settings, headers: fits.Header) -> float:
-    return headers["SURFACE_BRIGHTNESS"]
+    return headers["SB"]
 
 
 def get_half_light_radius(input_catalog: Table, object: int) -> float:
