@@ -423,7 +423,7 @@ def galwrap(
 
     # Run GALFIT
     if runtime_settings.stages.morphology:
-        galfit.run_all_galfit(runtime_settings=runtime_settings)
+        galfit.run_all(runtime_settings=runtime_settings)
 
     # Write catalogs
     if runtime_settings.stages.catalog:

@@ -106,7 +106,7 @@ def make_feedfile(
         feedfile.write(lines)
 
 
-def run_galfit(
+def run(
     galfit_path: Path,
     product_ficlo_path: Path,
     constraints_path: Path,
@@ -329,7 +329,7 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
         logger.info(f"FICL {ficl}: Made feedfiles - skipped {skipped} objects.")
 
 
-def run_all_galfit(runtime_settings: RuntimeSettings):
+def run_all(runtime_settings: RuntimeSettings):
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
         # Try to get objects from FICL
@@ -409,7 +409,7 @@ def run_all_galfit(runtime_settings: RuntimeSettings):
                     logger.debug(
                         f"Object {object}: Running GALFIT, filter: {ficl.filter}."
                     )
-                run_galfit(
+                run(
                     galfit_path=runtime_settings.morphology.binary,
                     product_ficlo_path=product_ficlo_path,
                     constraints_path=constraints_path,
