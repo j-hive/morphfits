@@ -7,7 +7,6 @@ execution.
 
 import logging
 import re
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -21,7 +20,7 @@ from .settings import (
     ImcascadeSettings,
     PysersicSettings,
 )
-from .utils import misc, science
+from .utils import science
 from .wrappers.galfit import GALWRAP_OUTPUT_END
 
 
@@ -447,60 +446,57 @@ def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
         name="output_catalogs", runtime_settings=runtime_settings
     )
 
-    #
+    # Get paths to previous merge catalog files, sorted by filename
     previous_catalog_paths = sorted(list(catalog_dir_path.iterdir()))
 
-    #
+    # Merge all previous catalogs if any exist
+    # Remove any failed fit rows and refit rows, except the most recent fit
     if len(previous_catalog_paths) > 0:
         # Get first catalog sorted by date time and run number, as data frame
-        merge_catalog = pd.read_csv(previous_catalog_paths[0])
+        merge_catalog = pd.read_csv(previous_catalog_paths[0]).dropna()
 
-        #
+        # Merge every previous merge catalog file sorted by date time and run
         previous_catalog_paths.pop(0)
         while len(previous_catalog_paths) > 0:
-            previous_catalog = pd.read_csv(previous_catalog_paths[0])
+            previous_catalog = pd.read_csv(previous_catalog_paths[0]).dropna()
             merge_catalog = pd.concat([merge_catalog, previous_catalog], join="inner")
             previous_catalog_paths.pop(0)
 
-        #
-        merge_catalog = pd.concat([merge_catalog, previous_catalog], join="inner")
+        # Merge current run's catalog data and remove empty rows and refit rows
+        merge_catalog = pd.concat([merge_catalog, catalog_data], join="inner")
         merge_catalog = merge_catalog.dropna()
         merge_catalog = merge_catalog.drop_duplicates(
             subset=["field", "image version", "catalog version", "filter", "object"],
             keep="last",
         )
 
-    #
+    # Write current run's catalog data if no previous catalogs exist
     else:
         merge_catalog = catalog_data
 
-    #
+    # Write merge catalog to CSV file
     merge_catalog.to_csv(catalog_path, index=False)
 
 
-# get all parameters from every ficlo log in run
-# write to run catalog
-# open every past merge catalog to update this parameter list
-# write to merge catalog
 def make_all(runtime_settings: RuntimeSettings):
-    #
+    # Get all fit parameters from output files for this run as a dict of lists
     try:
         logger.info("Reading fitting output files for catalog.")
         catalog_data = get_data(runtime_settings)
 
-    #
+    # Catch any errors and return if un-skip-able error getting data
     except Exception as e:
         logger.error(f"Skipping making catalogs - {e}.")
         return
 
-    #
+    # Try writing catalog for run
     try:
         logger.info("Making catalog for run.")
         make_run(runtime_settings, catalog_data)
     except Exception as e:
         logger.error(f"Skipping making run catalog - {e}.")
 
-    #
+    # Try writing new aggregate catalog based on previous catalogs
     try:
         logger.info("Making new merge catalog.")
         make_merge(runtime_settings, catalog_data)
