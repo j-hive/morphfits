@@ -12,8 +12,8 @@ References
 
 import logging
 import gzip
-import shutil
-import tempfile, os
+import shutil, os
+import tempfile
 from urllib import request
 from pathlib import Path
 import csv
@@ -22,330 +22,260 @@ from tqdm import tqdm
 
 from . import settings
 from .settings import RuntimeSettings
+from .utils import misc
 
 
 # Constants
 
 
+logger = logging.getLogger("INITIALIZE")
+"""Logger object for this module.
+"""
+
+
+DJA_BASE_URL = "https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7"
+"""URL to DJA v7 Mosaics archive.
+"""
+
+
+DJA_INDEX_ENDPOINT = "index.csv"
+"""Endpoint for filelist CSV.
+"""
+
+
+# Classes
+
+
 class DownloadProgressBar(tqdm):
+    """Progress bar for download progress display."""
+
     def update_to(self, b=1, bsize=1, tsize=None):
         if tsize is not None:
             self.total = tsize
         self.update(b * bsize - self.n)
 
 
-BASE_URL = "https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7"
-"""URL to DJA v7 Mosaics archive.
-"""
-
-
-LIST_DJA_ENDPOINT = "index.csv"
-"""Endpoint for filelist CSV.
-"""
-
-
-logger = logging.getLogger("DOWNLOAD")
-"""Logger object for this module.
-"""
-
-
 # Functions
 
 
-def get_dja_list() -> dict[str, dict]:
-    """Get the DJA file list as a dictionary with details indexed by filename.
+## Secondary
 
-    Returns
-    -------
-    dict[str, dict]
-        DJA file list as a dictionary with details indexed by filename.
-    """
-    # Create temporary file to store index CSV
-    temp_csv = tempfile.NamedTemporaryFile(delete=False)
 
-    # Download file list CSV from DJA index
+## Primary
+
+
+def get_dja_catalog() -> dict[str, str]:
     logger.info("Downloading file list from DJA.")
-    request.urlretrieve(url=BASE_URL + "/" + LIST_DJA_ENDPOINT, filename=temp_csv.name)
 
-    # Add each file and corresponding details to a dictionary
-    list_dja = {}
-    with open(temp_csv.name, mode="r", newline="") as csv_file:
-        reader = csv.reader(csv_file)
-        skipped_headers = False
-        for line in reader:
-            if not skipped_headers:
-                skipped_headers = True
-                continue
-            if "fits" not in line[2]:
-                continue
-            list_dja[line[2]] = {
-                "datetime": line[0],
-                "filesize": float(line[1]),
-                "download": line[3].split(">")[1].split("<")[0].strip(),
-            }
+    # Try to get DJA file list
+    try:
+        # Create temporary file to store index CSV
+        temp_csv = tempfile.NamedTemporaryFile(delete=False)
 
-    # Delete CSV and return dictionary
-    temp_csv.close()
-    os.unlink(temp_csv.name)
-    return list_dja
+        # Get table with links to all files from DJA archive
+        request.urlretrieve(
+            url=f"{DJA_BASE_URL}/{DJA_INDEX_ENDPOINT}", filename=temp_csv.name
+        )
+
+        # Get dict mapping filenames to their download links
+        dja_catalog = {}
+        with open(temp_csv.name, mode="r", newline="") as csv_file:
+            reader = csv.reader(csv_file)
+
+            # Iterate over each line in CSV
+            skipped_headers = False
+            for line in reader:
+                # Skip header row
+                if not skipped_headers:
+                    skipped_headers = True
+                    continue
+
+                # Skip non-FITS files
+                if "fits" not in line[2]:
+                    continue
+
+                # Add file name and link to dict
+                dja_catalog[line[2]] = line[3].split(">")[1].split("<")[0].strip()
+
+        # Delete CSV and return dictionary
+        temp_csv.close()
+        os.unlink(temp_csv.name)
+        return dja_catalog
+
+    # Catch any errors and return empty dict
+    except Exception as e:
+        logger.error(f"Skipped downloading DJA file list - {e}.")
+        return {}
 
 
-def get_download_list(
-    runtime_settings: RuntimeSettings,
-    list_dja: dict[str, dict],
-    overwrite: bool = False,
-) -> list[tuple[str, str]]:
-    """Get a list of the required filenames for the given FICLs.
+def get_src_dest(
+    runtime_settings: RuntimeSettings, dja_catalog: dict[str, str]
+) -> dict[str, str]:
+    #
+    src_dest = {}
 
-    Parameters
-    ----------
-    runtime_settings : RuntimeSettings
-        Configuration object for this program run.
-    list_dja : dict[str, dict]
-        DJA file list as a dictionary with details indexed by filename.
-    overwrite : bool, optional
-        Overwrite existing input files with new downloads, by default False.
-
-    Returns
-    -------
-    list[tuple[str, str]]
-        List of source URLs and their corresponding destination paths.
-    """
-
-    # Get filenames of all required files from configuration
-    logger.info("Getting list of files to download from configuration.")
-    list_download = []
+    #
     for ficl in runtime_settings.ficls:
-        # Get required destination paths for FICL
-        required_paths: list[Path] = [
-            settings.get_path(
-                name="input_segmap", path_settings=runtime_settings.roots, ficl=ficl
-            ),
-            settings.get_path(
-                name="input_catalog", path_settings=runtime_settings.roots, ficl=ficl
-            ),
-            settings.get_path(
-                name="exposure", path_settings=runtime_settings.roots, ficl=ficl
-            ),
-            Path(
-                str(
-                    settings.get_path(
-                        name="exposure", path_settings=runtime_settings.roots, ficl=ficl
-                    )
-                ).replace("drc", "drz")
-            ).resolve(),
-            settings.get_path(
-                name="science", path_settings=runtime_settings.roots, ficl=ficl
-            ),
-            Path(
-                str(
-                    settings.get_path(
-                        name="science", path_settings=runtime_settings.roots, ficl=ficl
-                    )
-                ).replace("drc", "drz")
-            ).resolve(),
-            settings.get_path(
-                name="weights", path_settings=runtime_settings.roots, ficl=ficl
-            ),
-            Path(
-                str(
-                    settings.get_path(
-                        name="weights", path_settings=runtime_settings.roots, ficl=ficl
-                    )
-                ).replace("drc", "drz")
-            ).resolve(),
+        #
+        input_segmap_path = settings.get_path(
+            name="input_segmap", path_settings=runtime_settings.roots, ficl=ficl
+        )
+        input_catalog_path = settings.get_path(
+            name="input_catalog", path_settings=runtime_settings.roots, ficl=ficl
+        )
+        exposure_path = settings.get_path(
+            name="exposure", path_settings=runtime_settings.roots, ficl=ficl
+        )
+        science_path = settings.get_path(
+            name="science", path_settings=runtime_settings.roots, ficl=ficl
+        )
+        weights_path = settings.get_path(
+            name="weights", path_settings=runtime_settings.roots, ficl=ficl
+        )
+        alt_exposure_path = Path(str(exposure_path).replace("drc", "drz")).resolve()
+        alt_science_path = Path(str(science_path).replace("drc", "drz")).resolve()
+        alt_weights_path = Path(str(weights_path).replace("drc", "drz")).resolve()
+        required_files = [
+            input_segmap_path,
+            input_catalog_path,
+            exposure_path,
+            science_path,
+            weights_path,
+            alt_exposure_path,
+            alt_science_path,
+            alt_weights_path,
         ]
 
-        # Search for required files from DJA list
-        for file in list_dja:
-            for required_path in required_paths:
-                if required_path.name in file:
-                    ## Skip file if already in download list
-                    source = BASE_URL + "/" + file
-                    destination = "/".join(str(required_path).split("/")[:-1] + [file])
-                    list_sources = [download[0] for download in list_download]
-                    if source in list_sources:
-                        continue
+        #
+        for required_file in required_files:
+            #
+            if required_file.name in dja_catalog:
+                src = dja_catalog[required_file.name]
+                dest = str(required_file)
+                src_dest[src] = dest
 
-                    ## Skip existing files if not overwrite mode
-                    zip_path = Path(str(required_path) + ".gz").resolve()
-                    if required_path.exists() and not overwrite:
-                        logger.info(
-                            f"Skipping existing unzipped file '{required_path.name}'."
-                        )
-                        continue
-                    if zip_path.exists() and not overwrite:
-                        logger.info(
-                            f"Skipping existing compressed file '{zip_path.name}'."
-                        )
-                        continue
+            #
+            elif required_file.name + ".gz" in dja_catalog:
+                src = dja_catalog[required_file.name + ".gz"]
+                dest = str(required_file) + ".gz"
+                src_dest[src] = dest
 
-                    ## Add filename otherwise as source/destination pair
-                    list_download.append((source, destination))
+            #
+            else:
+                if "drz" not in required_file.name:
+                    logger.warning(
+                        f"Skipping download for {required_file.name} "
+                        + "- failed to locate in DJA catalog."
+                    )
 
-    return list_download
+    #
+    return src_dest
 
 
-def get_zip_list(node: Path) -> list[Path]:
-    """Get a list of paths to files with the extension '.gz' under a directory.
+def get_input(src_dest: dict[str, str]):
+    logger.info(f"Downloading {len(src_dest)} files.")
 
-    Parameters
-    ----------
-    node : Path
-        Path to current directory or file.
+    #
+    num_files, total_file_size = 0, 0
+    for src, dest in src_dest.items():
+        #
+        try:
+            #
+            if (Path(dest).exists()) or (Path(dest[:-3]).exists()):
+                num_files += 1
+                raise FileExistsError("exists")
 
-    Returns
-    -------
-    list[Path]
-        List of paths to '.gz' input files.
-    """
-    if ".fits" in node.name:
-        if ".gz" in node.name:
-            return [node]
-        else:
-            return []
-    elif node.is_dir():
-        list_zip = []
-        for child_node in node.iterdir():
-            list_zip += get_zip_list(node=child_node)
-        return list_zip
+            #
+            file_name = src.split("/")[-1]
+            with DownloadProgressBar(
+                unit="B",
+                unit_scale=True,
+                miniters=1,
+                desc=file_name,
+                leave=False,
+            ) as t:
+                request.urlretrieve(url=src, filename=dest, reporthook=t.update_to)
+
+            #
+            file_size = Path(dest).stat().st_size
+            total_file_size += file_size
+            num_files += 1
+            logger.debug(
+                f"Downloaded '{file_name}' "
+                + f"({misc.get_file_size_str(file_size)}) "
+                + f"({num_files+1}/{len(src_dest)})."
+            )
+
+        #
+        except Exception as e:
+            logger.debug(f"Skipping downloading '{Path(dest).name} - {e}.")
+
+    #
+    if num_files > 0:
+        logger.info(
+            f"Downloaded {num_files} files "
+            + f"({misc.get_file_size_str(total_file_size)})."
+        )
     else:
-        return []
+        logger.info("Skipping downloading - FICLs already initialized.")
 
 
-def get_size_str(size_file: float) -> str:
-    """Get a filesize, in MB, as a string with its appropriate size appended.
+def unzip(runtime_settings: RuntimeSettings):
+    logger.info("Unzipping zipped input files.")
 
-    Parameters
-    ----------
-    size_file : float
-        Size of file, in MB.
+    #
+    num_files, total_compressed_size, total_uncompressed_size = 0, 0, 0
 
-    Returns
-    -------
-    str
-        Size rounded to 2 decimal places, with its appropriate size unit.
-    """
-    size_byte = 1024
-    if size_file >= size_byte**2:
-        size_str = str(round(size_file / size_byte**2, 2)) + " TB"
-    elif size_file >= size_byte:
-        size_str = str(round(size_file / size_byte, 2)) + " GB"
+    #
+    for field_dir in misc.get_subdirectories(runtime_settings.roots.input):
+        #
+        if field_dir.name == "psfs":
+            continue
+
+        #
+        for imver_dir in misc.get_subdirectories(field_dir):
+            #
+            for filter_dir in misc.get_subdirectories(imver_dir):
+                #
+                for input_fil_file in filter_dir.iterdir():
+                    #
+                    if ".fits.gz" not in input_fil_file.name:
+                        continue
+
+                    #
+                    compressed_size = input_fil_file.stat().st_size
+
+                    #
+                    input_fil_file_unzipped = Path(str(input_fil_file)[:-3])
+
+                    #
+                    try:
+                        with gzip.open(input_fil_file, mode="rb") as zipped:
+                            with open(input_fil_file_unzipped, mode="wb") as unzipped:
+                                shutil.copyfileobj(zipped, unzipped)
+                        input_fil_file.unlink()
+                    except Exception as e:
+                        logger.error(f"Skipping unzipping {input_fil_file.name} - {e}.")
+
+                    #
+                    uncompressed_size = input_fil_file_unzipped.stat().st_size
+                    logger.info(
+                        f"Unzipped '{input_fil_file_unzipped.name} "
+                        + f"({misc.get_file_size_str(compressed_size)} -> "
+                        + f"{misc.get_file_size_str(uncompressed_size)})."
+                    )
+
+                    #
+                    total_compressed_size += compressed_size
+                    total_uncompressed_size += uncompressed_size
+                    num_files += 1
+
+    #
+    if num_files > 0:
+        logger.info(
+            f"Unzipped {num_files} files "
+            + f"({misc.get_file_size_str(total_compressed_size)} -> "
+            + f"{misc.get_file_size_str(total_uncompressed_size)})."
+        )
     else:
-        size_str = str(round(size_file, 2)) + " MB"
-    return size_str
-
-
-def download_files(
-    list_download: list[tuple[str, str]],
-    list_dja: dict[str, dict],
-):
-    """Download files from DJA.
-
-    Parameters
-    ----------
-    list_download : list[tuple[str, str]]
-        List of source URLs to download from, and their corresponding
-        destination paths.
-    list_dja : dict[str, dict]
-        DJA file list as dictionary indexed by filename.
-    """
-    # Display size of download
-    n_download = len(list_download)
-    megabytes = 0
-    for file in list_download:
-        filename = file[0].split("/")[-1]
-        megabytes += list_dja[filename]["filesize"]
-    size_file = get_size_str(size_file=megabytes)
-    logger.info(f"Downloading {n_download} file(s) ({size_file}).")
-
-    # Download files
-    for url, out in tqdm(list_download, unit="file", leave=False):
-        filename = url.split("/")[-1]
-        with DownloadProgressBar(
-            unit="B",
-            unit_scale=True,
-            miniters=1,
-            desc=filename,
-            leave=False,
-        ) as t:
-            request.urlretrieve(url, filename=out, reporthook=t.update_to)
-        size_file = get_size_str(size_file=list_dja[filename]["filesize"])
-        logger.info(f"Downloaded '{filename}' ({size_file}).")
-
-
-def unzip_files(runtime_settings: RuntimeSettings):
-    """Unzip downloaded files.
-
-    Parameters
-    ----------
-    runtime_settings : RuntimeSettings
-        Configuration object for this program run.
-    """
-    # Get list of paths to zipped files
-    logger.info("Getting list of files to unzip.")
-    list_zip = get_zip_list(node=runtime_settings.roots.input)
-
-    # Get list of zipped files to unzip and return if there are none
-    n_zip = len(list_zip)
-    if n_zip == 0:
-        logger.info("No zipped files to unzip.")
-        return
-
-    # Iterate over each zipped file
-    total_original, total_new = 0, 0
-    logger.info(f"Unzipping {n_zip} file(s).")
-    for zip_path in tqdm(list_zip, unit="file", leave=False):
-        unzip_path = Path(str(zip_path)[:-3]).resolve()
-
-        ## Save original size
-        size_original = zip_path.stat().st_size / 1024**2
-        total_original += size_original
-
-        ## Unzip file and delete zip
-        with gzip.open(zip_path, mode="rb") as zipped:
-            with open(unzip_path, mode="wb") as unzipped:
-                shutil.copyfileobj(zipped, unzipped)
-        zip_path.unlink()
-
-        ## Save new size
-        size_new = unzip_path.stat().st_size / 1024**2
-        total_new += size_new
-
-        # Display decompression size difference
-        str_original = get_size_str(size_file=size_original)
-        str_new = get_size_str(size_file=size_new)
-        logger.info(f"Unzipped '{unzip_path.name}' ({str_original} -> {str_new}).")
-
-    # Display total decompression size difference
-    str_total_original = get_size_str(size_file=total_original)
-    str_total_new = get_size_str(size_file=total_new)
-    logger.info(f"Unzipped {n_zip} files ({str_total_original} -> {str_total_new}).")
-
-
-def initialize(
-    runtime_settings: RuntimeSettings,
-    overwrite: bool = False,
-):
-    """Identify, download, and unzip files from the DJA archive for given FICLs.
-
-    Parameters
-    ----------
-    runtime_settings : RuntimeSettings
-        Configuration object for this program run.
-    skip_download : bool, optional
-        Skip downloading files, i.e. only unzip files, by default False.
-    skip_unzip : bool, optional
-        Skip unzipping files, i.e. only download files, by default False.
-    overwrite : bool, optional
-        Overwrite existing input files with new downloads, by default False.
-    """
-    list_dja = get_dja_list()
-    list_download = get_download_list(runtime_settings, list_dja, overwrite)
-    if not skip_download:
-        if len(list_download) > 0:
-            download_files(list_download, list_dja)
-        else:
-            logger.info("No files to download.")
-    if not skip_unzip:
-        unzip_files(runtime_settings)
+        logger.info("No zipped input files to unzip.")

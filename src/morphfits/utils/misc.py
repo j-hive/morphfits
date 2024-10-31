@@ -158,3 +158,30 @@ def get_unique(items: list) -> list:
 
     # Return unique items in list, sorted
     return sorted(set(not_nan_items))
+
+
+def get_file_size_str(file_size: int | float) -> str:
+    """Get a filesize, in B, as a string with its appropriate size appended.
+
+    Parameters
+    ----------
+    size_file : int | float
+        Size of file, in B.
+
+    Returns
+    -------
+    str
+        Size rounded to 2 decimal places, with its appropriate size unit.
+    """
+    # Get number of bytes in each unit level
+    kilobyte = 2**10
+    megabyte = kilobyte**2
+    gigabyte = kilobyte**3
+
+    # Get file size in appropriate unit rounded to 2 decimal places
+    if file_size >= gigabyte:
+        return str(round(file_size / gigabyte, 2)) + " GB"
+    elif file_size >= megabyte:
+        return str(round(file_size / megabyte, 2)) + " MB"
+    else:
+        return str(round(file_size / kilobyte, 2)) + " KB"

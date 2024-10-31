@@ -201,34 +201,42 @@ class StageSettings(BaseModel):
     cleanup: bool = True
 
 
-class ProductSettings(BaseModel):
+class RemakeSettings(BaseModel):
     stamps: bool = False
     sigmas: bool = False
     psfs: bool = False
     masks: bool = False
+    morphology: bool = False
+    plots: bool = False
     others: bool = False
 
 
 class GALFITSettings(BaseModel):
-    refit: bool = False
     binary: Path
 
     def _name(self):
         return "galfit"
 
+    def _upper_name(self):
+        return "GALFIT"
+
 
 class ImcascadeSettings(BaseModel):
-    refit: bool = False
 
     def _name(self):
         return "imcascade"
 
+    def _upper_name(self):
+        return "ImCascade"
+
 
 class PysersicSettings(BaseModel):
-    refit: bool = False
 
     def _name(self):
         return "pysersic"
+
+    def _upper_name(self):
+        return "PySersic"
 
 
 class PathSettings(BaseModel):
@@ -249,7 +257,7 @@ class RuntimeSettings(BaseModel):
     progress_bar: bool = False
     log_level: str = logging._levelToName[logging.DEBUG]
     stages: Optional[StageSettings] = None
-    remake: Optional[ProductSettings] = None
+    remake: Optional[RemakeSettings] = None
     morphology: Optional[Union[GALFITSettings, ImcascadeSettings, PysersicSettings]] = (
         None
     )
@@ -335,21 +343,21 @@ class RuntimeSettings(BaseModel):
                 else:
                     required_output_files = REQUIRED_PYSERSIC_OUTPUT_FILES
                 for required_file_name in required_output_files:
-                    # Remove output directory for FICLO if any product missing
-                    product_path = get_path(
+                    # Remove output directory for FICLO if any output missing
+                    output_path = get_path(
                         name=required_file_name,
                         path_settings=self.roots,
                         ficl=ficl,
                         object=object,
                     )
-                    if not product_path.exists():
-                        product_ficlo_path = get_path(
+                    if not output_path.exists():
+                        output_ficlo_path = get_path(
                             name="output_ficlo",
                             path_settings=self.roots,
                             ficl=ficl,
                             object=object,
                         )
-                        shutil.rmtree(product_ficlo_path, ignore_errors=True)
+                        shutil.rmtree(output_ficlo_path, ignore_errors=True)
 
     def write(self):
         logger.info("Recording runtime settings.")
@@ -910,10 +918,6 @@ def get_run_number(path_settings: PathSettings, field: str, date_time: datetime)
 
 
 def get_stage_settings(cli_settings: dict, file_settings: dict) -> StageSettings | None:
-    # Return None if main command is initialize
-    if not cli_settings["initialized"]:
-        return
-
     # Get skip stage flags from CLI call or YAML file
     settings_pack = [cli_settings, file_settings]
     unzip = get_priority_stage("unzip", *settings_pack)
@@ -947,9 +951,9 @@ def get_stage_settings(cli_settings: dict, file_settings: dict) -> StageSettings
     return StageSettings(**stage_dict)
 
 
-def get_product_settings(
+def get_remake_settings(
     cli_settings: dict, file_settings: dict
-) -> ProductSettings | None:
+) -> RemakeSettings | None:
     # Return None if main command is initialize
     if not cli_settings["initialized"]:
         return
@@ -961,6 +965,8 @@ def get_product_settings(
     sigmas = get_priority_remake("sigmas", *settings_pack)
     psfs = get_priority_remake("psfs", *settings_pack)
     masks = get_priority_remake("masks", *settings_pack)
+    morphology = get_priority_remake("morphology", *settings_pack)
+    plots = get_priority_remake("plots", *settings_pack)
     others = get_priority_remake("others", *settings_pack)
 
     # Create object dict from settings that have been set
@@ -972,6 +978,8 @@ def get_product_settings(
         remake_dict["sigmas"] = True
         remake_dict["psfs"] = True
         remake_dict["masks"] = True
+        remake_dict["morphology"] = True
+        remake_dict["plots"] = True
         remake_dict["others"] = True
     if stamps is not None:
         remake_dict["stamps"] = stamps
@@ -981,11 +989,15 @@ def get_product_settings(
         remake_dict["psfs"] = psfs
     if masks is not None:
         remake_dict["masks"] = masks
+    if morphology is not None:
+        remake_dict["morphology"] = morphology
+    if plots is not None:
+        remake_dict["plots"] = plots
     if others is not None:
         remake_dict["others"] = others
 
     # Create and return class instance from settings
-    return ProductSettings(**remake_dict)
+    return RemakeSettings(**remake_dict)
 
 
 def get_morphology_settings(
@@ -1007,18 +1019,8 @@ def get_morphology_settings(
             elif not galfit_path.exists():
                 raise FileNotFoundError("Terminating - GALFIT binary not found.")
 
-            # Get refit flag from CLI or YAML
-            refit = get_priority_setting("refit", cli_settings, file_settings)
-
-            # Create object dict from settings that have been set
-            # Set attributes which may be None at this point, if they are set
-            # Otherwise they will be set to default as per the class definition
-            galfit_dict = {"binary":galfit_path}
-            if refit is not None:
-                galfit_dict["refit"] = refit
-            
             # Return GALFIT settings object
-            return GALFITSettings(**galfit_dict)
+            return GALFITSettings(binary=galfit_path)
 
         case "imcascade":
             raise NotImplementedError("Terminating - not yet implemented.")
@@ -1245,7 +1247,7 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
     stages = get_stage_settings(*settings_pack)
 
     # Get list of products to remake
-    remake = get_product_settings(*settings_pack)
+    remake = get_remake_settings(*settings_pack)
 
     # Get settings for morphology fitter
     morphology = get_morphology_settings(*settings_pack)
@@ -1291,7 +1293,7 @@ def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSett
 
 
 def get_settings(
-    config_path: Path | None = None,
+    settings_path: Path | None = None,
     morphfits_root: Path | None = None,
     input_root: Path | None = None,
     output_root: Path | None = None,
@@ -1320,9 +1322,10 @@ def get_settings(
     remake_sigmas: bool | None = None,
     remake_psfs: bool | None = None,
     remake_masks: bool | None = None,
+    remake_morphology: bool | None = None,
+    remake_plots: bool | None = None,
     remake_others: bool | None = None,
     morphology: str | None = None,
-    refit: bool | None = None,
     galfit_path: Path | None = None,
     initialized: bool | None = None,
 ) -> tuple[RuntimeSettings, ScienceSettings]:
@@ -1330,10 +1333,10 @@ def get_settings(
     cli_settings = locals()
 
     # Get file settings as dict from YAML file
-    if config_path is None:
+    if settings_path is None:
         file_settings = {}
     else:
-        file_settings = yaml.safe_load(open(config_path, mode="r"))
+        file_settings = yaml.safe_load(open(settings_path, mode="r"))
 
     # Get settings list to unpack for function calls
     settings_pack = [cli_settings, file_settings]
@@ -1341,6 +1344,8 @@ def get_settings(
     # Create a temporary logger
     pre_log_file = tempfile.NamedTemporaryFile()
     log_level = get_priority_setting("log_level", *settings_pack)
+    if log_level is None:
+        log_level = "debug"
     base_logger = logs.create_logger(filename=pre_log_file.name, level=log_level)
     global pre_logger
     pre_logger = logging.getLogger("SETTINGS")

@@ -6,6 +6,7 @@ execution.
 
 
 import logging
+import warnings
 import re
 from pathlib import Path
 
@@ -29,6 +30,11 @@ from .wrappers.galfit import GALWRAP_OUTPUT_END
 
 logger = logging.getLogger("CATALOG")
 """Logging object for this module.
+"""
+
+
+warnings.filterwarnings("ignore")
+"""Ignore warnings from pandas.
 """
 
 
@@ -435,6 +441,11 @@ def make_run(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
         field=runtime_settings.ficls[0].field,
     )
 
+    # Skip writing if missing data
+    if len(catalog_data.index) == 0:
+        logger.debug(f"Skipping making run catalog - missing data.")
+        return
+
     # Write run catalog CSV file
     catalog_data.to_csv(run_catalog_path, index=False)
 
@@ -473,6 +484,11 @@ def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
     # Write current run's catalog data if no previous catalogs exist
     else:
         merge_catalog = catalog_data
+
+    # Skip writing if missing data
+    if len(merge_catalog.index) == 0:
+        logger.debug(f"Skipping making merge catalog - missing data.")
+        return
 
     # Write merge catalog to CSV file
     merge_catalog.to_csv(catalog_path, index=False)

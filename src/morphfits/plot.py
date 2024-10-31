@@ -1,25 +1,24 @@
-"""Visualize output data from MorphFITS.
+"""Visualize MorphFITS products and output.
 """
 
 # Imports
 
 
-import gc
 import logging
 from pathlib import Path
-from datetime import datetime as dt
 
 import numpy as np
 import pandas as pd
-from astropy.io import fits
-import matplotlib as mpl
-from matplotlib import pyplot as plt
 from matplotlib import colors as mplc
+from matplotlib import pyplot as plt
+from matplotlib import rcParams as rcp
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from tqdm import tqdm
 
-from .utils import misc
+from . import settings
+from .settings import RuntimeSettings
+from .utils import misc, science
 
 
 # Constants
@@ -28,8 +27,8 @@ from .utils import misc
 ## Logging
 
 
-logger = logging.getLogger("PLOTS")
-"""Logger object for processes from this module.
+logger = logging.getLogger("PLOT")
+"""Logging object for this module.
 """
 
 
@@ -41,23 +40,24 @@ logging.getLogger("PIL").setLevel(100)
 ## Plotting
 
 
-pos = [0.0, 0.008, 0.3, 0.5, 0.7, 1.0]
-colours = [
-    [0, 0, 0],
-    [0, 0, 0],
-    np.array([103, 111, 122]) / 255,
-    np.array([132, 156, 186]) / 255,
-    np.array([250, 203, 115]) / 255,
-    [1, 1, 1],
-]
-colour_names = ["red", "green", "blue"]
+CMAP_COLORS = {
+    "black": {"pos": 0.0, "clr": mplc.to_rgb("#000000")},
+    "black_2": {"pos": 0.008, "clr": mplc.to_rgb("#000000")},
+    "gray": {"pos": 0.3, "clr": mplc.to_rgb("#676f7a")},
+    "blue": {"pos": 0.5, "clr": mplc.to_rgb("#849cba")},
+    "yellow": {"pos": 0.7, "clr": mplc.to_rgb("#facb73")},
+    "white": {"pos": 1.0, "clr": mplc.to_rgb("#ffffff")},
+}
+"""J-HIVE colors mapping their names to their position and RGB values (as a
+fraction of 1) for creating a MPL colormap.
+"""
+
 JHIVE_CMAP = mplc.LinearSegmentedColormap(
     "jhive_cmap",
     {
-        colour_names[i]: [
-            (pos[j], colours[j][i], colours[j][i]) for j in range(len(pos))
-        ]
-        for i in range(3)
+        "red": [(c["pos"], c["clr"][0], c["clr"][0]) for c in CMAP_COLORS.values()],
+        "green": [(c["pos"], c["clr"][1], c["clr"][1]) for c in CMAP_COLORS.values()],
+        "blue": [(c["pos"], c["clr"][2], c["clr"][2]) for c in CMAP_COLORS.values()],
     },
     1024,
 )
@@ -71,89 +71,166 @@ FIGURE_SIZE = (12, 8)
 FIGURE_TITLE_SIZE = 20
 FIGURE_LABEL_SIZE = 12
 TICK_LABEL_SIZE = 8
-mpl.rcParams["figure.facecolor"] = FIGURE_COLOR
-mpl.rcParams["legend.facecolor"] = FIGURE_COLOR
-mpl.rcParams["axes.facecolor"] = FIGURE_COLOR
-mpl.rcParams["axes.edgecolor"] = TEXT_COLOR
-mpl.rcParams["lines.color"] = TEXT_COLOR
-mpl.rcParams["text.color"] = TEXT_COLOR
-mpl.rcParams["figure.figsize"] = FIGURE_SIZE
-mpl.rcParams["figure.titlesize"] = FIGURE_TITLE_SIZE
-mpl.rcParams["figure.labelsize"] = FIGURE_LABEL_SIZE
-mpl.rcParams["image.cmap"] = JHIVE_CMAP
-mpl.rcParams["axes.spines.top"] = False
-mpl.rcParams["axes.spines.right"] = False
-mpl.rcParams["xtick.color"] = TEXT_COLOR
-mpl.rcParams["xtick.labelcolor"] = TEXT_COLOR
-mpl.rcParams["xtick.labelsize"] = TICK_LABEL_SIZE
-mpl.rcParams["ytick.color"] = TEXT_COLOR
-mpl.rcParams["ytick.labelcolor"] = TEXT_COLOR
-mpl.rcParams["ytick.labelsize"] = TICK_LABEL_SIZE
-mpl.rcParams["savefig.bbox"] = "tight"
-mpl.rcParams["savefig.pad_inches"] = 0.1
+rcp["figure.facecolor"] = FIGURE_COLOR
+rcp["legend.facecolor"] = FIGURE_COLOR
+rcp["axes.facecolor"] = FIGURE_COLOR
+rcp["axes.edgecolor"] = TEXT_COLOR
+rcp["lines.color"] = TEXT_COLOR
+rcp["text.color"] = TEXT_COLOR
+rcp["figure.figsize"] = FIGURE_SIZE
+rcp["figure.titlesize"] = FIGURE_TITLE_SIZE
+rcp["figure.labelsize"] = FIGURE_LABEL_SIZE
+rcp["image.cmap"] = JHIVE_CMAP
+rcp["axes.spines.top"] = False
+rcp["axes.spines.right"] = False
+rcp["xtick.color"] = TEXT_COLOR
+rcp["xtick.labelcolor"] = TEXT_COLOR
+rcp["xtick.labelsize"] = TICK_LABEL_SIZE
+rcp["ytick.color"] = TEXT_COLOR
+rcp["ytick.labelcolor"] = TEXT_COLOR
+rcp["ytick.labelsize"] = TICK_LABEL_SIZE
+rcp["savefig.bbox"] = "tight"
+rcp["savefig.pad_inches"] = 0.1
 """Set default matplotlib configurations.
 """
 
 
-LINE_STYLES = [
-    ("solid", "-"),
-    ("dotted", (0, (1, 1))),
-    ("dashed", (0, (5, 5))),
-    ("dashdotted", (0, (3, 5, 1, 5))),
-    ("dashdotdotted", (0, (3, 5, 1, 5, 1, 5))),
-    ("loosely dotted", (0, (1, 10))),
-    ("loosely dashed", (0, (5, 10))),
-    ("loosely dashdotted", (0, (3, 10, 1, 10))),
-    ("loosely dashdotdotted", (0, (3, 10, 1, 10, 1, 10))),
-    ("densely dotted", (0, (1, 1))),
-    ("densely dashed", (0, (5, 1))),
-    ("densely dashdotted", (0, (3, 1, 1, 1))),
-    ("densely dashdotdotted", (0, (3, 1, 1, 1, 1, 1))),
-]
-current_line_style = 0
-"""Set default line styles for rotation.
+LINE_STYLES = {
+    "solid": "-",
+    "dotted": (0, (1, 1)),
+    "dashed": (0, (5, 5)),
+    "dashdotted": (0, (3, 5, 1, 5)),
+    "dashdotdotted": (0, (3, 5, 1, 5, 1, 5)),
+    "loosely dotted": (0, (1, 10)),
+    "loosely dashed": (0, (5, 10)),
+    "loosely dashdotted": (0, (3, 10, 1, 10)),
+    "loosely dashdotdotted": (0, (3, 10, 1, 10, 1, 10)),
+    "densely dotted": (0, (1, 1)),
+    "densely dashed": (0, (5, 1)),
+    "densely dashdotted": (0, (3, 1, 1, 1)),
+    "densely dashdotdotted": (0, (3, 1, 1, 1, 1, 1)),
+}
+"""Mapping from MPL line style names to their 'formulas'.
+
+Used to rotate line styles for each filter in a histogram.
 """
 
 
-## Module
+HISTOGRAM_SUBPLOT_SEPARATION = 0.2
+HISTOGRAM_TITLE_SEPARATION = -0.175
+HISTOGRAM_TYPE = "step"
+HISTOGRAM_ALPHA = 0.5
+MINIMUM_BINS = 50
+"""Histogram plotting setting constants.
+"""
 
 
-PARAMETER_LABELS = {
-    "use": "use for analysis",
-    "convergence": "failed to converge",
-    "surface brightness": "surface brightness",
-    "effective radius": "effective radius",
-    "sersic": "sersic n",
-    "axis ratio": "axis ratio",
-}
-"""Mapping for parameters from catalog headers to plot labels.
+MODEL_SUBPLOT_SEPARATION = 0.0
+"""Model plotting setting constants.
 """
 
 
 # Functions
 
 
-## Utility
+## Tertiary
 
 
-def next_line_style() -> tuple:
-    """Get the next line style in a rotating list.
+def get_use_data(
+    catalog: pd.DataFrame, filters: list[str] | None = None
+) -> dict[str, list[int]]:
+    #
+    if filters is None:
+        filters = misc.get_unique(catalog["filter"])
 
-    Returns
-    -------
-    tuple
-        Line style definition for `linestyle` style parameter.
-    """
-    global current_line_style
-    line_style = LINE_STYLES[current_line_style][1]
-    current_line_style = current_line_style + 1
-    return line_style
+    #
+    data = {}
+
+    #
+    for filter in filters:
+        data[filter] = []
+
+        #
+        for usable in catalog[catalog["filter"] == filter]["use"]:
+            #
+            try:
+                data[filter].append(1 if bool(usable) else 0)
+            except:
+                continue
+
+    #
+    return data
 
 
-def reset_line_style():
-    """Reset the line style iterator."""
-    global current_line_style
-    current_line_style = 0
+def get_convergence_data(
+    catalog: pd.DataFrame, filters: list[str] | None = None
+) -> dict[str, list[int]]:
+    #
+    if filters is None:
+        filters = misc.get_unique(catalog["filter"])
+
+    #
+    bins = np.arange(4)
+
+    #
+    data = {}
+
+    #
+    for filter in filters:
+        data[filter] = []
+
+        #
+        for datum in catalog[catalog["filter"] == filter]["convergence"]:
+            #
+            for bin in bins:
+                try:
+                    if int(datum) & 2**bin:
+                        data[filter].append(bin)
+                except:
+                    continue
+
+    #
+    return data
+
+
+def get_parameter_data(
+    catalog: pd.DataFrame, parameter: str, filters: list[str] | None = None
+) -> tuple[np.ndarray, dict[str, list[int]]]:
+
+    #
+    num_bins = np.min([int(np.sqrt(len(catalog))), MINIMUM_BINS])
+    min_value, max_value = np.nanmin(catalog[parameter]), np.nanmax(catalog[parameter])
+
+    #
+    if min_value == max_value:
+        min_value -= 1
+        max_value += 1
+
+    #
+    bins = np.linspace(min_value, max_value, num_bins)
+
+    #
+    if filters is None:
+        filters = misc.get_unique(catalog["filter"])
+
+    #
+    data = {}
+
+    #
+    for filter in filters:
+        data[filter] = []
+
+        #
+        for datum in catalog[catalog["filter"] == filter][parameter]:
+            #
+            try:
+                assert not np.isnan(datum)
+                data[filter].append(float(datum))
+            except:
+                continue
+
+    #
+    return bins, data
 
 
 def get_y_ticks(max_count: int | float, num_ticks: int = 6) -> list[int]:
@@ -171,571 +248,462 @@ def get_y_ticks(max_count: int | float, num_ticks: int = 6) -> list[int]:
     list[int]
         List of y tick positions.
     """
-    max_count = int(max_count)
+    #
+    if not isinstance(max_count, int):
+        max_count = int(max_count)
+
+    #
     intervals = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000]
+
+    #
     tick_interval = max(intervals)
     for interval in intervals:
         tick_interval = interval
+
+        #
         if max_count / interval < num_ticks:
             break
+
+    #
     return [0] + list(range(tick_interval, max_count, tick_interval)) + [max_count]
 
 
-## Sub-plotting
+## Secondary
 
 
-def setup_histogram(histogram_path: Path, type: str) -> tuple[Figure, np.ndarray[Axes]]:
+def setup_six_subplots(title: str, spacing: float) -> tuple[Figure, np.ndarray[Axes]]:
     # Clean and create plot
     plt.clf()
     fig, axs = plt.subplots(2, 3)
 
     # Setup figure options
-    subplot_separation = 0.2
-    plt.subplots_adjust(hspace=subplot_separation, wspace=subplot_separation)
+    plt.subplots_adjust(hspace=spacing, wspace=spacing)
 
     # Setup figure title
-    if type == "main":
-        title = "MorphFITS Catalog Histogram"
-    elif type == "ficl":
-        name = "_".join(
-            [
-                histogram_path.parent.parent.parent.parent.name,
-                histogram_path.parent.parent.parent.name,
-                histogram_path.parent.parent.name,
-                histogram_path.parent.name,
-            ]
-        )
-        title = f"MorphFITS Catalog Histogram - {name}"
-    else:
-        name = histogram_path.parent.name
-        title = f"Run Catalog Histogram - {name}"
     fig.suptitle(title)
 
     # Return figure and axes
     return fig, axs
 
 
-def subplot_histogram(catalog: pd.DataFrame, ax: Axes, parameter: str):
-    # Subplot settings, change these values to change how the plot looks
-    title_separation = -0.175
-    histogram_type = "step"
-    alpha = 0.5
-    num_bins = min(int(np.sqrt(len(catalog))), 50)
-
-    # Get list of filters in catalog and set the ytick count to zero
-    filters = misc.get_unique(catalog["filter"])
+def sub_histogram(
+    ax: Axes,
+    filters: list[str],
+    data: dict[str, list[int | float]],
+    bins: np.ndarray,
+    title: str,
+    labels: str | None = None,
+):
+    #
     max_count = 0
 
-    # Set the bins for this histogram
-    ## There are two bins for the 'use' histogram, 'yes' and 'no'
-    if parameter == "use":
-        bins = np.arange(3)
-    ## There are three bins for the 'convergence' histogram, one for each important parameter
-    elif parameter == "convergence":
-        bins = np.arange(4)
-    ## The range for each parameter histogram should be the range over all filters
-    else:
-        values = []
-        for datum in catalog[parameter]:
-            try:
-                assert not np.isnan(datum)
-                values.append(float(datum))
-            except:
-                continue
-        min_value, max_value = np.min(values), np.max(values)
-        if min_value == max_value:
-            min_value -= 1
-            max_value += 1
-        bins = np.linspace(min_value, max_value, num_bins)
+    #
+    for i in range(len(filters)):
+        filter = filters[i]
+        line_style = list(LINE_STYLES.keys())[i]
+        filter_data = data[filter]
 
-    # Plot the histogram
-    ## Plot a histogram line for each filter for this parameter in the same subplot
-    for filter in filters:
-        ### Set the data for the first two histograms, which are word counts
-        data = []
-        for datum in catalog[catalog["filter"] == filter][parameter]:
-            #### The first histogram range is boolean
-            if parameter == "use":
-                ##### Skip invalid booleans
-                try:
-                    data.append(1 if bool(datum) else 0)
-                except:
-                    continue
-            #### The second histogram range is three important fitting parameters
-            elif parameter == "convergence":
-                ##### Skip invalid integers
-                for bin in bins:
-                    try:
-                        if int(datum) & 2**bin:
-                            data.append(bin)
-                    except:
-                        continue
-            #### The other histograms are float distributions
-            else:
-                ##### Skip NaNs
-                try:
-                    assert not np.isnan(datum)
-                    data.append(float(datum))
-                except:
-                    continue
-
-        ### Plot the histogram using the bins and data set above
-        ### Note this is only the histogram for one filter
+        #
         count, bin_edges, patches = ax.hist(
-            data,
-            histtype=histogram_type,
-            alpha=alpha,
+            x=filter_data,
+            histtype=HISTOGRAM_TYPE,
+            alpha=HISTOGRAM_ALPHA,
             bins=bins,
             edgecolor=TEXT_COLOR,
-            linestyle=next_line_style(),
+            linestyle=line_style,
             label=filter,
         )
 
-        ### Increase the ytick count if the max frequency increased
+        #
         if (len(count) > 0) and (np.max(count) > max_count):
             max_count = np.max(count)
 
-    # Set the subplot ticks and labels
-    ## NOTE legend currently not implemented, seems more distracting than informative
-    # if len(filters) > 1:
-    #     ax.legend()
-    if parameter == "use":
-        ax.set_xticks(bins[:-1] + 0.5, ["no", "yes"])
-    elif parameter == "convergence":
-        ax.set_xticks(bins[:-1] + 0.5, ["effective radius", "sersic", "axis ratio"])
+    # Set ticks and labels
+    if labels is not None:
+        ax.set_xticks(bins[:-1] + 0.5, labels)
     ax.set_yticks(get_y_ticks(max_count=max_count))
-    ax.set_title(PARAMETER_LABELS[parameter], y=title_separation)
-    reset_line_style()
+    ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)
 
 
-def save_histogram(histogram_path: Path, fig: Figure):
-    fig.savefig(histogram_path)
+def sub_model(
+    ax: Axes,
+    image: np.ndarray,
+    title: str,
+    vmin: float | None = None,
+    vmax: float | None = None,
+):
+    #
+    ax.imshow(image, cmap=JHIVE_CMAP, vmin=vmin, vmax=vmax)
+
+    #
+    ax.set_title(title, y=0)
+    ax.set_axis_off()
+
+
+def save(path: Path, fig: Figure):
+    fig.savefig(path)
     fig.clear()
 
 
-## Plotting
+## Primary
 
 
-def plot_model(
-    output_root: Path,
-    product_root: Path,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    objects: list[int],
-    wrapper: str,
-    display_progress: bool = False,
-):
-    """Plot all models for a given FICL.
+def histogram(path: Path, title: str, catalog: pd.DataFrame):
+    #
+    filters = misc.get_unique(catalog["filter"])
 
-    Parameters
-    ----------
-    output_root : Path
-        Path to root output directory.
-    product_root : Path
-        Path to root products directory.
-    field : str
-        Field of observation.
-    image_version : str
-        Image processing version of observation data.
-    catalog_version : str
-        Cataloguing version of objects in observation.
-    filter : str
-        Filter band of observation.
-    objects : list[int]
-        Objects to be plotted.
-    wrapper : str
-        Morphology fitting wrapper program name.
-    display_progress : bool, optional
-        Display progress via tqdm, by default False.
-    """
-    logger.info(
-        f"Plotting models for FICL {'_'.join([field,image_version,catalog_version,filter])}."
-    )
-    logger.info(
-        f"Object ID range: {min(objects)} to {max(objects)} "
-        + f"({len(objects)} objects)."
-    )
-
-    # Iterate over each object in FICL
-    for object in (
-        tqdm(objects, unit="object", leave=False) if display_progress else objects
-    ):
-        # Get paths
-        product_path_names = [
-            "stamp",
-            "sigma",
-            "psf",
-            "mask",
-            f"model_{wrapper}",
-            f"plot_{wrapper}",
-        ]
-        object_paths = {
-            name: path.get_path(
-                name,
-                product_root=product_root,
-                output_root=output_root,
-                field=field,
-                image_version=image_version,
-                catalog_version=catalog_version,
-                filter=filter,
-                object=object,
-            )
-            for name in product_path_names
-        }
-
-        # Skip object if any products missing
-        skip_object = False
-        for path_name, path in object_paths.items():
-            if ("plot" not in path_name) and (not path.exists()):
-                if not display_progress:
-                    logger.debug(f"Skipping object {object}, missing {path_name}.")
-                skip_object = True
-                break
-        if skip_object:
-            continue
-
-        if not display_progress:
-            logger.info(f"Plotting model for object {object}.")
-
-        # Load in data
-        stamp_file = fits.open(object_paths["stamp"])
-        sigma_file = fits.open(object_paths["sigma"])
-        psf_file = fits.open(object_paths["psf"])
-        mask_file = fits.open(object_paths["mask"])
-        model_file = fits.open(object_paths[f"model_{wrapper}"])
-        stamp = stamp_file["PRIMARY"].data
-        sigma = sigma_file["PRIMARY"].data
-        psf = psf_file["PRIMARY"].data
-        mask = mask_file["PRIMARY"].data
-        model = model_file[2].data
-
-        # Mask data
-        mask_value = np.min(stamp)
-        masked_stamp = np.where(1 - mask, stamp, np.mean(stamp))
-        masked_sigma = np.where(1 - mask, sigma, np.mean(sigma))
-        masked_model = np.where(1 - mask, model, np.mean(model))
-
-        # Normalize model to stamp
-        stamp_min, stamp_max = np.min(masked_stamp), np.max(masked_stamp)
-        if len(model_file) > 2:
-            masked_residual = np.where(
-                1 - mask, model_file[3].data, np.mean(model_file[3].data)
-            )
-        else:
-            norm_model = np.copy(masked_model)
-            norm_model -= np.min(masked_model)
-            norm_model /= np.max(masked_model)
-            norm_model *= stamp_max - stamp_min
-            norm_model += stamp_min
-            masked_residual = np.where(
-                1 - mask, norm_model - stamp, np.mean(norm_model - stamp)
-            )
-            del norm_model
-
-        # Clear memory
-        stamp_file.close()
-        sigma_file.close()
-        psf_file.close()
-        mask_file.close()
-        model_file.close()
-        del stamp_file
-        del sigma_file
-        del psf_file
-        del mask_file
-        del model_file
-        gc.collect()
-
-        # Plot each product
-        plt.subplots(2, 3)
-        plt.subplots_adjust(hspace=0.0, wspace=0.0)
-        plt.suptitle(
-            f"{'_'.join([field,image_version,catalog_version,filter,str(object)])} "
-            + wrapper
-            + " model",
-        )
-
-        plt.subplot(2, 3, 1)
-        plt.imshow(masked_stamp, cmap=JHIVE_CMAP)
-        plt.title("masked stamp", y=0)
-        plt.axis("off")
-
-        plt.subplot(2, 3, 2)
-        plt.imshow(sigma, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
-        plt.title("sigma map", y=0)
-        plt.axis("off")
-
-        plt.subplot(2, 3, 3)
-        plt.imshow(mask, cmap=JHIVE_CMAP)
-        plt.title("mask", y=0)
-        plt.axis("off")
-
-        plt.subplot(2, 3, 4)
-        plt.imshow(model, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
-        plt.title(wrapper + " model", y=0)
-        plt.axis("off")
-
-        plt.subplot(2, 3, 5)
-        plt.imshow(masked_residual, cmap=JHIVE_CMAP, vmin=stamp_min, vmax=stamp_max)
-        plt.title("masked residuals", y=0)
-        plt.axis("off")
-
-        plt.subplot(2, 3, 6)
-        plt.imshow(psf, cmap=JHIVE_CMAP)
-        plt.title("cropped psf", y=0)
-        plt.axis("off")
-
-        # Save plot
-        plt.savefig(object_paths[f"plot_{wrapper}"])
-        plt.close()
-
-        # Clear memory
-        del object_paths
-        del stamp
-        del sigma
-        del model
-        del psf
-        del mask
-        del stamp_min
-        del stamp_max
-        gc.collect()
-
-
-def plot_histogram(catalog: pd.DataFrame, histogram_path: Path, type: str):
-    """Plot a MorphFITS histogram representing aggregate model fitting
-    usability, convergence, and parameter values.
-
-    Parameters
-    ----------
-    catalog : DataFrame
-        DataFrame representing all catalog fitting data to be plotted, i.e.
-        filtered catalog data.
-    histogram_path : Path
-        Path to which to write histogram PNG.
-    type : str
-        Source of histogram catalog, one of 'main', 'ficl', or 'run'.
-    """
     # Setup plot
-    fig, axs = setup_histogram(histogram_path=histogram_path, type=type)
+    fig, axs = setup_six_subplots(title=title, spacing=HISTOGRAM_SUBPLOT_SEPARATION)
 
-    # Plot each subplot
-    parameters = list(PARAMETER_LABELS.keys())
-    for i in range(len(parameters)):
-        row, col = int(i / 3), i % 3
-        subplot_histogram(catalog=catalog, ax=axs[row][col], parameter=parameters[i])
+    #
+    try:
+        use_data = get_use_data(catalog)
+        sub_histogram(
+            ax=axs[0][0],
+            filters=filters,
+            data=use_data,
+            bins=np.arange(3),
+            title="use for analysis",
+            labels=["no", "yes"],
+        )
+    except Exception as e:
+        logger.debug(f"Skipping making usability sub-histogram - {e}.")
+
+    #
+    try:
+        convergence_data = get_convergence_data(catalog)
+        sub_histogram(
+            ax=axs[0][1],
+            filters=filters,
+            data=convergence_data,
+            bins=np.arange(4),
+            title="failed to converge",
+            labels=["effective radius", "sersic", "axis ratio"],
+        )
+    except Exception as e:
+        logger.debug(f"Skipping making convergence sub-histogram - {e}.")
+
+    #
+    histogram_parameters = {
+        "surface brightness": axs[0][2],
+        "effective radius": axs[1][0],
+        "sersic": axs[1][1],
+        "axis ratio": axs[1][2],
+    }
+    for parameter, ax in histogram_parameters.items():
+        try:
+            bins, data = get_parameter_data(catalog, parameter)
+            sub_histogram(
+                ax=ax,
+                filters=filters,
+                data=data,
+                bins=bins,
+                title=parameter,
+            )
+        except Exception as e:
+            logger.debug(f"Skipping making {parameter} sub-histogram - {e}.")
 
     # Save and clear plot
-    save_histogram(histogram_path=histogram_path, fig=fig)
+    save(path=path, fig=fig)
 
 
-def plot_histograms(
-    output_root: Path,
-    run_root: Path,
-    field: str,
-    datetime: dt,
-    run_number: int,
+def model(
+    path: Path,
+    title: str,
+    stamp_image: np.ndarray,
+    sigma_image: np.ndarray,
+    psf_image: np.ndarray,
+    mask_image: np.ndarray,
+    model_image: np.ndarray,
+    residuals_image: np.ndarray,
+    vmin: float,
+    vmax: float,
 ):
-    """Plot histograms representing fitting parameter distributions for the main
-    MorphFITS catalog, each FICL, and the run catalog.
+    # Setup plot
+    fig, axs = setup_six_subplots(title=title, spacing=MODEL_SUBPLOT_SEPARATION)
 
-    Parameters
-    ----------
-    output_root : Path
-        Path to root directory of output.
-    run_root : Path
-        Path to root directory of runs.
-    field : str
-        Field of run.
-    datetime : dt
-        Datetime of run, in 'yyyymmddThhMMss' format.
-    run_number : int
-        Number of run if there are multiple of the same datetime.
-    """
-    logger.info("Plotting fitted parameter distribution histograms.")
+    #
+    try:
+        sub_model(ax=axs[0][0], image=stamp_image, title="masked stamp")
+    except Exception as e:
+        logger.debug(f"Skipping making stamp sub-histogram - {e}.")
 
-    # Plot run histogram if run catalog exists
-    path_catalog_run = paths.get_path(
-        "run_catalog",
-        run_root=run_root,
-        field=field,
-        datetime=datetime,
-        run_number=run_number,
-    )
-    path_histogram_run = paths.get_path(
-        "run_histogram",
-        run_root=run_root,
-        field=field,
-        datetime=datetime,
-        run_number=run_number,
-    )
-    if path_catalog_run.exists():
-        catalog_run = pd.read_csv(path_catalog_run)
-        logger.info("Plotting parameter histogram for run.")
-        plot_histogram(
-            catalog=catalog_run, histogram_path=path_histogram_run, type="run"
+    #
+    try:
+        sub_model(
+            ax=axs[0][1], image=sigma_image, title="sigma map", vmin=vmin, vmax=vmax
+        )
+    except Exception as e:
+        logger.debug(f"Skipping making sigma sub-histogram - {e}.")
+
+    #
+    try:
+        sub_model(ax=axs[0][2], image=mask_image, title="mask")
+    except Exception as e:
+        logger.debug(f"Skipping making mask sub-histogram - {e}.")
+
+    #
+    try:
+        sub_model(ax=axs[1][0], image=model_image, title="model", vmin=vmin, vmax=vmax)
+    except Exception as e:
+        logger.debug(f"Skipping making model sub-histogram - {e}.")
+
+    #
+    try:
+        sub_model(
+            ax=axs[1][1],
+            image=residuals_image,
+            title="masked residuals",
+            vmin=vmin,
+            vmax=vmax,
+        )
+    except Exception as e:
+        logger.debug(f"Skipping making residuals sub-histogram - {e}.")
+
+    #
+    try:
+        sub_model(ax=axs[1][2], image=psf_image, title="PSF crop")
+    except Exception as e:
+        logger.debug(f"Skipping making psf sub-histogram - {e}.")
+
+    # Save and clear plot
+    save(path=path, fig=fig)
+
+
+# plot run histogram
+# open run catalog
+# plot histogram for each filter
+# plot merge histogram
+# open most recent merge catalog
+# plot histogram for each filter
+def all_histograms(runtime_settings: RuntimeSettings):
+    #
+    try:
+        logger.info("Making histogram for run.")
+
+        #
+        run_catalog_path = settings.get_path(
+            name="run_catalog",
+            runtime_settings=runtime_settings,
+            field=runtime_settings.ficls[0].field,
+        )
+        run_histogram_path = settings.get_path(
+            name="run_histogram",
+            runtime_settings=runtime_settings,
+            field=runtime_settings.ficls[0].field,
         )
 
-    # Plot main histogram
-    path_catalog = paths.get_path("catalog", output_root=output_root)
-    path_histogram = paths.get_path("histogram", output_root=output_root)
-    catalog = pd.read_csv(path_catalog)
-    logger.info("Updating main catalog parameter histogram.")
-    plot_histogram(catalog=catalog, histogram_path=path_histogram, type="main")
+        #
+        if not run_catalog_path.exists():
+            raise FileNotFoundError("missing run catalog")
 
-    # Plot FICL histogram for each FICL found in catalog
-    for cF in misc.get_unique(catalog["field"]):
-        catalog_F = catalog[catalog["field"] == cF]
-        for cI in misc.get_unique(catalog_F["image version"]):
-            catalog_FI = catalog_F[catalog_F["image version"] == cI]
-            for cC in misc.get_unique(catalog_FI["catalog version"]):
-                catalog_FIC = catalog_FI[catalog_FI["catalog version"] == cC]
-                for cL in misc.get_unique(catalog_FIC["filter"]):
-                    catalog_FICL = catalog_FIC[catalog_FIC["filter"] == cL]
-                    path_histogram_ficl = paths.get_path(
-                        "ficl_histogram",
-                        output_root=output_root,
-                        field=cF,
-                        image_version=cI,
-                        catalog_version=cC,
-                        filter=cL,
+        #
+        run_catalog = pd.read_csv(run_catalog_path)
+
+        #
+        histogram(
+            path=run_histogram_path,
+            title="MorphFITS Histogram - Run on "
+            + misc.get_str_from_datetime(runtime_settings.date_time)
+            + "."
+            + misc.get_str_from_run_number(runtime_settings.run_number),
+            catalog=run_catalog,
+        )
+
+    #
+    except Exception as e:
+        logger.debug(f"Skipping making run histogram - {e}.")
+
+    #
+    try:
+        logger.info("Making histogram for all runs.")
+
+        #
+        catalog_path = settings.get_path(
+            name="catalog", runtime_settings=runtime_settings
+        )
+        histogram_path = settings.get_path(
+            name="histogram", runtime_settings=runtime_settings
+        )
+
+        #
+        if not catalog_path.exists():
+            raise FileNotFoundError("missing merge catalog")
+
+        #
+        catalog = pd.read_csv(catalog_path)
+
+        #
+        histogram(
+            path=histogram_path,
+            title="MorphFITS Histogram as of "
+            + misc.get_str_from_datetime(runtime_settings.date_time)
+            + "."
+            + misc.get_str_from_run_number(runtime_settings.run_number),
+            catalog=catalog,
+        )
+
+    #
+    except Exception as e:
+        logger.debug(f"Skipping making merge histogram - {e}.")
+
+
+# for each ficl
+# for each object
+# plot model
+def all_models(runtime_settings: RuntimeSettings):
+    # Iterate over each FICL in this run
+    for ficl in runtime_settings.ficls:
+        # Try to get objects from FICL
+        try:
+            logger.info(f"FICL {ficl}: Plotting models.")
+            logger.info(
+                f"Objects: {min(ficl.objects)} to {max(ficl.objects)} "
+                + f"({len(ficl.objects)} objects)."
+            )
+
+            # Get iterable object list, displaying progress bar if flagged
+            if runtime_settings.progress_bar:
+                objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
+            else:
+                objects = ficl.objects
+
+        # Catch any error opening FICL
+        except Exception as e:
+            logger.error(f"FICL {ficl}: Skipping plotting - {e}.")
+            continue
+
+        # Iterate over each object
+        skipped = 0
+        for object in objects:
+            # Try
+            try:
+                # Get path to plot
+                plot_path = settings.get_path(
+                    name="plot_" + runtime_settings.morphology._name(),
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+
+                # Skip previously fitted objects unless requested
+                if plot_path.exists() and not runtime_settings.remake.plots:
+                    if not runtime_settings.progress_bar:
+                        logger.debug(f"Object {object}: Skipping plotting - exists.")
+                    skipped += 1
+                    continue
+
+                # Get paths to output and product files
+                stamp_path = settings.get_path(
+                    name="stamp",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                sigma_path = settings.get_path(
+                    name="sigma",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                psf_path = settings.get_path(
+                    name="psf",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                mask_path = settings.get_path(
+                    name="mask",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                model_path = settings.get_path(
+                    name="model_" + runtime_settings.morphology._name(),
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+
+                #
+                if (
+                    not stamp_path.exists()
+                    or not sigma_path.exists()
+                    or not psf_path.exists()
+                    or not mask_path.exists()
+                    or not model_path.exists()
+                ):
+                    if not runtime_settings.progress_bar:
+                        logger.debug(
+                            f"Object {object}: Skipping plotting - missing product or model."
+                        )
+                    skipped += 1
+                    continue
+
+                #
+                stamp_image, stamp_headers = science.get_fits_data(stamp_path)
+                sigma_image, sigma_headers = science.get_fits_data(sigma_path)
+                psf_image, psf_headers = science.get_fits_data(psf_path)
+                mask_image, mask_headers = science.get_fits_data(mask_path)
+                model_image, model_headers = science.get_fits_data(model_path, hdu=2)
+
+                #
+                masked_stamp = np.where(
+                    1 - mask_image, stamp_image, np.mean(stamp_image)
+                )
+                masked_model = np.where(
+                    1 - mask_image, model_image, np.mean(model_image)
+                )
+
+                #
+                stamp_min, stamp_max = np.nanmin(masked_stamp), np.nanmax(masked_stamp)
+
+                #
+                try:
+                    residuals_image, residuals_headers = science.get_fits_data(
+                        model_path, hdu=3
                     )
-                    if path_histogram_ficl.parent.exists():
-                        logger.info(
-                            "Plotting parameter histogram for FICL "
-                            + f"{'_'.join([cF,cI,cC,cL])}."
-                        )
-                        plot_histogram(
-                            catalog=catalog_FICL,
-                            histogram_path=path_histogram_ficl,
-                            type="ficl",
-                        )
-                    else:
-                        logger.warning(
-                            f"Directory {path_histogram_ficl.parent} "
-                            + "not found, skipping histogram."
-                        )
+                    masked_residuals = np.where(
+                        1 - mask_image, residuals_image, np.mean(residuals_image)
+                    )
 
+                #
+                except:
+                    normalized_model = np.copy(masked_model)
+                    normalized_model -= np.min(masked_model)
+                    normalized_model /= np.max(masked_model)
+                    normalized_model *= stamp_max - stamp_min
+                    normalized_model += stamp_min
+                    masked_residuals = np.where(
+                        1 - mask_image,
+                        normalized_model - stamp_image,
+                        np.mean(normalized_model - stamp_image),
+                    )
 
-## In Development
+                # Run GALFIT for object
+                if not runtime_settings.progress_bar:
+                    logger.debug(f"Object {object}: Plotting model.")
+                model(
+                    path=plot_path,
+                    title=f"{ficl}_{object} "
+                    + runtime_settings.morphology._upper_name()
+                    + "Model",
+                    stamp_image=masked_stamp,
+                    sigma_image=sigma_image,
+                    psf_image=psf_image,
+                    mask_image=mask_image,
+                    model_image=model_image,
+                    residuals_image=masked_residuals,
+                    vmin=stamp_min,
+                    vmax=stamp_max,
+                )
 
+            # Catch any errors and skip to next object
+            except Exception as e:
+                if not runtime_settings.progress_bar:
+                    logger.debug(f"Object {object}: Skipping plotting - {e}.")
+                skipped += 1
+                continue
 
-def plot_objects(
-    output_root: Path,
-    product_root: Path,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    objects: list[int],
-    columns: int = 8,
-    display_progress: bool = False,
-):
-    """Plot all objects for a given FICL.
-
-    Parameters
-    ----------
-    output_root : Path
-        Path to root output directory.
-    product_root : Path
-        Path to root products directory.
-    field : str
-        Field of observation.
-    image_version : str
-        Image processing version of observation data.
-    catalog_version : str
-        Cataloguing version of objects in observation.
-    filter : str
-        Filter band of observation.
-    objects : list[int]
-        Objects to be plotted.
-    columns : int, optional
-        Number of columns in visualization, by default 8.
-    display_progress : bool, optional
-        Display progress via tqdm, by default False.
-    """
-    logger.info(
-        f"Plotting all objects in FICL {'_'.join([field,image_version,catalog_version,filter])}."
-    )
-
-    # Get stamp paths for each object
-    stamp_paths = {}
-    logger.info(
-        "Checking stamps for FICL "
-        + f"{'_'.join([field, image_version, catalog_version, filter])}."
-    )
-    for object in (
-        tqdm(objects, unit="object", leave=False) if display_progress else objects
-    ):
-        stamp_path = paths.get_path(
-            "stamp",
-            product_root=product_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-        if not stamp_path.exists():
-            pass
-        else:
-            stamp_paths[object] = stamp_path
-        del stamp_path
-        gc.collect()
-
-    # Create new plot
-    num_stamps = len(list(stamp_paths.keys()))
-    rows = int(num_stamps / columns) + 1
-    extra_height = 0.2
-    figure, axes = plt.subplots(
-        rows,
-        columns,
-        figsize=(2 * columns, 2 * (rows + extra_height)),
-    )
-    plt.subplots_adjust(
-        top=(1 - extra_height / (2 * (rows + extra_height))), hspace=0, wspace=0
-    )
-
-    # Remove extra spots
-    for i in range(columns - num_stamps % columns):
-        plt.delaxes(axes[-1, -1 - i])
-
-    # Plot all objects
-    for i in (
-        tqdm(range(len(list(stamp_paths.keys()))), unit="object", leave=False)
-        if display_progress
-        else range(len(list(stamp_paths.keys())))
-    ):
-        object = list(stamp_paths.keys())[i]
-
-        # Plot object stamp in current spot
-        stamp_file = fits.open(stamp_paths[object])
-        plt.subplot(rows, columns, i + 1)
-        plt.imshow(stamp_file["PRIMARY"].data, cmap=JHIVE_CMAP)
-        plt.title(object, y=0, color="white", fontsize=16)
-        plt.axis("off")
-
-        # Clear memory
-        stamp_file.close()
-        del stamp_file
-        gc.collect()
-
-    # Write title
-    plt.suptitle(
-        "_".join([field, image_version, catalog_version, filter]) + " objects",
-        color="white",
-        fontsize=20,
-    )
-    plt.tight_layout(pad=0)
-
-    # Save plot
-    objects_path = paths.get_path(
-        "ficl_objects",
-        output_root=output_root,
-        field=field,
-        image_version=image_version,
-        catalog_version=catalog_version,
-        filter=filter,
-    )
-    plt.savefig(objects_path, bbox_inches="tight", pad_inches=0.0)
-    plt.close()
+        # Log number of skipped or failed objects
+        logger.info(f"FICL {ficl}: Plotted models - skipped {skipped} objects.")

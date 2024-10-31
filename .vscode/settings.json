@@ -182,6 +182,7 @@
         "milli",
         "MORPHDIR",
         "morphfits",
+        "nanmin",
         "ndimage",
         "ofic",
         "photcat",

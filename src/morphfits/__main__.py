@@ -52,7 +52,7 @@ def galwrap(
             resolve_path=True,
         ),
     ] = None,
-    config_path: Annotated[
+    settings_path: Annotated[
         Optional[typer.FileText],
         typer.Option(
             "--config",
@@ -286,7 +286,7 @@ def galwrap(
         typer.Option(
             "--remake-all",
             help="Remake all products and overwrite existing. Overrides other 'remake' flags.",
-            rich_help_panel="Products",
+            rich_help_panel="Remake",
             is_flag=True,
         ),
     ] = None,
@@ -295,7 +295,7 @@ def galwrap(
         typer.Option(
             "--remake-stamps",
             help="Remake stamps and overwrite existing.",
-            rich_help_panel="Products",
+            rich_help_panel="Remake",
             is_flag=True,
         ),
     ] = None,
@@ -304,7 +304,7 @@ def galwrap(
         typer.Option(
             "--remake-sigmas",
             help="Remake sigma maps and overwrite existing.",
-            rich_help_panel="Products",
+            rich_help_panel="Remake",
             is_flag=True,
         ),
     ] = None,
@@ -313,7 +313,7 @@ def galwrap(
         typer.Option(
             "--remake-psfs",
             help="Remake PSF crops and overwrite existing.",
-            rich_help_panel="Products",
+            rich_help_panel="Remake",
             is_flag=True,
         ),
     ] = None,
@@ -322,7 +322,25 @@ def galwrap(
         typer.Option(
             "--remake-masks",
             help="Remake masks and overwrite existing.",
-            rich_help_panel="Products",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_morphology: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-morphology",
+            help="Remake morphology fit models and overwrite existing.",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_plots: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-plots",
+            help="Remake plots and overwrite existing.",
+            rich_help_panel="Remake",
             is_flag=True,
         ),
     ] = None,
@@ -331,15 +349,7 @@ def galwrap(
         typer.Option(
             "--remake-feedfiles",
             help="Remake GALFIT feedfiles and overwrite existing.",
-            rich_help_panel="Products",
-            is_flag=True,
-        ),
-    ] = None,
-    refit: Annotated[
-        Optional[bool],
-        typer.Option(
-            "--refit",
-            help="Re-run morphology fitting on previously fitted objects.",
+            rich_help_panel="Remake",
             is_flag=True,
         ),
     ] = None,
@@ -363,7 +373,7 @@ def galwrap(
 ):
     # Create settings objects
     runtime_settings, science_settings = settings.get_settings(
-        config_path=config_path,
+        settings_path=settings_path,
         morphfits_root=morphfits_root,
         input_root=input_root,
         output_root=output_root,
@@ -392,9 +402,10 @@ def galwrap(
         remake_sigmas=remake_sigmas,
         remake_psfs=remake_psfs,
         remake_masks=remake_masks,
+        remake_morphology=remake_morphology,
+        remake_plots=remake_plots,
         remake_others=remake_feedfiles,
         morphology="galfit",
-        refit=refit,
         galfit_path=galfit_path,
         initialized=True,
     )
@@ -430,18 +441,18 @@ def galwrap(
         catalog.make_all(runtime_settings=runtime_settings)
 
     # Plot histograms
-    # if runtime_settings.stages.histogram:
-    #     plot.make_all_histograms(runtime_settings=runtime_settings)
+    if runtime_settings.stages.histogram:
+        plot.all_histograms(runtime_settings=runtime_settings)
 
     # Plot models
-    # if runtime_settings.stages.plot:
-    #     plot.make_all_models(runtime_settings=runtime_settings)
+    if runtime_settings.stages.plot:
+        plot.all_models(runtime_settings=runtime_settings)
 
     # Remove empty directories
     if runtime_settings.stages.cleanup:
         runtime_settings.cleanup_directories()
 
-    # Write configuration to file in run directory
+    # Write settings to file in run directory
     if runtime_settings.stages.cleanup:
         runtime_settings.write()
 
@@ -493,7 +504,7 @@ def pysersic():
     rich_help_panel="Tools",
 )
 def initialize_command(
-    config_path: Annotated[
+    settings_path: Annotated[
         Optional[typer.FileText],
         typer.Option(
             "--config",
@@ -530,32 +541,6 @@ def initialize_command(
             file_okay=False,
             show_default=False,
             resolve_path=True,
-        ),
-    ] = None,
-    output_root: Annotated[
-        Optional[Path],
-        typer.Option(
-            "--output",
-            help="Path to root output directory.",
-            rich_help_panel="Paths",
-            exists=True,
-            file_okay=False,
-            show_default=False,
-            resolve_path=True,
-            writable=True,
-        ),
-    ] = None,
-    product_root: Annotated[
-        Optional[Path],
-        typer.Option(
-            "--product",
-            help="Path to root products directory.",
-            rich_help_panel="Paths",
-            exists=True,
-            file_okay=False,
-            show_default=False,
-            resolve_path=True,
-            writable=True,
         ),
     ] = None,
     run_root: Annotated[
@@ -611,21 +596,21 @@ def initialize_command(
             show_default=False,
         ),
     ] = None,
+    skip_morphology: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--skip-download",
+            help="Skip downloading any files from DJA.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = None,
     skip_unzip: Annotated[
         Optional[bool],
         typer.Option(
             "--skip-unzip",
             help="Skip unzipping any zipped observation files.",
             rich_help_panel="Stages",
-            is_flag=True,
-        ),
-    ] = None,
-    remake_feedfiles: Annotated[
-        Optional[bool],
-        typer.Option(
-            "--remake-feedfiles",
-            help="Remake GALFIT feedfiles and overwrite existing.",
-            rich_help_panel="Products",
             is_flag=True,
         ),
     ] = None,
@@ -638,38 +623,41 @@ def initialize_command(
             show_default=False,
         ),
     ] = None,
-    progress_bar: Annotated[
-        Optional[bool],
-        typer.Option(
-            "--progress",
-            help="Display progress as a loading bar and suppress per-object logging.",
-            is_flag=True,
-        ),
-    ] = None,
 ):
-    # Create configuration object
-    morphfits_config = settings.create_config(
-        config_path=config_path,
+    # Create settings objects
+    runtime_settings, science_settings = settings.get_settings(
+        settings_path=settings_path,
+        morphfits_root=morphfits_root,
         input_root=input_root,
         fields=fields,
         image_versions=image_versions,
+        catalog_versions=catalog_versions,
         filters=filters,
-        wrappers=[""],
-        galfit_path="",
-        display_progress=False,
-        download=True,
-    )
-
-    # Create program and module logger
-    logger = logging.getLogger("MORPHFITS")
-
-    # Download and unzip files
-    initialize.main(
-        morphfits_config=morphfits_config,
-        skip_download=skip_download,
+        skip_morphology=skip_morphology,
         skip_unzip=skip_unzip,
-        overwrite=overwrite,
+        log_level=log_level,
     )
+
+    # Display status
+    logger = logging.getLogger("MORPHFITS")
+    logger.info("Starting MorphFITS.")
+
+    # Get list of all available files for download from DJA
+    dja_catalog = initialize.get_dja_catalog()
+
+    # Get dict of all src to dest for download
+    src_dest = initialize.get_src_dest(runtime_settings, dja_catalog)
+
+    # Download files
+    if runtime_settings.stages.morphology:
+        initialize.get_input(src_dest)
+
+    # Unzip zipped files
+    if runtime_settings.stages.unzip:
+        initialize.unzip(runtime_settings)
+
+    # Write settings to file in run directory
+    runtime_settings.write()
 
     # Exit
     logger.info("Exiting MorphFITS.")

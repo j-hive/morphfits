@@ -6,7 +6,7 @@ morphology pipeline using GALFIT.
 
 
 import logging
-import shutil
+import shutil, os
 from subprocess import Popen, PIPE, STDOUT
 from pathlib import Path
 
@@ -117,8 +117,8 @@ def run(
     # Copy GALFIT binary executable and constraints file to FICLO directory
     # Due to GALFIT needing to be in the same directory as the feedfile and
     # where its paths are based from
-    shutil.copy(galfit_path, product_ficlo_path / "galfit")
-    shutil.copy(constraints_path, product_ficlo_path / ".constraints")
+    os.symlink(galfit_path, product_ficlo_path / "galfit")
+    os.symlink(constraints_path, product_ficlo_path / ".constraints")
 
     # Run GALFIT via subprocess
     process = Popen(
@@ -158,6 +158,10 @@ def run(
             with open(galfit_log_path, mode="a") as galfit_log_file:
                 for line in summary:
                     galfit_log_file.write(line + "\n")
+            item_path.unlink()
+
+        # Remove output feedfiles
+        elif "galfit." in item_path.name:
             item_path.unlink()
 
     # Remove binary and constraints files
@@ -348,8 +352,7 @@ def run_all(runtime_settings: RuntimeSettings):
 
         # Catch any error opening FICL
         except Exception as e:
-            logger.error(f"FICL {ficl}: Skipping GALFIT - failed opening input.")
-            logger.error(e)
+            logger.error(f"FICL {ficl}: Skipping GALFIT - {e}.")
             continue
 
         # Iterate over each object
@@ -366,7 +369,7 @@ def run_all(runtime_settings: RuntimeSettings):
                 )
 
                 # Skip previously fitted objects unless requested
-                if model_path.exists() and not runtime_settings.morphology.refit:
+                if model_path.exists() and not runtime_settings.remake.morphology:
                     if not runtime_settings.progress_bar:
                         logger.debug(f"Object {object}: Skipping GALFIT - exists.")
                     skipped += 1

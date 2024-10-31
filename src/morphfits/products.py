@@ -487,6 +487,26 @@ def make_ficl_sigmas(
                 skipped += 1
                 continue
 
+            # Get path to corresponding stamp
+            stamp_path = settings.get_path(
+                name="stamp",
+                path_settings=runtime_settings.roots,
+                ficl=ficl,
+                object=object,
+            )
+
+            # Skip FICLOs without stamps
+            if not stamp_path.exists():
+                if not runtime_settings.progress_bar:
+                    logger.debug(
+                        f"Object {object}: Skipping sigma map - missing stamp."
+                    )
+                skipped += 1
+                continue
+
+            # Get stamp image
+            stamp_image, stamp_headers = science.get_fits_data(stamp_path)
+
             # Get object position and image size from catalog
             position = science.get_position(input_catalog=input_catalog, object=object)
             image_size = science.get_image_size(
@@ -495,15 +515,6 @@ def make_ficl_sigmas(
                 object=object,
                 pixscale=ficl.pixscale,
             )
-
-            # Get stamp of this object
-            stamp_path = settings.get_path(
-                name="stamp",
-                path_settings=runtime_settings.roots,
-                ficl=ficl,
-                object=object,
-            )
-            stamp_image, stamp_headers = science.get_fits_data(stamp_path)
 
             # Make sigma map for object
             if not runtime_settings.progress_bar:
