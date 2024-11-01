@@ -861,6 +861,11 @@ def get_ficls(
                     pre_logger.info(f"FICL {ficl}: Adding.")
                     ficls.append(ficl)
 
+    # Terminate if no FICLs set
+    if len(ficls) == 0:
+        pre_logger.error("Terminating, no FICLs with valid data found.")
+        raise KeyError("Terminating, no FICLs with valid data found.")
+
     # Return list of FICLs
     return ficls
 

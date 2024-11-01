@@ -14,7 +14,7 @@ from astropy.table import Table
 from jinja2 import Template
 from tqdm import tqdm
 
-from .. import settings, DATA_ROOT
+from .. import catalog, settings, DATA_ROOT
 from ..settings import RuntimeSettings
 from ..utils import science
 
@@ -51,6 +51,12 @@ FEEDFILE_FLOAT_LENGTH = 12
 FEEDFILE_TEMPLATE_PATH = GALFIT_DATA_ROOT / "feedfile.jinja"
 DEFAULT_CONSTRAINTS_PATH = GALFIT_DATA_ROOT / "default.constraints"
 """Paths to feedfile template and default constraints.
+"""
+
+
+NUM_FITS_TO_MONITOR = 100
+"""Number of fits after which an append statement will be made to the temporary
+catalog file in the run directory.
 """
 
 
@@ -334,6 +340,7 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
 
 
 def run_all(runtime_settings: RuntimeSettings):
+
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
         # Try to get objects from FICL
@@ -349,6 +356,9 @@ def run_all(runtime_settings: RuntimeSettings):
                 objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
             else:
                 objects = ficl.objects
+
+            #
+            fitted_objects = []
 
         # Catch any error opening FICL
         except Exception as e:
@@ -373,6 +383,7 @@ def run_all(runtime_settings: RuntimeSettings):
                     if not runtime_settings.progress_bar:
                         logger.debug(f"Object {object}: Skipping GALFIT - exists.")
                     skipped += 1
+                    fitted_objects.append(object)
                     continue
 
                 # Get path to feedfile
@@ -421,6 +432,19 @@ def run_all(runtime_settings: RuntimeSettings):
                     galfit_model_path=model_path,
                 )
 
+                #
+                fitted_objects.append(object)
+
+                #
+                if (len(fitted_objects) % NUM_FITS_TO_MONITOR == 0) or (
+                    len(fitted_objects) == len(objects)
+                ):
+                    catalog.update_temporary(
+                        runtime_settings=runtime_settings,
+                        ficl=ficl,
+                        objects=fitted_objects[-NUM_FITS_TO_MONITOR:],
+                    )
+
             # Catch any errors and skip to next object
             except Exception as e:
                 if not runtime_settings.progress_bar:
@@ -430,3 +454,11 @@ def run_all(runtime_settings: RuntimeSettings):
 
         # Log number of skipped or failed objects
         logger.info(f"FICL {ficl}: Ran GALFIT - skipped {skipped} objects.")
+
+    # Remove temporary catalog
+    temp_catalog_path = settings.get_path(
+        name="run_catalog",
+        runtime_settings=runtime_settings,
+        field=runtime_settings.ficls[0].field,
+    )
+    temp_catalog_path.unlink()

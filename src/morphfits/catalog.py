@@ -433,6 +433,31 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
     return pd.DataFrame(catalog_data)
 
 
+def update_temporary(runtime_settings: RuntimeSettings, ficl: FICL, objects: list[int]):
+    #
+    temp_catalog_path = settings.get_path(
+        name="run_catalog",
+        runtime_settings=runtime_settings,
+        field=runtime_settings.ficls[0].field,
+    )
+
+    #
+    temp_runtime_settings = runtime_settings.model_copy(deep=True)
+    temp_runtime_settings.ficls = [ficl.model_copy(deep=True)]
+    temp_runtime_settings.ficls[0].objects = objects
+
+    #
+    catalog_data = get_data(runtime_settings=temp_runtime_settings)
+
+    #
+    if temp_catalog_path.exists():
+        temp_catalog = pd.read_csv(temp_catalog_path)
+        catalog_data = pd.concat([temp_catalog, catalog_data], join="inner")
+
+    # Write run catalog CSV file
+    catalog_data.to_csv(temp_catalog_path, index=False)
+
+
 def make_run(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
     # Get path to run catalog file
     run_catalog_path = settings.get_path(
