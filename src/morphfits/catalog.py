@@ -379,7 +379,7 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
     for ficl in runtime_settings.ficls:
         # Try to get parameters for FICL
         try:
-            logger.info(f"FICL {ficl}: Reading fitting parameters.")
+            logger.debug(f"FICL {ficl}: Reading fitting parameters.")
 
             # Get iterable object list, displaying progress bar if flagged
             if runtime_settings.progress_bar:
@@ -434,6 +434,8 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
 
 
 def update_temporary(runtime_settings: RuntimeSettings, ficl: FICL, objects: list[int]):
+    logger.debug("Updating temporary catalog file.")
+
     #
     temp_catalog_path = settings.get_path(
         name="run_catalog",

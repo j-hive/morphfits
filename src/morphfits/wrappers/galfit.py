@@ -54,7 +54,7 @@ DEFAULT_CONSTRAINTS_PATH = GALFIT_DATA_ROOT / "default.constraints"
 """
 
 
-NUM_FITS_TO_MONITOR = 100
+NUM_FITS_TO_MONITOR = 5
 """Number of fits after which an append statement will be made to the temporary
 catalog file in the run directory.
 """
@@ -123,8 +123,14 @@ def run(
     # Copy GALFIT binary executable and constraints file to FICLO directory
     # Due to GALFIT needing to be in the same directory as the feedfile and
     # where its paths are based from
-    os.symlink(galfit_path, product_ficlo_path / "galfit")
-    os.symlink(constraints_path, product_ficlo_path / ".constraints")
+    try:
+        os.symlink(galfit_path, product_ficlo_path / "galfit")
+    except:
+        pass
+    try:
+        os.symlink(constraints_path, product_ficlo_path / ".constraints")
+    except:
+        pass
 
     # Run GALFIT via subprocess
     process = Popen(
@@ -379,6 +385,7 @@ def run_all(runtime_settings: RuntimeSettings):
                 )
 
                 # Skip previously fitted objects unless requested
+                print(model_path.exists(), runtime_settings.remake.morphology)
                 if model_path.exists() and not runtime_settings.remake.morphology:
                     if not runtime_settings.progress_bar:
                         logger.debug(f"Object {object}: Skipping GALFIT - exists.")
@@ -456,9 +463,12 @@ def run_all(runtime_settings: RuntimeSettings):
         logger.info(f"FICL {ficl}: Ran GALFIT - skipped {skipped} objects.")
 
     # Remove temporary catalog
-    temp_catalog_path = settings.get_path(
-        name="run_catalog",
-        runtime_settings=runtime_settings,
-        field=runtime_settings.ficls[0].field,
-    )
-    temp_catalog_path.unlink()
+    try:
+        temp_catalog_path = settings.get_path(
+            name="run_catalog",
+            runtime_settings=runtime_settings,
+            field=runtime_settings.ficls[0].field,
+        )
+        temp_catalog_path.unlink()
+    except Exception as e:
+        logger.error(f"Skipping removing temporary catalog - {e}.")
