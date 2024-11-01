@@ -385,7 +385,6 @@ def run_all(runtime_settings: RuntimeSettings):
                 )
 
                 # Skip previously fitted objects unless requested
-                print(model_path.exists(), runtime_settings.remake.morphology)
                 if model_path.exists() and not runtime_settings.remake.morphology:
                     if not runtime_settings.progress_bar:
                         logger.debug(f"Object {object}: Skipping GALFIT - exists.")
