@@ -111,7 +111,8 @@ DEFAULT_RUN_DIRECTORY_NAME = "runs"
 
 REQUIRED_INPUT_DIRECTORIES = ["input_psfs", "input_fil"]
 REQUIRED_OUTPUT_DIRECTORIES = [
-    "output_catalogs",
+    "output_merge_catalogs",
+    "output_morphology_catalogs",
     "output_histograms",
     "output_ficlo",
     "product_ficlo",

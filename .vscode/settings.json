@@ -207,6 +207,7 @@
         "xtick",
         "xticks",
         "yaxis",
+        "yscale",
         "ytick",
         "yticks",
         "YYYYMMDDTHHMMSS",

@@ -64,6 +64,19 @@ def get_fits_data(
 
 
 def get_all_objects(input_catalog_path: Path) -> list[int]:
+    """Get a list of all object integer IDs in a catalog.
+
+    Parameters
+    ----------
+    input_catalog_path : Path
+        Path to input catalog FITS file.
+
+    Returns
+    -------
+    list[int]
+        List of all integer IDs corresponding to each object's ID in the input
+        catalog.
+    """
     # Read input catalog
     input_catalog = Table.read(input_catalog_path)
 
@@ -178,14 +191,58 @@ def get_image_size(
 
 
 def get_magnitude(runtime_settings, headers: fits.Header) -> float:
+    """Get the magnitude for a FICLO's product from its headers.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this runtime.
+    headers : fits.Header
+        Headers for this FICLO product.
+
+    Returns
+    -------
+    float
+        Magnitude for this FICLO product (currently surface brightness).
+    """
     return headers["SB"]
 
 
 def get_half_light_radius(input_catalog: Table, object: int) -> float:
+    """Get the half light radius for an object from its entry in its
+    corresponding input catalog.
+
+    Parameters
+    ----------
+    input_catalog : Table
+        Table cataloging each object in its field.
+    object : int
+        Integer ID of object in the catalog.
+
+    Returns
+    -------
+    float
+        Half light radius of object.
+    """
     return input_catalog[object]["a_image"]
 
 
 def get_axis_ratio(input_catalog: Table, object: int) -> float:
+    """Get the axis ratio for an object from its entry in its corresponding
+    input catalog.
+
+    Parameters
+    ----------
+    input_catalog : Table
+        Table cataloging each object in its field.
+    object : int
+        Integer ID of object in the catalog.
+
+    Returns
+    -------
+    float
+        Axis ratio of object.
+    """
     return input_catalog[object]["b_image"] / input_catalog[object]["a_image"]
 
 

@@ -202,7 +202,7 @@ def get_input(src_dest: dict[str, str]):
             num_files += 1
             logger.debug(
                 f"Downloaded '{file_name}' "
-                + f"({misc.get_file_size_str(file_size)}) "
+                + f"({misc.get_str_from_file_size(file_size)}) "
                 + f"({num_files+1}/{len(src_dest)})."
             )
 
@@ -214,7 +214,7 @@ def get_input(src_dest: dict[str, str]):
     if num_files > 0:
         logger.info(
             f"Downloaded {num_files} files "
-            + f"({misc.get_file_size_str(total_file_size)})."
+            + f"({misc.get_str_from_file_size(total_file_size)})."
         )
     else:
         logger.info("Skipping downloading - FICLs already initialized.")
@@ -261,8 +261,8 @@ def unzip(runtime_settings: RuntimeSettings):
                     uncompressed_size = input_fil_file_unzipped.stat().st_size
                     logger.info(
                         f"Unzipped '{input_fil_file_unzipped.name} "
-                        + f"({misc.get_file_size_str(compressed_size)} -> "
-                        + f"{misc.get_file_size_str(uncompressed_size)})."
+                        + f"({misc.get_str_from_file_size(compressed_size)} -> "
+                        + f"{misc.get_str_from_file_size(uncompressed_size)})."
                     )
 
                     #
@@ -274,8 +274,8 @@ def unzip(runtime_settings: RuntimeSettings):
     if num_files > 0:
         logger.info(
             f"Unzipped {num_files} files "
-            + f"({misc.get_file_size_str(total_compressed_size)} -> "
-            + f"{misc.get_file_size_str(total_uncompressed_size)})."
+            + f"({misc.get_str_from_file_size(total_compressed_size)} -> "
+            + f"{misc.get_str_from_file_size(total_uncompressed_size)})."
         )
     else:
         logger.info("No zipped input files to unzip.")

@@ -421,8 +421,8 @@ def galwrap(
         )
 
     # Unzip zipped files
-    # if runtime_settings.stages.unzip:
-    #     download.unzip_files()
+    if runtime_settings.stages.unzip:
+        initialize.unzip(runtime_settings=runtime_settings)
 
     # Create product files
     if runtime_settings.stages.product:

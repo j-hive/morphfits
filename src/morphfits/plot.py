@@ -319,10 +319,11 @@ def sub_histogram(
             max_count = np.max(count)
 
     # Set ticks and labels
+    ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)
     if labels is not None:
         ax.set_xticks(bins[:-1] + 0.5, labels)
-    ax.set_yticks(get_y_ticks(max_count=max_count))
-    ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)
+    # ax.set_yticks(get_y_ticks(max_count=max_count))
+    ax.set_yscale("log")
 
 
 def sub_model(
@@ -520,7 +521,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
 
         #
         catalog_path = settings.get_path(
-            name="catalog", runtime_settings=runtime_settings
+            name="merge_catalog", runtime_settings=runtime_settings
         )
         histogram_path = settings.get_path(
             name="histogram", runtime_settings=runtime_settings

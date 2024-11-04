@@ -21,7 +21,7 @@ from .settings import (
     ImcascadeSettings,
     PysersicSettings,
 )
-from .utils import science
+from .utils import misc, science
 from .wrappers.galfit import GALWRAP_OUTPUT_END
 
 
@@ -38,7 +38,7 @@ warnings.filterwarnings("ignore")
 """
 
 
-CATALOG_COLUMN_NAMES = [
+MERGE_COLUMNS = [
     "use",
     "field",
     "image version",
@@ -63,10 +63,17 @@ CATALOG_COLUMN_NAMES = [
     "axis ratio error",
     "position angle error",
 ]
-"""Column names for a MorphFITS catalog.
+"""Column names for a MorphFITS merge catalog.
 """
 
-CATALOG_ROW_TYPE = tuple[
+
+MORPHOLOGY_CATALOG_COLUMN_INDICES = [0, 11, 12, 13, 14]
+"""Indices of the columns from the merge catalog which are required for each
+filter in the morphology catalog.
+"""
+
+
+MERGE_CATALOG_ROW_TYPE = tuple[
     bool,
     str,
     str,
@@ -149,6 +156,10 @@ README.md
 
 
 ## Tertiary
+
+
+def get_morphology_column_name(index: int, filter: str) -> str:
+    return f"{MERGE_COLUMNS[index]} ({filter})"
 
 
 def get_galfit_flags(model_path: Path) -> int:
@@ -273,7 +284,7 @@ def get_catalog_row(
     ficl: FICL,
     object: int,
     morphology: GALFITSettings | ImcascadeSettings | PysersicSettings,
-) -> CATALOG_ROW_TYPE:
+) -> MERGE_CATALOG_ROW_TYPE:
     # Fitting log should always exist
     if fit_log_path.exists():
         # Get catalog row from model file and fit log file if successful fitting
@@ -373,7 +384,7 @@ def get_catalog_row(
 
 def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
     # Initialize catalog as dict with empty columns
-    catalog_data = {name: [] for name in CATALOG_COLUMN_NAMES}
+    catalog_data = {name: [] for name in MERGE_COLUMNS}
 
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
@@ -419,9 +430,9 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
                 )
 
                 # Iterate over each datum in row of catalog data
-                for i in range(len(CATALOG_COLUMN_NAMES)):
+                for i in range(len(MERGE_COLUMNS)):
                     # Add datum to corresponding list in catalog data dict
-                    catalog_data[CATALOG_COLUMN_NAMES[i]].append(catalog_row[i])
+                    catalog_data[MERGE_COLUMNS[i]].append(catalog_row[i])
 
             # Catch any errors and skip to next object
             except Exception as e:
@@ -479,9 +490,11 @@ def make_run(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
 
 def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
     # Get path to merge catalog file and its parent directory
-    catalog_path = settings.get_path(name="catalog", runtime_settings=runtime_settings)
+    catalog_path = settings.get_path(
+        name="merge_catalog", runtime_settings=runtime_settings
+    )
     catalog_dir_path = settings.get_path(
-        name="output_catalogs", runtime_settings=runtime_settings
+        name="output_merge_catalogs", runtime_settings=runtime_settings
     )
 
     # Get paths to previous merge catalog files, sorted by filename
@@ -521,6 +534,102 @@ def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
     merge_catalog.to_csv(catalog_path, index=False)
 
 
+def make_morphology(runtime_settings: RuntimeSettings):
+    # Get path to latest merge catalog CSV and open as data frame
+    try:
+        merge_dir_path = settings.get_path(
+            name="output_merge_catalogs", runtime_settings=runtime_settings
+        )
+        latest_merge_path = sorted(list(merge_dir_path.iterdir()))[-1]
+        latest_merge = pd.read_csv(latest_merge_path)
+    except Exception as e:
+        logger.error(
+            f"Skipping making morphology catalog - failed opening merge catalog."
+        )
+
+    # Iterate over each field in merge catalog
+    for field in misc.get_unique(latest_merge["field"]):
+        # Iterate over each image version in field
+        for imver in misc.get_unique(
+            latest_merge[latest_merge["field"] == field]["image version"]
+        ):
+            # Iterate over each catalog version in field and image version
+            for catver in misc.get_unique(
+                latest_merge[latest_merge["field"] == field][
+                    latest_merge["image version"] == imver
+                ]["catalog version"]
+            ):
+                # Try creating data dict with all objects' info for FIC
+                try:
+                    # Create empty data dict
+                    morph_dict = {"object": []}
+
+                    # Create FIC sub-catalog from merge catalog
+                    sub_merge = latest_merge[latest_merge["field"] == field][
+                        latest_merge["image version"] == imver
+                    ][latest_merge["catalog version"] == catver].sort_values("object")
+
+                    # Get list of filters for this FIC
+                    first_object = misc.get_unique(sub_merge["object"])[0]
+                    filters = misc.get_unique(
+                        sub_merge[sub_merge["object"] == first_object]["filter"]
+                    )
+
+                    # Iterate over each filter in FIC sub-catalog
+                    for filter in filters:
+                        # Iterate over each required column / parameter name
+                        for i in MORPHOLOGY_CATALOG_COLUMN_INDICES:
+                            # Add column if missing
+                            if get_morphology_column_name(i, filter) not in morph_dict:
+                                morph_dict[get_morphology_column_name(i, filter)] = []
+
+                    # Iterate over each object in sub-catalog
+                    for object in misc.get_unique(sub_merge["object"]):
+                        # Add object to data dict
+                        morph_dict["object"].append(object)
+
+                        # Iterate over each filter in FIC sub-catalog
+                        for filter in filters:
+                            # Add empty data if object doesn't have data for filter
+                            if filter not in misc.get_unique(
+                                sub_merge[sub_merge["object"] == object]["filter"]
+                            ):
+                                for i in MORPHOLOGY_CATALOG_COLUMN_INDICES:
+                                    morph_dict[
+                                        get_morphology_column_name(i, filter)
+                                    ].append(None)
+
+                            # Add data for filter otherwise
+                            else:
+                                for i in MORPHOLOGY_CATALOG_COLUMN_INDICES:
+                                    morph_dict[
+                                        get_morphology_column_name(i, filter)
+                                    ].append(
+                                        sub_merge[sub_merge["object"] == object][
+                                            sub_merge["filter"] == filter
+                                        ][MERGE_COLUMNS[i]].to_numpy()[0]
+                                    )
+
+                    # Create data frame from data dict and write to file
+                    morphology_catalog = pd.DataFrame(morph_dict)
+                    morphology_catalog_path = settings.get_path(
+                        name="morphology_catalog",
+                        runtime_settings=runtime_settings,
+                        field=field,
+                        image_version=imver,
+                        catalog_version=catver,
+                    )
+                    morphology_catalog.to_csv(morphology_catalog_path, index=False)
+
+                # Catch all errors and skip to next FIC
+                except Exception as e:
+                    logger.error(
+                        f"FIC {field}_{imver}_{catver}: "
+                        + f"Skipping making morphology catalog - {e}."
+                    )
+                    continue
+
+
 def make_all(runtime_settings: RuntimeSettings):
     # Get all fit parameters from output files for this run as a dict of lists
     try:
@@ -545,3 +654,10 @@ def make_all(runtime_settings: RuntimeSettings):
         make_merge(runtime_settings, catalog_data)
     except Exception as e:
         logger.error(f"Skipping making merge catalog - {e}.")
+
+    # Try writing new morphology catalog based on newest aggregate catalog
+    try:
+        logger.info("Making new morphology catalog.")
+        make_morphology(runtime_settings)
+    except Exception as e:
+        logger.error(f"Skipping making morphology catalog - {e}.")

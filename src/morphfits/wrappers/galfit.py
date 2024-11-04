@@ -63,7 +63,7 @@ catalog file in the run directory.
 # Functions
 
 
-## Single Object
+## Object Level
 
 
 def make_feedfile(
@@ -189,7 +189,7 @@ def run(
         raise RuntimeError(f"failed with return code {return_code}")
 
 
-## Multiple FICLs
+## FICL Level
 
 
 def make_all_feedfiles(runtime_settings: RuntimeSettings):
@@ -468,6 +468,7 @@ def run_all(runtime_settings: RuntimeSettings):
             runtime_settings=runtime_settings,
             field=runtime_settings.ficls[0].field,
         )
-        temp_catalog_path.unlink()
+        if temp_catalog_path.exists():
+            temp_catalog_path.unlink()
     except Exception as e:
         logger.error(f"Skipping removing temporary catalog - {e}.")

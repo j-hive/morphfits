@@ -20,7 +20,12 @@ morphfits_root:
     _name: "[o]"
     output_catalogs:
       _name: catalogs
-      catalog: "{D}_{N}_catalog.csv"
+      output_merge_catalogs:
+        _name: merge
+        merge_catalog: "{D}_{N}_catalog.csv"
+      output_morphology_catalogs:
+        _name: morphology
+        morphology_catalog: "{F}_{I}_{C}_catalog.csv"
     output_histograms:
       _name: histograms
       histogram: "{D}_{N}_histogram.png"
