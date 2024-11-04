@@ -139,49 +139,85 @@ MODEL_SUBPLOT_SEPARATION = 0.0
 def get_use_data(
     catalog: pd.DataFrame, filters: list[str] | None = None
 ) -> dict[str, list[int]]:
-    #
+    """Get usability data for a histogram as a list of 1s and 0s corresponding
+    to an object fitting's usability, per filter.
+
+    Parameters
+    ----------
+    catalog : pd.DataFrame
+        Data frame containing morphology fitting information.
+    filters : list[str] | None, optional
+        List of filters in this catalog, by default None (find in this
+        function).
+
+    Returns
+    -------
+    dict[str, list[int]]
+        Dict containing integer boolean data for each filter.
+    """
+    # Get list of all filters in catalog if not passed
     if filters is None:
         filters = misc.get_unique(catalog["filter"])
 
-    #
+    # Initialize data as empty dict
     data = {}
 
-    #
+    # Iterate over each filter in catalog
     for filter in filters:
         data[filter] = []
 
-        #
+        # Iterate over each object's usability
         for usable in catalog[catalog["filter"] == filter]["use"]:
-            #
+            # Try to add this object's usability in data
             try:
                 data[filter].append(1 if bool(usable) else 0)
             except:
                 continue
 
-    #
+    # Return usability data
     return data
 
 
 def get_convergence_data(
     catalog: pd.DataFrame, filters: list[str] | None = None
 ) -> dict[str, list[int]]:
-    #
+    """Get convergence bitmask data for a histogram as a list of integers
+    indexed by filter.
+
+    Searches a catalog for each available filter, and for each filter, the
+    convergence bitmask for each object.
+
+    Parameters
+    ----------
+    catalog : pd.DataFrame
+        Data frame containing morphology fitting information.
+    filters : list[str] | None, optional
+        List of filters in this catalog, by default None (find in this
+        function).
+
+    Returns
+    -------
+    dict[str, list[int]]
+        Dict containing integer bitmask data for each filter.
+    """
+    # Get list of all filters in catalog if not passed
     if filters is None:
         filters = misc.get_unique(catalog["filter"])
 
-    #
+    # Get list of binary positions for convergence bitmask
     bins = np.arange(4)
 
-    #
+    # Initialize data as empty dict
     data = {}
 
-    #
+    # Iterate over each filter in catalog
     for filter in filters:
         data[filter] = []
 
-        #
+        # Iterate over each object's convergence
         for datum in catalog[catalog["filter"] == filter]["convergence"]:
-            #
+            # Try to add this object's convergence flags
+            # Adds 1 if second parameter failed, etc.
             for bin in bins:
                 try:
                     if int(datum) & 2**bin:
@@ -189,57 +225,75 @@ def get_convergence_data(
                 except:
                     continue
 
-    #
+    # Return convergence data
     return data
 
 
 def get_parameter_data(
     catalog: pd.DataFrame, parameter: str, filters: list[str] | None = None
-) -> tuple[np.ndarray, dict[str, list[int]]]:
+) -> tuple[np.ndarray, dict[str, list[float]]]:
+    """Get parameter fitting data for a histogram as a list of floats indexed by
+    filter, along with the appropriate bins for this parameter set.
 
-    #
+    Parameters
+    ----------
+    catalog : pd.DataFrame
+        Data frame containing morphology fitting information.
+    parameter : str
+        Name of parameter in catalog, e.g. 'sersic'.
+    filters : list[str] | None, optional
+        List of filters in this catalog, by default None (find in this
+        function).
+
+    Returns
+    -------
+    tuple[np.ndarray, dict[str, list[float]]]
+        Histogram bins for this parameter, and dict containing float fitted
+        values for each filter.
+    """
+    # Get number of bins, and minimum and maximum for this parameter
     num_bins = np.min([int(np.sqrt(len(catalog))), MINIMUM_BINS])
     min_value, max_value = np.nanmin(catalog[parameter]), np.nanmax(catalog[parameter])
 
-    #
+    # Add two bins if parameter only has one value
     if min_value == max_value:
         min_value -= 1
         max_value += 1
 
-    #
+    # Get bins for this parameter
     bins = np.linspace(min_value, max_value, num_bins)
 
-    #
+    # Get list of all filters in catalog if not passed
     if filters is None:
         filters = misc.get_unique(catalog["filter"])
 
-    #
+    # Initialize data as empty dict
     data = {}
 
-    #
+    # Iterate over each filter in catalog
     for filter in filters:
         data[filter] = []
 
-        #
+        # Iterate over object's fitted parameter value
         for datum in catalog[catalog["filter"] == filter][parameter]:
-            #
+            # Try to add this object's parameter value
             try:
                 assert not np.isnan(datum)
                 data[filter].append(float(datum))
             except:
                 continue
 
-    #
+    # Return bins and parameter data
     return bins, data
 
 
 def get_y_ticks(max_count: int | float, num_ticks: int = 6) -> list[int]:
-    """Get a list of y tick positions based on the maximum value.
+    """Get a list of y tick positions for a plot based on the maximum y-value.
 
     Parameters
     ----------
     max_count : int | float
-        Maximum y tick value.
+        Maximum y-value.
     num_ticks : int, optional
         Number of y tick values to generate, by default 6.
 
@@ -248,23 +302,22 @@ def get_y_ticks(max_count: int | float, num_ticks: int = 6) -> list[int]:
     list[int]
         List of y tick positions.
     """
-    #
+    # Get maximum y-value as integer
     if not isinstance(max_count, int):
         max_count = int(max_count)
 
-    #
+    # Set list of easy-to-decipher y-axis increments
     intervals = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000]
 
-    #
+    # Get increment appropriate to maximum y-value and number of y-ticks
     tick_interval = max(intervals)
     for interval in intervals:
         tick_interval = interval
-
-        #
         if max_count / interval < num_ticks:
             break
 
-    #
+    # Return list of y-ticks from 0 to maximum y-value, separated by calculated
+    # intervals
     return [0] + list(range(tick_interval, max_count, tick_interval)) + [max_count]
 
 
@@ -272,6 +325,20 @@ def get_y_ticks(max_count: int | float, num_ticks: int = 6) -> list[int]:
 
 
 def setup_six_subplots(title: str, spacing: float) -> tuple[Figure, np.ndarray[Axes]]:
+    """Create a MPL figure with six subplots, in two rows by three columns.
+
+    Parameters
+    ----------
+    title : str
+        Title of plot.
+    spacing : float
+        Spacing between subplots, in pixels.
+
+    Returns
+    -------
+    tuple[Figure, np.ndarray[Axes]]
+        Figure object for plot and Axes object per subplot.
+    """
     # Clean and create plot
     plt.clf()
     fig, axs = plt.subplots(2, 3)
@@ -294,16 +361,33 @@ def sub_histogram(
     title: str,
     labels: str | None = None,
 ):
-    #
+    """Plot a subplot for a MorphFITS histogram.
+
+    Parameters
+    ----------
+    ax : Axes
+        Axes object of the subplot to plot on.
+    filters : list[str]
+        List of filters over which to plot data.
+    data : dict[str, list[int | float]]
+        Dict mapping filters to data to be represented in this histogram.
+    bins : np.ndarray
+        Bins for this sub-histogram.
+    title : str
+        Title for this sub-histogram.
+    labels : str | None, optional
+        Labels for this sub-histogram's bins, by default None (N/A).
+    """
+    # Track maximum y-value for setting y-ticks
     max_count = 0
 
-    #
+    # Iterate over each filter
     for i in range(len(filters)):
         filter = filters[i]
         line_style = list(LINE_STYLES.keys())[i]
         filter_data = data[filter]
 
-        #
+        # Plot histogram for this parameter in subplot
         count, bin_edges, patches = ax.hist(
             x=filter_data,
             histtype=HISTOGRAM_TYPE,
@@ -314,7 +398,7 @@ def sub_histogram(
             label=filter,
         )
 
-        #
+        # Increase maximum y-value if applicable
         if (len(count) > 0) and (np.max(count) > max_count):
             max_count = np.max(count)
 
@@ -322,7 +406,7 @@ def sub_histogram(
     ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)
     if labels is not None:
         ax.set_xticks(bins[:-1] + 0.5, labels)
-    # ax.set_yticks(get_y_ticks(max_count=max_count))
+    ax.set_yticks(get_y_ticks(max_count=max_count))
     ax.set_yscale("log")
 
 
@@ -333,15 +417,39 @@ def sub_model(
     vmin: float | None = None,
     vmax: float | None = None,
 ):
-    #
+    """Plot an imshow subplot for a MorphFITS model and product comparison plot.
+
+    Parameters
+    ----------
+    ax : Axes
+        Axes object of the subplot to plot on.
+    image : np.ndarray
+        Image data for this subplot.
+    title : str
+        Title for this subplot.
+    vmin : float | None, optional
+        Minimum for color map scale, by default None (auto scale).
+    vmax : float | None, optional
+        Maximum for color map scale, by default None (auto scale).
+    """
+    # Plot image in subplot
     ax.imshow(image, cmap=JHIVE_CMAP, vmin=vmin, vmax=vmax)
 
-    #
+    # Set title and turn off axes
     ax.set_title(title, y=0)
     ax.set_axis_off()
 
 
 def save(path: Path, fig: Figure):
+    """Save a figure to file.
+
+    Parameters
+    ----------
+    path : Path
+        Path to which to save figure.
+    fig : Figure
+        MPL plot to save to file.
+    """
     fig.savefig(path)
     fig.clear()
 
@@ -350,13 +458,32 @@ def save(path: Path, fig: Figure):
 
 
 def histogram(path: Path, title: str, catalog: pd.DataFrame):
-    #
+    """Plot the distribution of morphology fits.
+
+    A MorphFITS histogram has six sub-histograms:
+        1. usability
+        2. convergence bitmask
+        3. surface brightness
+        4. effective radius
+        5. sersic index
+        6. axis ratio
+
+    Parameters
+    ----------
+    path : Path
+        Path to which to write histogram plot.
+    title : str
+        Title of histogram plot.
+    catalog : pd.DataFrame
+        Morphology fitting data from which to generate histograms.
+    """
+    # Get list of filters from catalog
     filters = misc.get_unique(catalog["filter"])
 
     # Setup plot
     fig, axs = setup_six_subplots(title=title, spacing=HISTOGRAM_SUBPLOT_SEPARATION)
 
-    #
+    # Try plotting usability sub-histogram
     try:
         use_data = get_use_data(catalog)
         sub_histogram(
@@ -370,7 +497,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
     except Exception as e:
         logger.debug(f"Skipping making usability sub-histogram - {e}.")
 
-    #
+    # Try plotting convergence sub-histogram
     try:
         convergence_data = get_convergence_data(catalog)
         sub_histogram(
@@ -384,7 +511,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
     except Exception as e:
         logger.debug(f"Skipping making convergence sub-histogram - {e}.")
 
-    #
+    # Try plotting parameter sub-histograms for each parameter of interest
     histogram_parameters = {
         "surface brightness": axs[0][2],
         "effective radius": axs[1][0],
@@ -420,16 +547,49 @@ def model(
     vmin: float,
     vmax: float,
 ):
+    """Plot the image data of various output and product files for a FICLO.
+
+    This plot contains six subplots:
+        1. Stamp
+        2. Sigma map
+        3. Mask
+        4. Model
+        5. Residuals (model - stamp)
+        6. PSF crop
+
+    Parameters
+    ----------
+    path : Path
+        Path to which to write plot.
+    title : str
+        Title of plot.
+    stamp_image : np.ndarray
+        Image data of stamp of object.
+    sigma_image : np.ndarray
+        Image data of sigma map of object.
+    psf_image : np.ndarray
+        Image data of PSF crop of object.
+    mask_image : np.ndarray
+        Image data of mask of object.
+    model_image : np.ndarray
+        Image data of model of object.
+    residuals_image : np.ndarray
+        Image data of residuals of object.
+    vmin : float
+        Minimum for color map scale.
+    vmax : float
+        Maximum for color map scale.
+    """
     # Setup plot
     fig, axs = setup_six_subplots(title=title, spacing=MODEL_SUBPLOT_SEPARATION)
 
-    #
+    # Try plotting stamp subplot
     try:
         sub_model(ax=axs[0][0], image=stamp_image, title="masked stamp")
     except Exception as e:
         logger.debug(f"Skipping making stamp sub-histogram - {e}.")
 
-    #
+    # Try plotting sigma map subplot
     try:
         sub_model(
             ax=axs[0][1], image=sigma_image, title="sigma map", vmin=vmin, vmax=vmax
@@ -437,19 +597,19 @@ def model(
     except Exception as e:
         logger.debug(f"Skipping making sigma sub-histogram - {e}.")
 
-    #
+    # Try plotting mask subplot
     try:
         sub_model(ax=axs[0][2], image=mask_image, title="mask")
     except Exception as e:
         logger.debug(f"Skipping making mask sub-histogram - {e}.")
 
-    #
+    # Try plotting model subplot
     try:
         sub_model(ax=axs[1][0], image=model_image, title="model", vmin=vmin, vmax=vmax)
     except Exception as e:
         logger.debug(f"Skipping making model sub-histogram - {e}.")
 
-    #
+    # Try plotting residuals subplot
     try:
         sub_model(
             ax=axs[1][1],
@@ -461,7 +621,7 @@ def model(
     except Exception as e:
         logger.debug(f"Skipping making residuals sub-histogram - {e}.")
 
-    #
+    # Try plotting PSF crop subplot
     try:
         sub_model(ax=axs[1][2], image=psf_image, title="PSF crop")
     except Exception as e:
@@ -471,18 +631,28 @@ def model(
     save(path=path, fig=fig)
 
 
-# plot run histogram
-# open run catalog
-# plot histogram for each filter
-# plot merge histogram
-# open most recent merge catalog
-# plot histogram for each filter
 def all_histograms(runtime_settings: RuntimeSettings):
-    #
+    """Plot all histograms for a MorphFITS program run.
+
+    Plots in this order:
+        1. run histogram
+        2. merge histogram
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+
+    Raises
+    ------
+    FileNotFoundError
+        Missing run or merge catalog.
+    """
+    # Try making run histogram
     try:
         logger.info("Making histogram for run.")
 
-        #
+        # Get paths to run catalog and run histogram
         run_catalog_path = settings.get_path(
             name="run_catalog",
             runtime_settings=runtime_settings,
@@ -494,14 +664,14 @@ def all_histograms(runtime_settings: RuntimeSettings):
             field=runtime_settings.ficls[0].field,
         )
 
-        #
+        # Skip if missing run catalog
         if not run_catalog_path.exists():
             raise FileNotFoundError("missing run catalog")
 
-        #
+        # Get catalog as pandas data frame
         run_catalog = pd.read_csv(run_catalog_path)
 
-        #
+        # Plot histogram and write to file
         histogram(
             path=run_histogram_path,
             title="MorphFITS Histogram - Run on "
@@ -511,15 +681,15 @@ def all_histograms(runtime_settings: RuntimeSettings):
             catalog=run_catalog,
         )
 
-    #
+    # Catch errors and skip to merge histogram
     except Exception as e:
         logger.debug(f"Skipping making run histogram - {e}.")
 
-    #
+    # Try making merge histogram
     try:
         logger.info("Making histogram for all runs.")
 
-        #
+        # Get paths to merge catalog and histogram
         catalog_path = settings.get_path(
             name="merge_catalog", runtime_settings=runtime_settings
         )
@@ -527,14 +697,14 @@ def all_histograms(runtime_settings: RuntimeSettings):
             name="histogram", runtime_settings=runtime_settings
         )
 
-        #
+        # Skip if missing merge catalog
         if not catalog_path.exists():
             raise FileNotFoundError("missing merge catalog")
 
-        #
+        # Get catalog as pandas data frame
         catalog = pd.read_csv(catalog_path)
 
-        #
+        # Plot histogram and write to file
         histogram(
             path=histogram_path,
             title="MorphFITS Histogram as of "
@@ -544,15 +714,21 @@ def all_histograms(runtime_settings: RuntimeSettings):
             catalog=catalog,
         )
 
-    #
+    # Catch errors and skip
     except Exception as e:
         logger.debug(f"Skipping making merge histogram - {e}.")
 
 
-# for each ficl
-# for each object
-# plot model
 def all_models(runtime_settings: RuntimeSettings):
+    """Plot all model product comparison plots for this Morphfits program run.
+
+    Plots for each object, for each FICL in this program run.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    """
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
         # Try to get objects from FICL
@@ -577,7 +753,7 @@ def all_models(runtime_settings: RuntimeSettings):
         # Iterate over each object
         skipped = 0
         for object in objects:
-            # Try
+            # Try making comparison plot
             try:
                 # Get path to plot
                 plot_path = settings.get_path(
@@ -626,7 +802,7 @@ def all_models(runtime_settings: RuntimeSettings):
                     object=object,
                 )
 
-                #
+                # Skip object if missing any product or model
                 if (
                     not stamp_path.exists()
                     or not sigma_path.exists()
@@ -641,14 +817,14 @@ def all_models(runtime_settings: RuntimeSettings):
                     skipped += 1
                     continue
 
-                #
+                # Get image data of each subplot image from FITS files
                 stamp_image, stamp_headers = science.get_fits_data(stamp_path)
                 sigma_image, sigma_headers = science.get_fits_data(sigma_path)
                 psf_image, psf_headers = science.get_fits_data(psf_path)
                 mask_image, mask_headers = science.get_fits_data(mask_path)
                 model_image, model_headers = science.get_fits_data(model_path, hdu=2)
 
-                #
+                # Mask stamp and model
                 masked_stamp = np.where(
                     1 - mask_image, stamp_image, np.mean(stamp_image)
                 )
@@ -656,10 +832,10 @@ def all_models(runtime_settings: RuntimeSettings):
                     1 - mask_image, model_image, np.mean(model_image)
                 )
 
-                #
+                # Get minimum and maximum of stamp for plotting scale
                 stamp_min, stamp_max = np.nanmin(masked_stamp), np.nanmax(masked_stamp)
 
-                #
+                # Get residuals image from model if found in file
                 try:
                     residuals_image, residuals_headers = science.get_fits_data(
                         model_path, hdu=3
@@ -668,7 +844,7 @@ def all_models(runtime_settings: RuntimeSettings):
                         1 - mask_image, residuals_image, np.mean(residuals_image)
                     )
 
-                #
+                # Calculate residuals from model and stamp images if not found
                 except:
                     normalized_model = np.copy(masked_model)
                     normalized_model -= np.min(masked_model)
@@ -681,7 +857,7 @@ def all_models(runtime_settings: RuntimeSettings):
                         np.mean(normalized_model - stamp_image),
                     )
 
-                # Run GALFIT for object
+                # Plot model comparison for this object
                 if not runtime_settings.progress_bar:
                     logger.debug(f"Object {object}: Plotting model.")
                 model(

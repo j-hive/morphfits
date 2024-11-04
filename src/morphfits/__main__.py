@@ -12,7 +12,6 @@ import typer
 
 from . import catalog, initialize, plot, products, settings
 from .wrappers import galfit
-from .utils import logs
 
 
 # App Instantiation
@@ -663,8 +662,8 @@ def initialize_command(
     logger.info("Exiting MorphFITS.")
 
 
-# TODO rename
 @app.command(
+    name="product",
     short_help="Create FICLO products (cutouts for each object).",
     help="Create products for each FICLO. A product is an intermediate "
     + "FITS file required for a morphology fitting algorithm. "
@@ -673,148 +672,20 @@ def initialize_command(
     rich_help_panel="Tools",
     hidden=True,
 )
-def get_products():
+def product_command():
     raise NotImplementedError
 
 
-# TODO rename
 @app.command(
-    short_help="Visualize each object in a field.",
-    help="Create a plot visualizing each object in a FICL.",
+    name="catalog",
+    short_help="Create morphology catalogs.",
+    help="Update the full merge catalog at output/catalogs/merge "
+    + "and per-FIC catalogs at output/catalogs/morphology.",
     rich_help_panel="Tools",
     hidden=True,
 )
-def stamp(
-    input_root: Annotated[
-        Optional[Path],
-        typer.Option(
-            help="Path to root input directory.",
-            show_default=False,
-            exists=True,
-            file_okay=False,
-            rich_help_panel="Paths",
-            resolve_path=True,
-        ),
-    ],
-    field: Annotated[
-        str,
-        typer.Option(
-            "--field",
-            "-F",
-            show_default=False,
-            help="Field over which to generate stamps.",
-            rich_help_panel="FICL",
-        ),
-    ],
-    image_version: Annotated[
-        str,
-        typer.Option(
-            "--image-version",
-            "-I",
-            show_default=False,
-            help="Version of image processing over which to generate stamps.",
-            rich_help_panel="FICL",
-        ),
-    ],
-    catalog_version: Annotated[
-        str,
-        typer.Option(
-            "--catalog-version",
-            "-C",
-            show_default=False,
-            help="Version of cataloguing from which object IDs are taken.",
-            rich_help_panel="FICL",
-        ),
-    ],
-    filter: Annotated[
-        str,
-        typer.Option(
-            "--filter",
-            "-L",
-            show_default=False,
-            help="Filter over which to generate stamps.",
-            rich_help_panel="FICL",
-        ),
-    ],
-    product_root: Annotated[
-        Optional[Path],
-        typer.Option(
-            help="Path to root product directory.",
-            show_default='"products" directory created at --input-root level',
-            exists=True,
-            file_okay=False,
-            rich_help_panel="Paths",
-            resolve_path=True,
-            writable=True,
-        ),
-    ] = None,
-    output_root: Annotated[
-        Optional[Path],
-        typer.Option(
-            help="Path to root output directory.",
-            show_default='"output" directory created at --input-root level',
-            exists=True,
-            file_okay=False,
-            rich_help_panel="Paths",
-            resolve_path=True,
-            writable=True,
-        ),
-    ] = None,
-):
-    # Create configuration object
-    morphfits_config = settings.create_config(
-        input_root=input_root,
-        product_root=product_root,
-        output_root=output_root,
-        fields=[field],
-        image_versions=[image_version],
-        catalog_versions=[catalog_version],
-        filters=[filter],
-        display_progress=True,
-    )
-
-    # Create program and module logger
-    logs.create_logger(
-        filename=paths.get_path(
-            "run_log",
-            run_root=morphfits_config.run_root,
-            datetime=morphfits_config.datetime,
-            run_number=morphfits_config.run_number,
-        )
-    )
-    logger = logging.getLogger("MORPHFITS")
-    logger.info("Starting MorphFITS.")
-
-    # Display progress
-    ficl = next(morphfits_config.ficls)
-    logger.info(f"Starting MorphFITS stamps for FICL {ficl}.")
-
-    # Regenerate stamps for each object in FICL
-    products.generate_stamps(
-        input_root=morphfits_config.input_root,
-        product_root=morphfits_config.product_root,
-        image_version=ficl.image_version,
-        field=ficl.field,
-        catalog_version=ficl.catalog_version,
-        filter=ficl.filter,
-        objects=ficl.objects,
-        display_progress=True,
-    )
-
-    # Plot all objects
-    plot.plot_objects(
-        output_root=morphfits_config.output_root,
-        product_root=morphfits_config.product_root,
-        field=ficl.field,
-        image_version=ficl.image_version,
-        catalog_version=ficl.catalog_version,
-        filter=ficl.filter,
-        objects=ficl.objects,
-        display_progress=True,
-    )
-
-    # Exit
-    logger.info("Exiting MorphFITS.")
+def catalog_command():
+    raise NotImplementedError
 
 
 ## Main

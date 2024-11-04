@@ -54,7 +54,7 @@ DEFAULT_CONSTRAINTS_PATH = GALFIT_DATA_ROOT / "default.constraints"
 """
 
 
-NUM_FITS_TO_MONITOR = 5
+NUM_FITS_TO_MONITOR = 100
 """Number of fits after which an append statement will be made to the temporary
 catalog file in the run directory.
 """
@@ -81,6 +81,37 @@ def make_feedfile(
     half_light_radius: float,
     axis_ratio: float,
 ):
+    """Write a GALFIT feedfile for a single object.
+
+    Parameters
+    ----------
+    path : Path
+        Path to which to write feedfile.
+    stamp_path : Path
+        Path to stamp for this object.
+    model_galfit_path : Path
+        Path to which to output model file for this object.
+    sigma_path : Path
+        Path to sigma map for this object.
+    psf_path : Path
+        Path to PSF crop for this object.
+    mask_path : Path
+        Path to mask for this object.
+    constraints_path : Path
+        Path to constraints file for this run.
+    image_size : int
+        Number of pixels along each axis of square image.
+    zeropoint : float
+        Magnitude zeropoint for this object.
+    pixscale : tuple[float, float]
+        Pixel scale along each axis for this object, in "/pix.
+    magnitude : float
+        Magnitude for this object.
+    half_light_radius : float
+        Half light radius for this object.
+    axis_ratio : float
+        Axis ratio of this object.
+    """
     # Define functions for feedfile column alignment
     path_str = lambda x: str(x).ljust(FEEDFILE_COMMENT_COLUMN)
     float_str = lambda x: str(x).ljust(FEEDFILE_FLOAT_LENGTH)[:FEEDFILE_FLOAT_LENGTH]
@@ -120,6 +151,28 @@ def run(
     galfit_log_path: Path,
     galfit_model_path: Path,
 ):
+    """Execute the GALFIT binary program on a single object.
+
+    Parameters
+    ----------
+    galfit_path : Path
+        Path to GALFIT binary executable file.
+    product_ficlo_path : Path
+        Path to product directory for this FICLO.
+    constraints_path : Path
+        Path to constraints file for this run.
+    feedfile_path : Path
+        Path to feedfile for this object.
+    galfit_log_path : Path
+        Path to GALFIT log for this object.
+    galfit_model_path : Path
+        Path to output model for this object.
+
+    Raises
+    ------
+    RuntimeError
+        GALFIT exits on failure.
+    """
     # Copy GALFIT binary executable and constraints file to FICLO directory
     # Due to GALFIT needing to be in the same directory as the feedfile and
     # where its paths are based from
@@ -193,6 +246,13 @@ def run(
 
 
 def make_all_feedfiles(runtime_settings: RuntimeSettings):
+    """Make all GALFIT feedfiles for a program run.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    """
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
         # Try to open required files for FICL
@@ -346,7 +406,16 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
 
 
 def run_all(runtime_settings: RuntimeSettings):
+    """Run GALFIT on all FICLOs in this program run.
 
+    Updates to the temporary catalog under the run directory every n number of
+    fits, where n is set by morphfits.wrappers.galfit.NUM_FITS_TO_MONITOR.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    """
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
         # Try to get objects from FICL

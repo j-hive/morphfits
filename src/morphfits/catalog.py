@@ -159,6 +159,21 @@ README.md
 
 
 def get_morphology_column_name(index: int, filter: str) -> str:
+    """Get the column name in the morphology catalog based on the merge catalog
+    column names.
+
+    Parameters
+    ----------
+    index : int
+        Index of column name in list of merge catalog column names.
+    filter : str
+        Filter to append to column name.
+
+    Returns
+    -------
+    str
+        Column name for given filter in the morphology catalog.
+    """
     return f"{MERGE_COLUMNS[index]} ({filter})"
 
 
@@ -285,6 +300,34 @@ def get_catalog_row(
     object: int,
     morphology: GALFITSettings | ImcascadeSettings | PysersicSettings,
 ) -> MERGE_CATALOG_ROW_TYPE:
+    """Get a row of data for the merge catalog.
+
+    Parameters
+    ----------
+    model_path : Path
+        Path to model FITS file for this object.
+    fit_log_path : Path
+        Path to fitting log file for this object.
+    ficl : FICL
+        Field, image version, catalog version, and filter of this object.
+    object : int
+        Integer ID of this object in its photometric catalog.
+    morphology : GALFITSettings | ImcascadeSettings | PysersicSettings
+        Settings for morphology program used to fit object.
+
+    Returns
+    -------
+    MERGE_CATALOG_ROW_TYPE
+        List of primitive data types representing a row in the merge catalog for
+        this object.
+
+    Raises
+    ------
+    NotImplementedError
+        Morphology program not yet implemented.
+    FileNotFoundError
+        Fit log file or return code in fit log file missing.
+    """
     # Fitting log should always exist
     if fit_log_path.exists():
         # Get catalog row from model file and fit log file if successful fitting
@@ -383,6 +426,19 @@ def get_catalog_row(
 
 
 def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
+    """Get all the relevant morphology data for a program run from its output
+    model FITS files and fitting log files, as a pandas data frame.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+
+    Returns
+    -------
+    pd.DataFrame
+        Data frame containing morphology data on each FICLO in a program run.
+    """
     # Initialize catalog as dict with empty columns
     catalog_data = {name: [] for name in MERGE_COLUMNS}
 
@@ -436,8 +492,9 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
 
             # Catch any errors and skip to next object
             except Exception as e:
-                if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Skipping reading parameters - {e}.")
+                # NOTE Too verbose for general purpose but helpful for testing
+                # if not runtime_settings.progress_bar:
+                #     logger.debug(f"Object {object}: Skipping reading parameters - {e}.")
                 continue
 
     # Return catalog as data frame
@@ -445,33 +502,56 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
 
 
 def update_temporary(runtime_settings: RuntimeSettings, ficl: FICL, objects: list[int]):
+    """Update the temporary catalog file under the run directory, for monitoring
+    purposes while the fitting is ongoing.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    ficl : FICL
+        Field, image version, catalog version, and filter of this object.
+    objects : list[int]
+        List of object IDs whose information to append to temporary catalog
+        file.
+    """
     logger.debug("Updating temporary catalog file.")
 
-    #
+    # Get path to temporary catalog file (currently run catalog file)
     temp_catalog_path = settings.get_path(
         name="run_catalog",
         runtime_settings=runtime_settings,
         field=runtime_settings.ficls[0].field,
     )
 
-    #
+    # Create deep copy of runtime settings for only the past n objects
     temp_runtime_settings = runtime_settings.model_copy(deep=True)
     temp_runtime_settings.ficls = [ficl.model_copy(deep=True)]
     temp_runtime_settings.ficls[0].objects = objects
 
-    #
+    # Get catalog data for the past n objects
     catalog_data = get_data(runtime_settings=temp_runtime_settings)
 
-    #
+    # Append data to temporary catalog file if it exists
     if temp_catalog_path.exists():
         temp_catalog = pd.read_csv(temp_catalog_path)
         catalog_data = pd.concat([temp_catalog, catalog_data], join="inner")
 
-    # Write run catalog CSV file
+    # Write updated temporary catalog to file
     catalog_data.to_csv(temp_catalog_path, index=False)
 
 
 def make_run(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
+    """Write the run catalog file, containing morphology fitting parameters and
+    other information for each FICLO in this program run.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    catalog_data : pd.DataFrame
+        Morphology fitting information for each FICLO in this program run.
+    """
     # Get path to run catalog file
     run_catalog_path = settings.get_path(
         name="run_catalog",
@@ -489,6 +569,17 @@ def make_run(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
 
 
 def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
+    """Write the merge catalog file, containing morphology fitting parameters
+    and other information based on all previous program runs, and updated by
+    this program run.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    catalog_data : pd.DataFrame
+        Morphology fitting information for each FICLo in this program run.
+    """
     # Get path to merge catalog file and its parent directory
     catalog_path = settings.get_path(
         name="merge_catalog", runtime_settings=runtime_settings
@@ -535,6 +626,15 @@ def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
 
 
 def make_morphology(runtime_settings: RuntimeSettings):
+    """Write the morphology catalog file, containing morphology fitting
+    parameters and other information based on the most updated merge catalog,
+    and sorted for each field-image version-catalog version permutation.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    """
     # Get path to latest merge catalog CSV and open as data frame
     try:
         merge_dir_path = settings.get_path(
@@ -631,6 +731,15 @@ def make_morphology(runtime_settings: RuntimeSettings):
 
 
 def make_all(runtime_settings: RuntimeSettings):
+    """Read and write all morphology fitting information to catalog CSV files
+    for the FICLOs in this program run, and from data from previous program
+    runs.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    """
     # Get all fit parameters from output files for this run as a dict of lists
     try:
         logger.info("Reading fitting output files for catalog.")

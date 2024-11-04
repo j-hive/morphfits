@@ -4,7 +4,7 @@ There are two primary settings objects.
 1. RuntimeSettings
     Settings related to runtime configurations, such as paths to data
     directories, which stages to run, which products to remake, etc.
-2. ConfigSettings
+2. ScienceSettings
     Settings related to scientific configurations, such as sigma generation
     algorithm.
 """
@@ -193,6 +193,27 @@ class FICL(BaseModel):
 
 
 class StageSettings(BaseModel):
+    """Settings for MorphFITS stages, i.e. which stages are to be run in a
+    program run.
+
+    Attributes
+    ----------
+    unzip : bool, optional
+        Unzip any zipped input files, by default True.
+    product : bool, optional
+        Create product files, by default True.
+    morphology : bool, optional
+        Run morphology fitting programs, by default True.
+    catalog : bool, optional
+        Create and update catalog files, by default True.
+    histogram : bool, optional
+        Create histogram files from catalogs, by default True.
+    plot : bool, optional
+        Create plots from product and output files, by default True.
+    cleanup : bool, optional
+        Remove failed subdirectories and record settings, by default True.
+    """
+
     unzip: bool = True
     product: bool = True
     morphology: bool = True
@@ -203,6 +224,26 @@ class StageSettings(BaseModel):
 
 
 class RemakeSettings(BaseModel):
+    """Settings for remaking, i.e. which files to remake and overwrite.
+
+    Attributes
+    ----------
+    stamps : bool, optional
+        Remake stamp files, by default True.
+    sigmas : bool, optional
+        Remake sigma map files, by default True.
+    psfs : bool, optional
+        Remake PSF crop files, by default True.
+    masks : bool, optional
+        Remake mask files, by default True.
+    morphology : bool, optional
+        Rerun morphology fitting programs, by default True.
+    plots : bool, optional
+        Remake plots, by default True.
+    others : bool, optional
+        Remake any other files (e.g. feedfiles), by default True.
+    """
+
     stamps: bool = False
     sigmas: bool = False
     psfs: bool = False
@@ -213,6 +254,14 @@ class RemakeSettings(BaseModel):
 
 
 class GALFITSettings(BaseModel):
+    """Settings for a GALFIT run.
+
+    Attributes
+    ----------
+    binary : Path
+        Path to GALFIT executable binary file.
+    """
+
     binary: Path
 
     def _name(self):
@@ -223,6 +272,7 @@ class GALFITSettings(BaseModel):
 
 
 class ImcascadeSettings(BaseModel):
+    """Settings for an imcascade run."""
 
     def _name(self):
         return "imcascade"
@@ -232,6 +282,7 @@ class ImcascadeSettings(BaseModel):
 
 
 class PysersicSettings(BaseModel):
+    """Settings for a pysersic run."""
 
     def _name(self):
         return "pysersic"
@@ -241,6 +292,22 @@ class PysersicSettings(BaseModel):
 
 
 class PathSettings(BaseModel):
+    """Paths to root directories for this program run.
+
+    Attributes
+    ----------
+    root : Path
+        Path to root MorphFITS directory.
+    input : Path
+        Path to root input directory.
+    output : Path
+        Path to root output directory.
+    product : Path
+        Path to root product directory.
+    run : Path
+        Path to root run directory.
+    """
+
     root: Path
     input: Path
     output: Path
@@ -249,6 +316,37 @@ class PathSettings(BaseModel):
 
 
 class RuntimeSettings(BaseModel):
+    """Settings for a program run of MorphFITS.
+
+    Attributes
+    ----------
+    roots : PathSettings
+        Paths to root directories for this program run.
+    date_time : datetime
+        Date time of start of this program run.
+    run_number : int, optional
+        Directory number if multiple runs are started at the same date time, by
+        default 1.
+    process_count : int, optional
+        Process number if multiple are started at the same time, by default 1.
+    process_id : int, optional
+        Process ID if multiple are started at the same time, by default 0.
+    ficls : list[FICL]
+        List of FICLs over which to run MorphFITS.
+    progress_bar : bool, optional
+        Display a progress bar via tqdm and suppress per-object logging, by
+        default False.
+    log_level : str, optional
+        Level at which to log, one of standard Python logging levels, by default
+        debug.
+    stages : StageSettings | None
+        Stages to run in this program run, by default None (N/A).
+    remake : RemakeSettings | None
+        Files to remake in this program run, by default None (N/A).
+    morphology : GALFITSettings | ImcascadeSettings | PysersicSettings | None
+        Settings for morphology fitting programs, by default None (N/A).
+    """
+
     roots: PathSettings
     date_time: datetime
     run_number: int = 1
@@ -264,6 +362,15 @@ class RuntimeSettings(BaseModel):
     )
 
     def setup_directories(self, initialized: bool = True):
+        """Create required input, output, and/or product directories for this
+        program run.
+
+        Parameters
+        ----------
+        initialized : bool, optional
+            Input directory initialized, by default True (not running initialize
+            command).
+        """
         pre_logger.info("Making missing directories.")
 
         # Create run directory
@@ -299,6 +406,7 @@ class RuntimeSettings(BaseModel):
                     ).mkdir(parents=True, exist_ok=True)
 
     def setup_loggers(self):
+        """Create logging objects for this program run."""
         # Create logger object
         logs.create_logger(
             filename=get_path(
@@ -312,6 +420,9 @@ class RuntimeSettings(BaseModel):
         logger = logging.getLogger("SETTINGS")
 
     def cleanup_directories(self):
+        """Remove output and/or product directories of failed FICLOs, i.e.
+        objects whose products or output files failed to generate.
+        """
         logger.info("Removing failed directories.")
 
         # Iterate over each FICL
@@ -361,6 +472,7 @@ class RuntimeSettings(BaseModel):
                         shutil.rmtree(output_ficlo_path, ignore_errors=True)
 
     def write(self):
+        """Record runtime settings to run directory."""
         logger.info("Recording runtime settings.")
 
         # Initialize empty dict for writing
@@ -419,6 +531,8 @@ class RuntimeSettings(BaseModel):
 
 
 class ScienceSettings(BaseModel):
+    """Settings for scientific generation for a program run of MorphFITS."""
+
     pass
 
 
@@ -431,6 +545,23 @@ class ScienceSettings(BaseModel):
 def get_priority_path(
     name: str, cli_settings: dict, file_settings: dict
 ) -> Path | None:
+    """Get the priority value for a path setting from values passed from a
+    terminal call and a settings file.
+
+    Parameters
+    ----------
+    name : str
+        Name of path setting.
+    cli_settings : dict
+        Settings passed from CLI call.
+    file_settings : dict
+        Settings passed from YAML file.
+
+    Returns
+    -------
+    Path | None
+        Priority path setting, if found in either CLI call or YAML file.
+    """
     # Try getting preferred setting and casting to path object
     try:
         path_str = get_priority_setting(name, cli_settings, file_settings)
@@ -444,6 +575,23 @@ def get_priority_path(
 def get_priority_stage(
     stage: str, cli_settings: dict, file_settings: dict
 ) -> bool | None:
+    """Get the priority value for a stage setting from values passed from a
+    terminal call and a settings file.
+
+    Parameters
+    ----------
+    stage : str
+        Name of stage.
+    cli_settings : dict
+        Settings passed from CLI call.
+    file_settings : dict
+        Settings passed from YAML file.
+
+    Returns
+    -------
+    bool | None
+        Priority stage setting, if found in either CLI call or YAML file.
+    """
     # Return opposite of flag from CLI call if set
     if cli_settings[f"skip_{stage}"] is not None:
         return not cli_settings[f"skip_{stage}"]
@@ -461,6 +609,23 @@ def get_priority_stage(
 def get_priority_remake(
     product: str, cli_settings: dict, file_settings: dict
 ) -> bool | None:
+    """Get the priority value for a remake setting from values passed from a
+    terminal call and a settings file.
+
+    Parameters
+    ----------
+    product : str
+        Name of file to be regenerated.
+    cli_settings : dict
+        Settings passed from CLI call.
+    file_settings : dict
+        Settings passed from YAML file.
+
+    Returns
+    -------
+    bool | None
+        Priority remake setting, if found in either CLI call or YAML file.
+    """
     # Return opposite of flag from CLI call if set
     if cli_settings[f"remake_{product}"] is not None:
         return not cli_settings[f"remake_{product}"]
@@ -478,6 +643,22 @@ def validate_batch_settings(
     first_object: int | None,
     last_object: int | None,
 ):
+    """Validate batch mode settings for a MorphFITS program run.
+
+    Parameters
+    ----------
+    process_count : int | None
+        Number of processes in batch, must be greater than 0.
+    process_id : int | None
+        ID of process in batch, must be greater than 0 and less than total
+        number of processes.
+    first_object : int | None
+        ID of first object in batch range, must be greater than 0 and less than
+        last (possible) object.
+    last_object : int | None
+        ID of last object in batch range, must be greater than first (possible)
+        object and less than last possible object.
+    """
     # Terminate if invalid number of processes
     if process_count is not None:
         assert process_count > 0, f"Invalid # processes {process_count}."
@@ -512,6 +693,27 @@ def missing_input(
     catalog_version: str,
     filter: str | None = None,
 ) -> bool:
+    """Evaluate whether a FICL (corresponding to an observation) or FIC
+    (corresponding to a catalog) is missing an input file.
+
+    Parameters
+    ----------
+    input_root : Path
+        Path to root input directory.
+    field : str
+        Name of field.
+    image_version : str
+        Image processing version.
+    catalog_version : str
+        Cataloging version.
+    filter : str | None, optional
+        Name of filter, by default None (FIC).
+
+    Returns
+    -------
+    bool
+        FIC/FICL missing at least one input file.
+    """
     # Get list of path names of required input files
     required_inputs = REQUIRED_FIC_INPUTS if filter is None else REQUIRED_FICL_INPUTS
 
@@ -546,6 +748,37 @@ def get_objects(
     first_object: int | None,
     last_object: int | None,
 ) -> list[int]:
+    """Get a list of objects for a FICL for this program run (whether or not in
+    batch mode), as a list of integer IDs corresponding to their IDs in the
+    photometric catalog corresponding to the FICL.
+
+    Parameters
+    ----------
+    input_root : Path
+        Path to root input directory.
+    field : str
+        Name of field.
+    image_version : str
+        Image processing version.
+    catalog_version : str
+        Cataloging version.
+    objects : list[int] | None
+        List of objects from user, by default None (not passed).
+    process_count : int | None
+        Number of processes in batch, by default None (not passed).
+    process_id : int | None
+        ID of process in batch, by default None (not passed).
+    first_object : int | None
+        ID of first object in batch, by default None (not passed).
+    last_object : int | None
+        ID of last object in batch, by default None (not passed).
+
+    Returns
+    -------
+    list[int]
+        List of object IDs corresponding to the 'id' key in the FICL's
+        photometric catalog.
+    """
     # Base list of objects is all possible object IDs, if in batch mode
     if (
         (objects is None)
@@ -605,6 +838,30 @@ def get_objects(
 def clean_filter(
     input_root: Path, field: str, image_version: str, catalog_version: str, filter: str
 ) -> str | None:
+    """Get the filter name corresponding to existing input files.
+
+    For an existing science file '...f200w-clear...fits', the cleaned filter
+    refers to 'f200w-clear', and uncleaned filters refer to those passed by
+    users indicating this filter without being identical strings, e.g. 'f200w'.
+
+    Parameters
+    ----------
+    input_root : Path
+        Path to root input directory.
+    field : str
+        Name of field.
+    image_version : str
+        Image processing version.
+    catalog_version : str
+        Cataloging version.
+    filter : str
+        Uncleaned filter.
+
+    Returns
+    -------
+    str | None
+        Cleaned filter, if found.
+    """
     # Get path to input science frame
     science_path = get_path(
         name="science",
@@ -651,6 +908,23 @@ def clean_filter(
 def get_priority_setting(
     name: str, cli_settings: dict, file_settings: dict
 ) -> bool | int | Path | list[str] | list[int] | None:
+    """Get a setting's value from CLI call or YAML file, in preference of the
+    CLI setting value, and None if not found.
+
+    Parameters
+    ----------
+    name : str
+        Name of setting.
+    cli_settings : dict
+        Settings passed from CLI call.
+    file_settings : dict
+        Settings read from YAML file.
+
+    Returns
+    -------
+    bool | int | Path | list[str] | list[int] | None
+        Resolved prioritized setting, if found.
+    """
     # Return setting from CLI call if set
     if cli_settings[name] is not None:
         return cli_settings[name]
@@ -663,6 +937,28 @@ def get_priority_setting(
 
 
 def get_path_settings(cli_settings: dict, file_settings: dict) -> PathSettings:
+    """Get path settings for this program run from the CLI call and YAML file,
+    if passed.
+
+    Parameters
+    ----------
+    cli_settings : dict
+        Settings from CLI call.
+    file_settings : dict
+        Settings from YAML file.
+
+    Returns
+    -------
+    PathSettings
+        Paths to root MorphFITS directories.
+
+    Raises
+    ------
+    ValueError
+        Path to input root AND MorphFITS root not passed.
+    FileNotFoundError
+        Input root directory does not exist.
+    """
     # Set initialized flag from parameter from main command
     initialized = cli_settings["initialized"]
 
@@ -720,6 +1016,36 @@ def get_ficls(
     first_object: int | None,
     last_object: int | None,
 ) -> list[FICL]:
+    """Get a list of FICLs (corresponding to observations) over which to run
+    MorphFITS.
+
+    Parameters
+    ----------
+    cli_settings : dict
+        Settings from CLI call.
+    file_settings : dict
+        Settings from YAML file.
+    input_root : Path
+        Path to root input directory.
+    process_count : int | None
+        Number of processes in batch.
+    process_id : int | None
+        ID of process in batch.
+    first_object : int | None
+        ID of first object in range.
+    last_object : int | None
+        ID of last object in range.
+
+    Returns
+    -------
+    list[FICL]
+        List of FICLs over which to run MorphFITS.
+
+    Raises
+    ------
+    KeyError
+        No valid FICLs found for these settings.
+    """
     # Get preferred FICLO settings
     settings_pack = [cli_settings, file_settings]
     fields = get_priority_setting("fields", *settings_pack)
@@ -872,6 +1198,25 @@ def get_ficls(
 
 
 def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FICL]:
+    """Get a list of FICLs to initialize, i.e. download data for from DJA.
+
+    Parameters
+    ----------
+    cli_settings : dict
+        Settings from CLI call.
+    file_settings : dict
+        Settings from YAML file.
+
+    Returns
+    -------
+    list[FICL]
+        List of FICLs to initialize.
+
+    Raises
+    ------
+    KeyError
+        No valid FICLs found to initialize.
+    """
     # Get preferred FIL settings
     settings_pack = [cli_settings, file_settings]
     fields = get_priority_setting("fields", *settings_pack)
@@ -905,6 +1250,23 @@ def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FIC
 
 
 def get_run_number(path_settings: PathSettings, field: str, date_time: datetime) -> int:
+    """Get the run number for this program run.
+
+    Parameters
+    ----------
+    path_settings : PathSettings
+        Paths to root directories for this program run.
+    field : str
+        Name of first field in list of FICLs of this program run.
+    date_time : datetime
+        Date time of start of program run.
+
+    Returns
+    -------
+    int
+        Lowest number at which a directory for this date time has not been
+        created.
+    """
     # Set run number to 1 by default
     run_number = 1
 
@@ -924,6 +1286,20 @@ def get_run_number(path_settings: PathSettings, field: str, date_time: datetime)
 
 
 def get_stage_settings(cli_settings: dict, file_settings: dict) -> StageSettings | None:
+    """Get the stages to run for this MorphFITS run.
+
+    Parameters
+    ----------
+    cli_settings : dict
+        Settings from CLI call.
+    file_settings : dict
+        Settings from YAML file.
+
+    Returns
+    -------
+    StageSettings | None
+        Stages to run, if not running the initialize command.
+    """
     # Get skip stage flags from CLI call or YAML file
     settings_pack = [cli_settings, file_settings]
     unzip = get_priority_stage("unzip", *settings_pack)
@@ -960,6 +1336,20 @@ def get_stage_settings(cli_settings: dict, file_settings: dict) -> StageSettings
 def get_remake_settings(
     cli_settings: dict, file_settings: dict
 ) -> RemakeSettings | None:
+    """Get the output and product files to remake for this program run.
+
+    Parameters
+    ----------
+    cli_settings : dict
+        Settings from CLI call.
+    file_settings : dict
+        Settings from YAML file.
+
+    Returns
+    -------
+    RemakeSettings | None
+        Output and product files to remake in this program run.
+    """
     # Return None if main command is initialize
     if not cli_settings["initialized"]:
         return
@@ -1009,6 +1399,29 @@ def get_remake_settings(
 def get_morphology_settings(
     cli_settings: dict, file_settings: dict
 ) -> GALFITSettings | ImcascadeSettings | PysersicSettings | None:
+    """Get the morphology settings for this program run.
+
+    Parameters
+    ----------
+    cli_settings : dict
+        Settings from CLI call.
+    file_settings : dict
+        Settings from YAML file.
+
+    Returns
+    -------
+    GALFITSettings | ImcascadeSettings | PysersicSettings | None
+        Morphology settings for this program run.
+
+    Raises
+    ------
+    KeyError
+        GALFIT binary executable not passed.
+    FileNotFoundError
+        GALFIT binary executable not found.
+    NotImplementedError
+        Morphology fitting program not yet implemented.
+    """
     # Return None if main command is initialize
     if not cli_settings["initialized"]:
         return
@@ -1033,7 +1446,7 @@ def get_morphology_settings(
         case "pysersic":
             raise NotImplementedError("Terminating - not yet implemented.")
         case _:
-            raise KeyError("Terminating - unknown morphology fitter.")
+            raise NotImplementedError("Terminating - unknown morphology fitter.")
 
 
 ## Primary
@@ -1058,6 +1471,14 @@ def get_path(
     run_number: int | None = None,
 ) -> Path:
     """Get the path to a MorphFITS file or directory.
+
+    Resolution order:
+    1. parameters
+        a. prefer directly passed
+        b. prefer objects (runtime settings, path settings, ficl)
+    2. path templates ([root], [input], ...)
+    3. ficlo templates ({F}, {I}, ...)
+    4. drc/drz
 
     Parameters
     ----------
@@ -1211,6 +1632,36 @@ def get_path(
 
 
 def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSettings:
+    """Get the runtime settings for this program run.
+
+    Order of resolution:
+    1. paths
+    2. primitive
+        a. date time
+        b. progress bar
+        c. log level
+        d. process count
+        e. process ID
+    3. list of FICLs
+    4. run number
+    5. stages to run
+    6. files to remake
+    7. morphology settings
+
+    Creates all input, output, and product directories for this program run.
+
+    Parameters
+    ----------
+    cli_settings : dict
+        Settings from CLI call.
+    file_settings : dict
+        Settings from YAML file.
+
+    Returns
+    -------
+    RuntimeSettings
+        Runtime settings for this program run.
+    """
     # Get initialized flag from parameter passed from main command
     initialized = cli_settings["initialized"]
 
@@ -1295,6 +1746,20 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
 
 
 def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSettings:
+    """Get the science settings for this program run.
+
+    Parameters
+    ----------
+    cli_settings : dict
+        Settings from CLI call.
+    file_settings : dict
+        Settings from YAML file.
+
+    Returns
+    -------
+    ScienceSettings
+        Science settings for this program run.
+    """
     pass
 
 
@@ -1335,6 +1800,90 @@ def get_settings(
     galfit_path: Path | None = None,
     initialized: bool | None = None,
 ) -> tuple[RuntimeSettings, ScienceSettings]:
+    """Get the runtime and science settings for this program run.
+
+    Reads settings passed from CLI call, then from YAML file, and prefers those
+    from the former. Creates temporary log file for pre-run-directory logging.
+    Creates settings objects.
+
+    Parameters
+    ----------
+    settings_path : Path | None, optional
+        Path to config YAML file, by default None.
+    morphfits_root : Path | None, optional
+        Path to root MorphFITS directory, by default None.
+    input_root : Path | None, optional
+        Path to root input directory, by default None.
+    output_root : Path | None, optional
+        Path to root output directory, by default None.
+    product_root : Path | None, optional
+        Path to root product directory, by default None.
+    run_root : Path | None, optional
+        Path to root run directory, by default None.
+    batch_n_process : int | None, optional
+        Number of processes in batch, by default None.
+    batch_process_id : int | None, optional
+        ID of process in batch, by default None.
+    fields : list[str] | None, optional
+        List of field names, by default None.
+    image_versions : list[str] | None, optional
+        List of image processing versions, by default None.
+    catalog_versions : list[str] | None, optional
+        List of cataloging versions, by default None.
+    filters : list[str] | None, optional
+        List of filters, by default None.
+    objects : list[int] | None, optional
+        List of object IDs, by default None.
+    first_object : int | None, optional
+        First object ID in range, by default None.
+    last_object : int | None, optional
+        Last object ID in range, by default None.
+    progress_bar : bool | None, optional
+        Show progress bar and suppress per-object logging, by default None.
+    log_level : str | None, optional
+        Level at which to log, by default None.
+    skip_unzip : bool | None, optional
+        Skip unzipping stage, by default None.
+    skip_product : bool | None, optional
+        Skip product generation stage, by default None.
+    skip_morphology : bool | None, optional
+        Skip morphology fitting stage, by default None.
+    skip_catalog : bool | None, optional
+        Skip cataloging stage, by default None.
+    skip_histogram : bool | None, optional
+        Skip histogram generation stage, by default None.
+    skip_plot : bool | None, optional
+        Skip plotting stage, by default None.
+    skip_cleanup : bool | None, optional
+        Skip cleanup stage, by default None.
+    remake_all : bool | None, optional
+        Remake all files, by default None.
+    remake_stamps : bool | None, optional
+        Remake stamps, by default None.
+    remake_sigmas : bool | None, optional
+        Remake sigma maps, by default None.
+    remake_psfs : bool | None, optional
+        Remake PSF crops, by default None.
+    remake_masks : bool | None, optional
+        Remake masks, by default None.
+    remake_morphology : bool | None, optional
+        Rerun morphology fitting, by default None.
+    remake_plots : bool | None, optional
+        Remake plots, by default None.
+    remake_others : bool | None, optional
+        Remake any other files, by default None.
+    morphology : str | None, optional
+        Morphology fitting program name, by default None.
+    galfit_path : Path | None, optional
+        Path to GALFIT binary executable, by default None.
+    initialized : bool | None, optional
+        All input files acquired, organized, and unzipped, by default None.
+
+    Returns
+    -------
+    tuple[RuntimeSettings, ScienceSettings]
+        Runtime and science settings for this program run.
+    """
     # Get CLI settings as dict from passed parameters
     cli_settings = locals()
 

@@ -58,13 +58,15 @@ class DownloadProgressBar(tqdm):
 # Functions
 
 
-## Secondary
-
-
-## Primary
-
-
 def get_dja_catalog() -> dict[str, str]:
+    """Get a list of files available for download from the DJA archive as a dict
+    from a filename to its corresponding download link.
+
+    Returns
+    -------
+    dict[str, str]
+        DJA download catalog, as download links indexed by their filenames.
+    """
     logger.info("Downloading file list from DJA.")
 
     # Try to get DJA file list
@@ -111,12 +113,28 @@ def get_dja_catalog() -> dict[str, str]:
 def get_src_dest(
     runtime_settings: RuntimeSettings, dja_catalog: dict[str, str]
 ) -> dict[str, str]:
-    #
+    """Get the sources and destinations for download for this program run, as a
+    dict.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    dja_catalog : dict[str, str]
+        Dict mapping filenames to their DJA download links.
+
+    Returns
+    -------
+    dict[str, str]
+        Dict containing local path destinations mapped by their DJA download
+        link sources.
+    """
+    # Initialize empty dict to store source/destination pairs
     src_dest = {}
 
-    #
+    # Iterate over each FICL in this program run
     for ficl in runtime_settings.ficls:
-        #
+        # Get paths to each required input file
         input_segmap_path = settings.get_path(
             name="input_segmap", path_settings=runtime_settings.roots, ficl=ficl
         )
@@ -132,6 +150,8 @@ def get_src_dest(
         weights_path = settings.get_path(
             name="weights", path_settings=runtime_settings.roots, ficl=ficl
         )
+
+        # Get paths to alternate files where 'drc' is replaced by 'drz'
         alt_exposure_path = Path(str(exposure_path).replace("drc", "drz")).resolve()
         alt_science_path = Path(str(science_path).replace("drc", "drz")).resolve()
         alt_weights_path = Path(str(weights_path).replace("drc", "drz")).resolve()
@@ -146,21 +166,22 @@ def get_src_dest(
             alt_weights_path,
         ]
 
-        #
+        # Iterate over each required input file
         for required_file in required_files:
-            #
+            # Add source/destination pair if file is found in download catalog
             if required_file.name in dja_catalog:
                 src = dja_catalog[required_file.name]
                 dest = str(required_file)
                 src_dest[src] = dest
 
-            #
+            # Add source/destination pair if zipped file is found in download
+            # catalog
             elif required_file.name + ".gz" in dja_catalog:
                 src = dja_catalog[required_file.name + ".gz"]
                 dest = str(required_file) + ".gz"
                 src_dest[src] = dest
 
-            #
+            # Skip file if not found in download catalog
             else:
                 if "drz" not in required_file.name:
                     logger.warning(
@@ -168,24 +189,36 @@ def get_src_dest(
                         + "- failed to locate in DJA catalog."
                     )
 
-    #
+    # Return source/destination pairs
     return src_dest
 
 
+## Primary
+
+
 def get_input(src_dest: dict[str, str]):
+    """Download the required input files for a MorphFITS program run from the
+    DJA archive.
+
+    Parameters
+    ----------
+    src_dest : dict[str, str]
+        Dict containing local path destinations mapped by their DJA download
+        link sources.
+    """
     logger.info(f"Downloading {len(src_dest)} files.")
 
-    #
+    # Iterate over each source/destination pair for this initialize run
     num_files, total_file_size = 0, 0
     for src, dest in src_dest.items():
-        #
+        # Try downloading from source and writing to destination
         try:
-            #
+            # Skip files which already exist
             if (Path(dest).exists()) or (Path(dest[:-3]).exists()):
                 num_files += 1
                 raise FileExistsError("exists")
 
-            #
+            # Download from source and display progress bar
             file_name = src.split("/")[-1]
             with DownloadProgressBar(
                 unit="B",
@@ -196,7 +229,7 @@ def get_input(src_dest: dict[str, str]):
             ) as t:
                 request.urlretrieve(url=src, filename=dest, reporthook=t.update_to)
 
-            #
+            # Log progress and append to file size
             file_size = Path(dest).stat().st_size
             total_file_size += file_size
             num_files += 1
@@ -206,11 +239,11 @@ def get_input(src_dest: dict[str, str]):
                 + f"({num_files+1}/{len(src_dest)})."
             )
 
-        #
+        # Catch errors downloading and skip to next pair
         except Exception as e:
             logger.debug(f"Skipping downloading '{Path(dest).name} - {e}.")
 
-    #
+    # Log number of files downloaded
     if num_files > 0:
         logger.info(
             f"Downloaded {num_files} files "
@@ -221,34 +254,41 @@ def get_input(src_dest: dict[str, str]):
 
 
 def unzip(runtime_settings: RuntimeSettings):
+    """Unzip all zipped FITS files under input root directory.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    """
     logger.info("Unzipping zipped input files.")
 
-    #
+    # Initialize monitoring variables as 0
     num_files, total_compressed_size, total_uncompressed_size = 0, 0, 0
 
-    #
+    # Iterate over each field subdirectory
     for field_dir in misc.get_subdirectories(runtime_settings.roots.input):
-        #
+        # Skip PSFs subdirectory, which does not contain zipped files
         if field_dir.name == "psfs":
             continue
 
-        #
+        # Iterate over each image version subdirectory
         for imver_dir in misc.get_subdirectories(field_dir):
-            #
+            # Iterate over each filter subdirectory
             for filter_dir in misc.get_subdirectories(imver_dir):
-                #
+                # Iterate over each file in filter subdirectory
                 for input_fil_file in filter_dir.iterdir():
-                    #
+                    # Skip unzipped files
                     if ".fits.gz" not in input_fil_file.name:
                         continue
 
-                    #
+                    # Store original file size
                     compressed_size = input_fil_file.stat().st_size
 
-                    #
+                    # Get path to which to write unzipped file
                     input_fil_file_unzipped = Path(str(input_fil_file)[:-3])
 
-                    #
+                    # Try unzipping file with gzip
                     try:
                         with gzip.open(input_fil_file, mode="rb") as zipped:
                             with open(input_fil_file_unzipped, mode="wb") as unzipped:
@@ -257,7 +297,7 @@ def unzip(runtime_settings: RuntimeSettings):
                     except Exception as e:
                         logger.error(f"Skipping unzipping {input_fil_file.name} - {e}.")
 
-                    #
+                    # Log file size change
                     uncompressed_size = input_fil_file_unzipped.stat().st_size
                     logger.info(
                         f"Unzipped '{input_fil_file_unzipped.name} "
@@ -265,12 +305,12 @@ def unzip(runtime_settings: RuntimeSettings):
                         + f"{misc.get_str_from_file_size(uncompressed_size)})."
                     )
 
-                    #
+                    # Store values to monitoring variables
                     total_compressed_size += compressed_size
                     total_uncompressed_size += uncompressed_size
                     num_files += 1
 
-    #
+    # Log number of files and file sizes uncompressed
     if num_files > 0:
         logger.info(
             f"Unzipped {num_files} files "
