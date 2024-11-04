@@ -1,5 +1,5 @@
 # MorphFITS
-MorphFITS is a morphology fitter program for Python.
+MorphFITS is J-HIVE's morphology fitter program for Python.
 
 In its current iteration, it contains GalWrap, a wrapper for GALFIT, for JWST data.
 
@@ -13,13 +13,13 @@ cd morphfits
 poetry install
 ```
 
-**This step is mandatory.** Download the GALFIT binary corresponding to your system [here](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html), and move it to the location of your choosing (e.g., your data directory, if it exists).
+**This step is mandatory for GALFIT.** Download the GALFIT binary corresponding to your system [here](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html), and move it to the location of your choosing (e.g., your data directory, if it exists).
 
 
 # Quickstart
 To quickstart MorphFITS without data, run
 ```
-poetry run morphfits download --input-root [INPUT_ROOT] -F abell2744clu -I grizli-v7.2 -L f200w-clear
+poetry run morphfits initialize -i [INPUT_ROOT] -F abell2744clu -I grizli-v7.2 -L f200w-clear
 ```
 for an `INPUT_ROOT` of your choosing, e.g. `morphfits_root`, which is untracked.
 The program will download the necessary `.fits` files from the DJA archive.
@@ -31,7 +31,7 @@ mv [DOWNLOADS]/PSF_NIRCam_in_flight_opd_filter_F200W.fits [INPUT_ROOT]/psfs
 ```
 Now, with the input state ready for the pipeline, run
 ```
-poetry run morphfits galwrap --input-root [INPUT_ROOT] --galfit-path [GALFIT_PATH] -O 4215
+poetry run morphfits galwrap -i [INPUT_ROOT] -g [GALFIT_PATH] -O 4215
 ```
 where the input root and path to the GALFIT binary *must* be provided. This fits
 the object indexed as `4215` by the UNCOVER catalog. To run over all 65k+ objects,
@@ -119,62 +119,125 @@ Please note
 
 
 # Usage
-The program can be configured in three ways. If it receives parameters from multiple
-sources, it will use the values in this order.
+The program's settings can be configured via CLI call, or YAML file. If a
+setting is found in both, MorphFITS will prefer the former.
 
-1. CLI call (see below)
-2. Configuration file [(see a sample here)](./examples/config.yaml)
-3. Input directory crawling
-
-The program requires the following parameters to run the GALFIT wrapper,
-GalWrap. Note a path to a GALFIT binary *must* be provided.
-
-|CLI Key|YAML Key|Type|Description|
-|:---|:---|:---|:---|
-|`--config-path`||`str`|Path to configuration YAML file.|
-|`--galfit-path`|`galfit_path`|`str`|Path to GALFIT binary file.|
-|`--input-root`|`input_root`|`str`|Path to input directory root.|
-|`--field`|`fields`|`list[str]`|Fields of frames over which to fit.|
-|`--image-version`|`image_versions`|`list[str]`|Image versions of frames over which to fit.|
-|`--catalog-version`|`catalog_versions`|`list[str]`|Catalog versions over which to fit.|
-|`--filter`|`filters`|`list[str]`|Filters of frames over which to fit.|
-|`--object`|`objects`|`list[int]`|Object IDs in catalog over which to fit.|
-
-
-## Terminal
 To run MorphFITS via CLI call, run
 ```
-poetry run morphfits [wrapper] [OPTIONS]
+poetry run morphfits [command] [OPTIONS]
 ```
-and use the flag `--help` for details on each option.
+
+To run MorphFITS via configuration file, run
+```
+poetry run morphfits [command] -c [path/to/YAML]
+```
 
 To declare multiple fields, image versions, etc. via CLI call, list them in
 separate flags, i.e. 
 ```
-poetry run morphfits [wrapper] --field=deep --field=shallow --field=north [OPTIONS]
+poetry run morphfits [command] --field=deep --field=shallow --field=north [OPTIONS]
 ```
 
-## Configuration File
-To run MorphFITS via a configuration file, run
+For available commands, run
 ```
-poetry run morphfits [wrapper] --config-path=[config_path] [OPTIONS]
+poetry run morphfits --help
 ```
+
+and for command-specific help, run
+```
+poetry run morphfits [command] --help
+```
+
+
+## Stages
+MorphFITS runs the following stages. By default, all stages are run.
+
+|Stage|Skip via CLI|Include via YAML|Description|
+|:---|:---|:---|:---|
+|Unzip|`--skip-unzip`|`unzip`|Un-compress zipped input files.|
+|Product|`--skip-product`|`product`|Generate product files.|
+|Morphology|`--skip-morphology`|`morphology`|Run morphology fitting and generate output files.|
+|Catalog|`--skip-catalog`|`catalog`|Generate catalog files.|
+|Histogram|`--skip-histogram`|`histogram`|Generate histograms from catalog files.|
+|Plot|`--skip-plot`|`plot`|Generate plots from output and product files.|
+|Cleanup|`--skip-cleanup`|`cleanup`|Remove failed directories.|
+
+Stages can be skipped via CLI call by using one of the `skip` flags as above,
+which can be seen in the `Stages` section of the `--help` menu.
+
+Alternatively, stages can be selected to run by YAML file by the keyword
+`stages`, i.e.
+```
+stages:
+  - catalog
+  - plot
+  - cleanup
+```
+to only run the catalog, plotting, and cleanup stages.
+
+
+## Remake
+MorphFITS generates the following files. By default, no files are remade.
+
+|File|Remake via CLI|Remake via YAML|Description|
+|:---|:---|:---|:---|
+|Stamp|`--remake-stamps`|`stamps`|Square cutout of FICLO.|
+|Sigma Map|`--remake-sigmas`|`sigmas`|Square variation map of FICLO.|
+|PSF Crop|`--remake-psfs`|`psfs`|Square PSF crop for FICLO.|
+|Mask|`--remake-masks`|`masks`|Square mask of FICLO.|
+|Model|`--remake-morphology`|`morphology`|Morphological model of FICLO.|
+|Plots|`--remake-plots`|`plots`|Histogram and model plots for FICLO.|
+|Others|`--remake-feedfiles`|`others`|Other files (e.g. feedfiles).|
+
+Files can be remade via CLI call by using one of the `remake` flags as above,
+which can be seen in the `Remake` section of the `--help` menu.
+
+Alternatively, files can be remade by YAML file by the keyword `remake`, i.e.
+```
+remake:
+  - stamps
+  - morphology
+```
+to only remake the stamps and models.
+
+
+## Settings
+To configure settings via CLI options or YAML file, set by the following keys.
+
+|CLI Full|CLI|YAML|Type|Description|
+|:---|:---|:---|:---|:---|
+|`--config`|`-c`|`config_path`|`Path`|Path to configuration settings YAML file.|
+|`--galfit`|`-g`|`galfit_path`|`Path`|Path to GALFIT executable binary. Required for `galwrap`.|
+|`--root`|`-r`|`morphfits_root`|`Path`|Path to MorphFITS filesystem root. Either this or input root required.|
+|`--input`|`-i`|`input_root`|`Path`|Path to root input directory. Either this or root required.|
+|`--output`||`output_root`|`Path`|Path to root output directory.|
+|`--product`||`product_root`|`Path`|Path to root product directory.|
+|`--run`||`run_root`|`Path`|Path to root run directory.|
+|`--field`|`-F`|`fields`|`list[str]`|Fields to run.|
+|`--image-version`|`-I`|`image_versions`|`list[str]`|Image versions to run.|
+|`--catalog-version`|`-C`|`catalog_versions`|`list[str]`|Catalog versions to run.|
+|`--filter`|`-L`|`filters`|`list[str]`|Filters to run.|
+|`--object`|`-O`|`objects`|`list[int]`|Object IDs to run.|
+|`--first-object`||`first_object`|`int`|ID of first object in range.|
+|`--last-object`||`last_object`|`int`|ID of last object in range.|
+|`--batch-n-process`|`-n`|`batch_n_process`|`int`|Number of processes in batch.|
+|`--batch-process-id`|`-p`|`batch_process_id`|`int`|ID of process in batch.|
 
 
 # Cookbook
-## Download Input
+## Initialize
 To download all the required input frames for a given FICLO, run
 ```
-poetry run morphfits download --config-path=path/to/config.yaml
+poetry run morphfits initialize -c path/to/config.yaml
 ```
 with a configuration file detailing FICLOs. Here's [an example of a
 configuration YAML](./examples.config.yaml). Note you are still required to
-download [the simulated PSF files from
+manually download [the simulated PSF files from
 STSci](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
 and move them to the appropriate `input_root/psfs` directory. For more details,
 run
 ```
-poetry run morphfits download --help
+poetry run morphfits initialize --help
 ```
 
 
@@ -195,7 +258,7 @@ To run over all available objects in a catalog, don't provide arguments for
 For example, to run over objects `10000` through `19999` in 5 processes, running
 the first process would be via
 ```
-poetry run morphfits galwrap --input-root path/to/input --galfit-path path/to/galfit --first-object 10000 --last-object 20000 --batch-n-process 5 --batch-process-id 0
+poetry run morphfits galwrap -i path/to/input -g path/to/galfit --first-object 10000 --last-object 20000 --batch-n-process 5 --batch-process-id 0
 ```
 
 
@@ -203,130 +266,15 @@ poetry run morphfits galwrap --input-root path/to/input --galfit-path path/to/ga
 A typical run of MorphFITS involves collecting and structuring the correct data,
 then running the program.
 ```
-poetry run morphfits galwrap --config-path=./examples/single_ficlo/config.yaml
+poetry run morphfits galwrap -c examples/single_ficlo/settings.yaml
 ```
 The model is visually compared in `[ficlo_output]/plots/F_I_C_L_O_products.png`, and
 stored as a FITS in `[ficlo_output]/galfit/F_I_C_L_O_galfit.fits`.
 
 
-## Regenerating Products
-Products can be recreated after adjusting some settings. The following flags can
-be used.
-|Flag|Default|Product|
-|:---|:---|:---|
-|`--regenerate-products`|`False`|All products (overrides others)|
-|`--regenerate-stamp`|`False`|Stamp cutouts|
-|`--regenerate-sigma`|`False`|Sigma maps|
-|`--regenerate-psf`|`False`|PSF crops|
-|`--regenerate-mask`|`False`|Mask cutouts|
-
-To regenerate all products for GALFIT, run
-```
-poetry run morphfits galwrap [OPTIONS] --regenerate-products
-```
-
-
-## Make Plots
-Plots depicting model fidelity, along with the generated products, for each
-object can be generated with the flag `--make-plots`. By default, plots are not
-generated. To generate plots without running the fitting algorithms again, use
-the flags `--skip-products` and `--skip-fits`, i.e.
-```
-poetry run morphfits galwrap [OPTIONS] --skip-products --skip-fits --make-plots
-```
-
-
-# Stages
-The program executes the following stages.
-
-1. Load in configuration parameters
-    - from terminal, file, or directory discovery
-    - creates a configuration object
-2. Search for input data and create product and output directories
-    - creates directories for each FICLO with existing input
-3. Create products from input data for each FICLO
-    - science frame stamp cutouts
-    - exposure and weight sigma map cutouts
-    - PSF crops
-    - mask cutouts
-    - wrapper-specific products (e.g. GALFIT feedfiles)
-4. Run morphology fitter on created products
-    - outputs model and log to output directory
-5. Create plots from output model and products
-    - outputs plot to output directory
-
-
-## Program Logs
-The program records the run status of each FICLO to the `run_root`, with the
-following headers (along with the logs and configuration settings). For more information on the location of this records, and
-other files, refer to [the data documentation](./data/README.md).
-
-|Header|Type|Description|
-|:---|:---|:---|
-|`use`|`bool`|This model is usable for scientific analysis.|
-|`field`|`str`|Field of image.|
-|`image version`|`str`|Image processing version.|
-|`catalog version`|`str`|Cataloging version.|
-|`filter`|`str`|Filter wavelength.|
-|`object`|`int`|Object ID in catalog.|
-|`return code`|`int`|GALFIT return code.|
-|`flags`|`int`|GALFIT flags bitmask.|
-|`convergence`|`int`|Fitting parameter convergence bitmask.|
-|`center x`|`float`|X-position of model center.|
-|`center y`|`float`|Y-position of model center.|
-|`surface brightness`|`float`|Flux at surface of object.|
-|`effective radius`|`float`|Effective object radius.|
-|`sersic`|`float`|`n`, concentration parameter.|
-|`axis ratio`|`float`|Ratio of model axes.|
-|`position angle`|`float`|Rotation angle of model.|
-
-as well as the errors on each parameter.
-
-
-### GALFIT Return Codes
-
-|Code|Description|
-|:---|:---|
-|`0`|Fitting executed without termination.|
-|`1`|Fitting failed.|
-|`2`|Missing products.|
-|`139`|Segmentation fault.|
-
-### GALFIT Flags Bitmask
-
-|Flag|Fails|Bit|Value|Description|
-|:---|:---:|---:|---:|:---|
-|`1`|:x:|0|1|Maximum number of iterations reached. Quit out early.|
-|`2`|:x:|1|2|Suspected numerical convergence error in current solution.|
-|`A-1`|:x:|2|4|No input data image found. Creating model only.|
-|`A-2`|:x:|3|8|PSF image not found.  No convolution performed.|
-|`A-3`||4|16|No CCD diffusion kernel found or applied.|
-|`A-4`|:x:|5|32|No bad pixel mask image found.|
-|`A-5`|:x:|6|64|No sigma image found.|
-|`A-6`|:x:|7|128|No constraint file found.|
-|`C-1`|:x:|8|256|Error parsing the constraint file.|
-|`C-2`||9|512|Trying to constrain a parameter that is being held fixed.|
-|`H-1`||10|1024|Exposure time header keyword is missing.  Default to 1 second.|
-|`H-2`||11|2048|Exposure time is zero seconds.  Default to 1 second.|
-|`H-3`||12|4096|`GAIN` header information is missing.|
-|`H-4`||13|8192|`NCOMBINE` header information is missing.|
-|`I-1`||14|16384|Convolution PSF exceeds the convolution box.|
-|`I-2`||15|32768|Fitting box exceeds image boundary.|
-|`I-3`||16|65536|Some pixels have infinite ADUs; set to 0.|
-|`I-4`||17|131072|Sigma image has zero or negative pixels; set to 1e10.|
-|`I-5`||18|262144|Pixel mask is not same size as data image.|
-
-### GALFIT Parameter Bitmask
-
-|Parameter|Fails|Bit|Value|
-|:---|:---|:---|:---|
-|`effective radius`|:x:|0|1|
-|`sersic`|:x:|1|2|
-|`axis ratio`|:x:|2|4|
-
-
 # References
-1. [GALFIT](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html)
-2. [DJA - The DAWN JWST Archive](https://dawn-cph.github.io/dja/index.html)
-3. [The JWST v7.2 Mosaics](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
-4. [The Library of Simulated PSFs](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
+1. [J-HIVE](https://j-hive.org/)
+2. [GALFIT](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html)
+3. [DJA - The DAWN JWST Archive](https://dawn-cph.github.io/dja/index.html)
+4. [The JWST v7.2 Mosaics](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
+5. [The Library of Simulated PSFs](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)

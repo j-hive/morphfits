@@ -147,3 +147,112 @@ run_settings
 </td>
 </tr>
 </table>
+
+
+# Catalog
+MorphFITS generates three kinds of catalog files.
+
+|Catalog|Location|Description|
+|:---|:---|:---|
+|Merge|`output/catalogs/merge/`|Updated full catalog. The latest file in this directory is the most up to date catalog.|
+|Morphology|`output/catalogs/morphology/`|Per-FIC catalog. Each FIC has its own morphology catalog, which is updated upon each catalog stage run.|
+|Run|`runs/{D}.{N}/`|Catalog for this run. Only contains fitting information from fitting the FICLs for this run.|
+
+A row in a merge catalog contains the following information.
+
+|Header|Type|Description|
+|:---|:---|:---|
+|`use`|`bool`|This model is usable for scientific analysis.|
+|`field`|`str`|Field of image.|
+|`image version`|`str`|Image processing version.|
+|`catalog version`|`str`|Cataloging version.|
+|`filter`|`str`|Filter wavelength.|
+|`object`|`int`|Object ID in catalog.|
+|`return code`|`int`|GALFIT return code.|
+|`flags`|`int`|GALFIT flags bitmask.|
+|`convergence`|`int`|Fitting parameter convergence bitmask.|
+|`center x`|`float`|X-position of model center.|
+|`center y`|`float`|Y-position of model center.|
+|`surface brightness`|`float`|Flux at surface of object.|
+|`effective radius`|`float`|Effective object radius.|
+|`sersic`|`float`|`n`, concentration parameter.|
+|`axis ratio`|`float`|Ratio of model axes.|
+|`position angle`|`float`|Rotation angle of model.|
+|`center x error`|`float`|Error on center x.|
+|`center y error`|`float`|Error on center y.|
+|`surface brightness error`|`float`|Error on surface brightness.|
+|`effective radius error`|`float`|Error on effective radius.|
+|`sersic error`|`float`|Error on concentration parameter.|
+|`axis ratio error`|`float`|Error on axis ratio.|
+|`position angle error`|`float`|Error on position angle.|
+
+A row in a morphology catalog contains the following information.
+
+|Header|Type|Description|
+|:---|:---|:---|
+|`object`|`int`|Object ID in catalog.|
+|`use ({L})`|`bool`|This model is usable for scientific analysis.|
+|`surface brightness ({L})`|`float`|Flux at surface of object.|
+|`effective radius ({L})`|`float`|Effective object radius.|
+|`sersic ({L})`|`float`|`n`, concentration parameter.|
+|`axis ratio ({L})`|`float`|Ratio of model axes.|
+
+where there is `5*n_filter + 1` columns, 5 for each parameter per filter.
+
+A breakdown of the `return code`, `flags`, and `convergence` follows. Note `use`
+is calculated as an `AND` of all three values.
+
+
+## GALFIT Return Codes
+These are known integer values returned by the GALFIT binary executable. For a
+fit to be considered "usable", it must return with the value `0`.
+
+|Code|Description|
+|:---|:---|
+|`0`|Fitting executed without termination.|
+|`1`|Fitting failed.|
+|`2`|Missing products.|
+|`139`|Segmentation fault.|
+
+
+## GALFIT Flags Bitmask
+These are the flags raised by GALFIT during a fitting, found in the model file.
+For a fit to be considered "usable", it must not have raised any of the failing
+flags.
+
+|Flag|Fails|Bit|Value|Description|
+|:---|:---:|---:|---:|:---|
+|`1`|:x:|0|1|Maximum number of iterations reached. Quit out early.|
+|`2`|:x:|1|2|Suspected numerical convergence error in current solution.|
+|`A-1`|:x:|2|4|No input data image found. Creating model only.|
+|`A-2`|:x:|3|8|PSF image not found.  No convolution performed.|
+|`A-3`||4|16|No CCD diffusion kernel found or applied.|
+|`A-4`|:x:|5|32|No bad pixel mask image found.|
+|`A-5`|:x:|6|64|No sigma image found.|
+|`A-6`|:x:|7|128|No constraint file found.|
+|`C-1`|:x:|8|256|Error parsing the constraint file.|
+|`C-2`||9|512|Trying to constrain a parameter that is being held fixed.|
+|`H-1`||10|1024|Exposure time header keyword is missing.  Default to 1 second.|
+|`H-2`||11|2048|Exposure time is zero seconds.  Default to 1 second.|
+|`H-3`||12|4096|`GAIN` header information is missing.|
+|`H-4`||13|8192|`NCOMBINE` header information is missing.|
+|`I-1`||14|16384|Convolution PSF exceeds the convolution box.|
+|`I-2`||15|32768|Fitting box exceeds image boundary.|
+|`I-3`||16|65536|Some pixels have infinite ADUs; set to 0.|
+|`I-4`||17|131072|Sigma image has zero or negative pixels; set to 1e10.|
+|`I-5`||18|262144|Pixel mask is not same size as data image.|
+
+For example, a bitmask of 768 would mean the flags at bit 8 and 9 were raised,
+which would mean the fit is unusable, since 8 is considered a failing flag.
+
+
+## GALFIT Convergence Bitmask
+These are the values added if a parameter has failed to converge. For a fit to
+be considered "usable", all of its parameters must have converged, i.e.
+`convergence = 0`.
+
+|Parameter|Fails|Bit|Value|
+|:---|:---|:---|:---|
+|`effective radius`|:x:|0|1|
+|`sersic`|:x:|1|2|
+|`axis ratio`|:x:|2|4|
