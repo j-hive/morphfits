@@ -1,14 +1,12 @@
 galfit_path: path/to/galfit
 input_root: ./examples/single_ficlo/morphfits_root/input/
 fields:
-  - "abell2744clu"
+  - abell2744clu
 image_versions:
-  - "grizli-v7.2"
+  - grizli-v7.2
 catalog_versions:
-  - "dja-v7.2"
+  - dja-v7.2
 filters:
-  - "f200w-clear"
+  - f200w-clear
 objects:
   - 4215
-wrappers:
-  - "galfit"

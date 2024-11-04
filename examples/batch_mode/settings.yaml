@@ -1,0 +1,11 @@
+morphfits_root: ./examples/uncover_run/morphfits_root
+batch_n_process: 10000
+batch_process_id: 12
+fields:
+  - abell2744clu
+image_versions:
+  - grizli-v7.2
+catalog_versions:
+  - dja-v7.2
+filters:
+  - f150w-clear

@@ -63,8 +63,8 @@ morphfits_root:
     _name: "[r]"
     run:
       _name: "{F}.{D}.{N}"
-      run_settings: settings.yaml
+      run_catalog: catalog.csv
       run_files: files.csv
       run_histogram: histogram.png
       run_log: morphfits.log
-      run_catalog: catalog.csv
+      run_settings: settings.yaml

@@ -25,8 +25,9 @@ page](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html), and
 move it to the location of your choosing. Ensure you're in the root directory, `morphfits`, and run
 
 ```
-poetry run morphfits download --config-path=examples/single_ficlo/config.yaml
+poetry run morphfits initialize -c examples/single_ficlo/settings.yaml
 ```
+
 to download and unzip JWST data, which will take several
 minutes and ~`13GB`. Then, download [the simulated PSF for the filter
 here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
@@ -34,11 +35,12 @@ and move it to `examples/single_ficlo/morphfits_root/input/psfs/`, for example v
 ```
 mv [download folder]/PSF_NIRCam_in_flight_opd_filter_F200W.fits ./examples/single_ficlo/morphfits_root/input/psfs
 ```
+
 Then, run 
 ```
-poetry run morphfits galwrap --galfit-path=[path to GALFIT binary] --config-path=./examples/single_ficlo/config.yaml
+poetry run morphfits galwrap -c examples/single_ficlo/settings.yaml -g [path/to/galfit] 
 ```
-replacing the `galfit-path` option with a path to your downloaded GALFIT binary,
-and MorphFITS will run GalWrap, a wrapper for GALFIT, over the FICLOs found in
-`config.yaml`. The outputs can be found at
+replacing `[path/to/galfit]` with the path to your downloaded GALFIT binary, and
+MorphFITS will run GalWrap, a wrapper for GALFIT, over the FICLOs found in
+`settings.yaml`. The outputs can be found at
 `examples/single_ficlo/morphfits_root/output`.
