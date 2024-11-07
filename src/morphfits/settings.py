@@ -692,7 +692,7 @@ def missing_input(
     image_version: str,
     catalog_version: str,
     filter: str | None = None,
-) -> bool:
+) -> Path | None:
     """Evaluate whether a FICL (corresponding to an observation) or FIC
     (corresponding to a catalog) is missing an input file.
 
@@ -711,8 +711,8 @@ def missing_input(
 
     Returns
     -------
-    bool
-        FIC/FICL missing at least one input file.
+    Path | None
+        First found missing input file, if any.
     """
     # Get list of path names of required input files
     required_inputs = REQUIRED_FIC_INPUTS if filter is None else REQUIRED_FICL_INPUTS
@@ -729,12 +729,11 @@ def missing_input(
             filter=filter,
         )
 
-        # Return true if FIC/FICL missing any input file
+        # Return missing input file path if FIC/FICL missing any input file
         if not input_path.exists():
-            return True
+            return input_path
 
-    # Return false if FIC/FICL has all input files
-    return False
+    # Return None if not missing any input files
 
 
 def get_objects(
@@ -1101,15 +1100,16 @@ def get_ficls(
             # Iterate over each catalog version
             for catver in catvers:
                 # Skip FIC if missing any input
-                if missing_input(
+                missing_file = missing_input(
                     input_root=input_root,
                     field=f_path.name,
                     image_version=fi_path.name,
                     catalog_version=catver,
-                ):
+                )
+                if missing_file:
                     pre_logger.warning(
                         f"FIC {'_'.join([f_path.name,fi_path.name,catver])}: "
-                        + "Skipping - missing input files."
+                        + f"Skipping - missing input file '{missing_file.name}'."
                     )
                     continue
 
@@ -1148,16 +1148,17 @@ def get_ficls(
                         continue
 
                     # Skip FICL if missing any input
-                    if missing_input(
+                    missing_file = missing_input(
                         input_root=input_root,
                         field=f_path.name,
                         image_version=fi_path.name,
                         catalog_version=catver,
                         filter=cleaned_filter,
-                    ):
+                    )
+                    if missing_file:
                         pre_logger.warning(
                             f"FICL {'_'.join([f_path.name,fi_path.name,catver,cleaned_filter])}: "
-                            + "Skipping - missing input files."
+                            + f"Skipping - missing input file '{missing_file.name}'."
                         )
                         continue
 
