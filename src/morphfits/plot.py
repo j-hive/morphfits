@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import colors as mplc
 from matplotlib import pyplot as plt
+from matplotlib import ticker as mplt
 from matplotlib import rcParams as rcp
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -116,11 +117,11 @@ Used to rotate line styles for each filter in a histogram.
 """
 
 
-HISTOGRAM_SUBPLOT_SEPARATION = 0.2
+HISTOGRAM_SUBPLOT_SEPARATION = 0.3
 HISTOGRAM_TITLE_SEPARATION = -0.175
 HISTOGRAM_TYPE = "step"
 HISTOGRAM_ALPHA = 0.5
-MINIMUM_BINS = 50
+MINIMUM_BINS = 4
 """Histogram plotting setting constants.
 """
 
@@ -252,7 +253,7 @@ def get_parameter_data(
         values for each filter.
     """
     # Get number of bins, and minimum and maximum for this parameter
-    num_bins = np.min([int(np.sqrt(len(catalog))), MINIMUM_BINS])
+    num_bins = np.max([int(np.sqrt(len(catalog))), MINIMUM_BINS + 1])
     min_value, max_value = np.nanmin(catalog[parameter]), np.nanmax(catalog[parameter])
 
     # Add two bins if parameter only has one value
@@ -287,7 +288,11 @@ def get_parameter_data(
     return bins, data
 
 
-def get_y_ticks(max_count: int | float, num_ticks: int = 6) -> list[int]:
+def get_y_ticks(
+    max_count: int | float,
+    num_ticks: int = 10,
+    log: bool = True,
+) -> list[int]:
     """Get a list of y tick positions for a plot based on the maximum y-value.
 
     Parameters
@@ -296,6 +301,8 @@ def get_y_ticks(max_count: int | float, num_ticks: int = 6) -> list[int]:
         Maximum y-value.
     num_ticks : int, optional
         Number of y tick values to generate, by default 6.
+    log : bool, optional
+        Return intervals for log scaled plots, by default True.
 
     Returns
     -------
@@ -306,19 +313,36 @@ def get_y_ticks(max_count: int | float, num_ticks: int = 6) -> list[int]:
     if not isinstance(max_count, int):
         max_count = int(max_count)
 
-    # Set list of easy-to-decipher y-axis increments
-    intervals = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000]
+    # Set maximum as 1 if max count is 0
+    if max_count == 0:
+        max_count = 1
 
-    # Get increment appropriate to maximum y-value and number of y-ticks
-    tick_interval = max(intervals)
-    for interval in intervals:
-        tick_interval = interval
-        if max_count / interval < num_ticks:
-            break
+    # Return log-increasing list if in log mode
+    if log:
+        exponent = int(np.log10(max_count))
+        exponent_range = range(exponent)
+        power_range = np.power(10, exponent_range)
+        return [0] + list(power_range) + [max_count]
 
-    # Return list of y-ticks from 0 to maximum y-value, separated by calculated
-    # intervals
-    return [0] + list(range(tick_interval, max_count, tick_interval)) + [max_count]
+    # Return linear-increasing list if not in log mode
+    else:
+        # Set list of easy-to-decipher y-axis increments
+        interval_base = np.power(10, np.arange(10))
+        intervals = interval_base.copy()
+        intervals = np.append(intervals, 2.5 * interval_base)
+        intervals = np.append(intervals, 5 * interval_base)
+        intervals.sort()
+
+        # Get increment appropriate to maximum y-value and number of y-ticks
+        tick_interval = max(intervals)
+        for interval in intervals:
+            tick_interval = interval
+            if max_count / interval < num_ticks:
+                break
+
+        # Return list of y-ticks from 0 to maximum y-value, separated by
+        # calculated intervals
+        return [0] + list(range(tick_interval, max_count, tick_interval)) + [max_count]
 
 
 ## Secondary
@@ -406,8 +430,11 @@ def sub_histogram(
     ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)
     if labels is not None:
         ax.set_xticks(bins[:-1] + 0.5, labels)
-    ax.set_yticks(get_y_ticks(max_count=max_count))
-    ax.set_yscale("log")
+    ax.set_yscale("symlog")
+    y_ticks = get_y_ticks(max_count=max_count, log=True)
+    ax.set_ylim(y_ticks[0], y_ticks[-1])
+    ax.set_yticks(y_ticks)
+    ax.get_yaxis().set_major_formatter(mplt.ScalarFormatter())
 
 
 def sub_model(

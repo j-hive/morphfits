@@ -446,7 +446,7 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
     for ficl in runtime_settings.ficls:
         # Try to get parameters for FICL
         try:
-            logger.debug(f"FICL {ficl}: Reading fitting parameters.")
+            logger.debug(f"FICL {ficl}: Reading fit logs.")
 
             # Get iterable object list, displaying progress bar if flagged
             if runtime_settings.progress_bar:
@@ -456,7 +456,7 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
 
         # Catch any errors reading parameters for FICL
         except Exception as e:
-            logger.error(f"FICL {ficl}: Skipping reading parameters - {e}.")
+            logger.error(f"FICL {ficl}: Skipping reading fit logs - {e}.")
 
         # Iterate over each object
         for object in objects:
@@ -643,9 +643,10 @@ def make_morphology(runtime_settings: RuntimeSettings):
         latest_merge_path = sorted(list(merge_dir_path.iterdir()))[-1]
         latest_merge = pd.read_csv(latest_merge_path)
     except Exception as e:
-        logger.error(
-            f"Skipping making morphology catalog - failed opening merge catalog."
+        logger.debug(
+            f"Skipping making morphology catalog - failed opening latest merge catalog."
         )
+        return
 
     # Iterate over each field in merge catalog
     for field in misc.get_unique(latest_merge["field"]):
@@ -670,10 +671,7 @@ def make_morphology(runtime_settings: RuntimeSettings):
                     ][latest_merge["catalog version"] == catver].sort_values("object")
 
                     # Get list of filters for this FIC
-                    first_object = misc.get_unique(sub_merge["object"])[0]
-                    filters = misc.get_unique(
-                        sub_merge[sub_merge["object"] == first_object]["filter"]
-                    )
+                    filters = misc.get_unique(sub_merge["filter"])
 
                     # Iterate over each filter in FIC sub-catalog
                     for filter in filters:

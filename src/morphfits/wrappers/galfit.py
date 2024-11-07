@@ -495,9 +495,7 @@ def run_all(runtime_settings: RuntimeSettings):
 
                 # Run GALFIT for object
                 if not runtime_settings.progress_bar:
-                    logger.debug(
-                        f"Object {object}: Running GALFIT, filter: {ficl.filter}."
-                    )
+                    logger.debug(f"Object {object}: Running GALFIT.")
                 run(
                     galfit_path=runtime_settings.morphology.binary,
                     product_ficlo_path=product_ficlo_path,
