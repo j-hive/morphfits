@@ -653,7 +653,7 @@ def initialize_command(
 
     # Unzip zipped files
     if runtime_settings.stages.unzip:
-        initialize.unzip(runtime_settings)
+        initialize.unzip_all(runtime_settings)
 
     # Write settings to file in run directory
     runtime_settings.write()

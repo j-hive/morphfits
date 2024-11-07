@@ -185,12 +185,46 @@ def get_src_dest(
             else:
                 if "drz" not in required_file.name:
                     logger.warning(
-                        f"Skipping download for {required_file.name} "
+                        f"Skipping download for '{required_file.name}' "
                         + "- failed to locate in DJA catalog."
                     )
 
     # Return source/destination pairs
     return src_dest
+
+
+def unzip(path: Path) -> tuple[bool, float, float]:
+    """Unzip a file with gzip.
+
+    Parameters
+    ----------
+    path : Path
+        Path to zipped file.
+
+    Returns
+    -------
+    tuple[bool, float, float]
+        Success of unzipping, compressed file size, uncompressed file size.
+    """
+    # Store original file size
+    compressed_size = path.stat().st_size
+
+    # Get path to which to write unzipped file
+    input_fil_file_unzipped = Path(str(path)[:-3])
+
+    # Try unzipping file with gzip
+    try:
+        with gzip.open(path, mode="rb") as zipped:
+            with open(input_fil_file_unzipped, mode="wb") as unzipped:
+                shutil.copyfileobj(zipped, unzipped)
+        path.unlink()
+    except Exception as e:
+        logger.error(f"Skipping unzipping '{path.name}' - {e}.")
+        return False, compressed_size, 0
+
+    # Return file sizes
+    uncompressed_size = input_fil_file_unzipped.stat().st_size
+    return True, compressed_size, uncompressed_size
 
 
 ## Primary
@@ -241,7 +275,7 @@ def get_input(src_dest: dict[str, str]):
 
         # Catch errors downloading and skip to next pair
         except Exception as e:
-            logger.debug(f"Skipping downloading '{Path(dest).name} - {e}.")
+            logger.debug(f"Skipping downloading '{Path(dest).name}' - {e}.")
 
     # Log number of files downloaded
     if num_files > 0:
@@ -253,7 +287,7 @@ def get_input(src_dest: dict[str, str]):
         logger.info("Skipping downloading - FICLs already initialized.")
 
 
-def unzip(runtime_settings: RuntimeSettings):
+def unzip_all(runtime_settings: RuntimeSettings):
     """Unzip all zipped FITS files under input root directory.
 
     Parameters
@@ -274,33 +308,20 @@ def unzip(runtime_settings: RuntimeSettings):
 
         # Iterate over each image version subdirectory
         for imver_dir in misc.get_subdirectories(field_dir):
-            # Iterate over each filter subdirectory
-            for filter_dir in misc.get_subdirectories(imver_dir):
-                # Iterate over each file in filter subdirectory
-                for input_fil_file in filter_dir.iterdir():
-                    # Skip unzipped files
-                    if ".fits.gz" not in input_fil_file.name:
-                        continue
+            # Iterate over each file in image version subdirectory to unzip
+            for input_fi_file in imver_dir.iterdir():
+                # Skip unzipped files
+                if ".fits.gz" not in input_fi_file.name:
+                    continue
 
-                    # Store original file size
-                    compressed_size = input_fil_file.stat().st_size
+                # Unzip file and get back file sizes
+                unzipped, compressed_size, uncompressed_size = unzip(input_fi_file)
 
-                    # Get path to which to write unzipped file
-                    input_fil_file_unzipped = Path(str(input_fil_file)[:-3])
-
-                    # Try unzipping file with gzip
-                    try:
-                        with gzip.open(input_fil_file, mode="rb") as zipped:
-                            with open(input_fil_file_unzipped, mode="wb") as unzipped:
-                                shutil.copyfileobj(zipped, unzipped)
-                        input_fil_file.unlink()
-                    except Exception as e:
-                        logger.error(f"Skipping unzipping {input_fil_file.name} - {e}.")
-
-                    # Log file size change
-                    uncompressed_size = input_fil_file_unzipped.stat().st_size
+                # Display status and save file sizes if successfully
+                # unzipped, skip otherwise
+                if unzipped:
                     logger.info(
-                        f"Unzipped '{input_fil_file_unzipped.name} "
+                        f"Unzipped '{input_fi_file.name[:-3]}' "
                         + f"({misc.get_str_from_file_size(compressed_size)} -> "
                         + f"{misc.get_str_from_file_size(uncompressed_size)})."
                     )
@@ -309,6 +330,31 @@ def unzip(runtime_settings: RuntimeSettings):
                     total_compressed_size += compressed_size
                     total_uncompressed_size += uncompressed_size
                     num_files += 1
+
+            # Iterate over each filter subdirectory
+            for filter_dir in misc.get_subdirectories(imver_dir):
+                # Iterate over each file in filter subdirectory to unzip
+                for input_fil_file in filter_dir.iterdir():
+                    # Skip unzipped files
+                    if ".fits.gz" not in input_fil_file.name:
+                        continue
+
+                    # Unzip file and get back file sizes
+                    unzipped, compressed_size, uncompressed_size = unzip(input_fil_file)
+
+                    # Display status and save file sizes if successfully
+                    # unzipped, skip otherwise
+                    if unzipped:
+                        logger.info(
+                            f"Unzipped '{input_fil_file.name[:-3]}' "
+                            + f"({misc.get_str_from_file_size(compressed_size)} -> "
+                            + f"{misc.get_str_from_file_size(uncompressed_size)})."
+                        )
+
+                        # Store values to monitoring variables
+                        total_compressed_size += compressed_size
+                        total_uncompressed_size += uncompressed_size
+                        num_files += 1
 
     # Log number of files and file sizes uncompressed
     if num_files > 0:
