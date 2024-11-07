@@ -4,6 +4,10 @@ sandbox/
 galfit.*
 !galfit.py
 morphfits_root/
+input/
+output/
+products/
+runs/
 index*.csv
 
 
