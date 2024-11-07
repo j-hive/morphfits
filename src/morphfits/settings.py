@@ -338,7 +338,7 @@ class RuntimeSettings(BaseModel):
         default False.
     log_level : str, optional
         Level at which to log, one of standard Python logging levels, by default
-        debug.
+        info.
     stages : StageSettings | None
         Stages to run in this program run, by default None (N/A).
     remake : RemakeSettings | None
@@ -354,7 +354,7 @@ class RuntimeSettings(BaseModel):
     process_id: int = 0
     ficls: list[FICL]
     progress_bar: bool = False
-    log_level: str = logging._levelToName[logging.DEBUG]
+    log_level: str = logging._levelToName[logging.INFO]
     stages: Optional[StageSettings] = None
     remake: Optional[RemakeSettings] = None
     morphology: Optional[Union[GALFITSettings, ImcascadeSettings, PysersicSettings]] = (
