@@ -13,7 +13,43 @@ cd morphfits
 poetry install
 ```
 
-**This step is mandatory for GALFIT.** Download the GALFIT binary corresponding to your system [here](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html), and move it to the location of your choosing (e.g., your data directory, if it exists).
+MorphFITS uses the following directories for data files.
+|Root Directory|Files|
+|:---|:---|
+|`input`|Input FITS files - PSFs, photometric catalogs, segmentation maps, exposure maps, science frames, and weight maps.|
+|`output`|Output files - catalogs, histograms, morphology fitting logs, and model FITS files.|
+|`products`|Intermediate files - stamps, sigma maps, PSF crops, masks, and feedfiles.|
+|`runs`|Runtime files - settings, catalog, histogram, and log for a run.|
+
+The following directory structure is recommended.
+```
+./
+└── morphfits_root/
+    ├── input/
+    ├── output/
+    ├── products/
+    └── runs/
+```
+
+Only the input root is required to run the program. The other directories are
+assumed to be sibling directories of the input root. 
+
+**This step is mandatory for GALFIT.** [Download the GALFIT binary corresponding
+to your
+system](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html), and
+move it to the location of your choosing. MorphFITS recommends under the parent
+directory of the input root, where any configuration YAML file can reside as
+well, as follows. 
+```
+./
+└── morphfits_root/
+    ├── input/
+    ├── output/
+    ├── products/
+    ├── runs/
+    ├── galfit
+    └── settings.yaml
+```
 
 
 # Quickstart
