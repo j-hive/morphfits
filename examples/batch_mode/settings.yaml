@@ -1,4 +1,4 @@
-morphfits_root: ./examples/uncover_run/morphfits_root
+morphfits_root: ./examples/batch_mode/morphfits_root
 batch_n_process: 10000
 batch_process_id: 12
 fields:
