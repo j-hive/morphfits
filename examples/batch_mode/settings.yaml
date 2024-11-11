@@ -1,6 +1,6 @@
 morphfits_root: ./examples/batch_mode/morphfits_root
 batch_n_process: 10000
-batch_process_id: 12
+batch_process_id: 256
 fields:
   - abell2744clu
 image_versions:
