@@ -978,7 +978,9 @@ def get_path_settings(cli_settings: dict, file_settings: dict) -> PathSettings:
         # Otherwise assume input root exists and is under root
         else:
             input = root / DEFAULT_INPUT_DIRECTORY_NAME
-            assert input.exists(), f"Terminating - input root {input} not found."
+            assert (
+                input.exists() or not initialized
+            ), f"Terminating - input root {input} not found."
 
     # Input root should exist
     elif not input.exists():
