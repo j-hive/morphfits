@@ -320,7 +320,7 @@ def unzip_all(runtime_settings: RuntimeSettings):
                 # Display status and save file sizes if successfully
                 # unzipped, skip otherwise
                 if unzipped:
-                    logger.info(
+                    logger.debug(
                         f"Unzipped '{input_fi_file.name[:-3]}' "
                         + f"({misc.get_str_from_file_size(compressed_size)} -> "
                         + f"{misc.get_str_from_file_size(uncompressed_size)})."
@@ -345,7 +345,7 @@ def unzip_all(runtime_settings: RuntimeSettings):
                     # Display status and save file sizes if successfully
                     # unzipped, skip otherwise
                     if unzipped:
-                        logger.info(
+                        logger.debug(
                             f"Unzipped '{input_fil_file.name[:-3]}' "
                             + f"({misc.get_str_from_file_size(compressed_size)} -> "
                             + f"{misc.get_str_from_file_size(uncompressed_size)})."
