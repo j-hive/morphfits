@@ -34,12 +34,15 @@ The following directory structure is recommended.
 Only the input root is required to run the program. The other directories are
 assumed to be sibling directories of the input root. 
 
-**This step is mandatory for GALFIT.** [Download the GALFIT binary corresponding
-to your
+*This step is mandatory for GALFIT.* 
+
+[Download the GALFIT binary corresponding to your
 system](https://users.obs.carnegiescience.edu/peng/work/galfit/galfit.html), and
-move it to the location of your choosing. MorphFITS recommends under the parent
-directory of the input root, where any configuration YAML file can reside as
-well, as follows. 
+move it to a known location, recommended to be `morphfits_root/galfit`. 
+
+This is
+under the parent directory of the input root, where any configuration YAML file
+can reside as well, as follows. 
 ```
 ./
 └── morphfits_root/
