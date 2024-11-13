@@ -58,6 +58,7 @@
         "delaxes",
         "devauc",
         "diskyness",
+        "dropna",
         "dsky",
         "dtype",
         "eazypy",
@@ -181,6 +182,8 @@
         "milli",
         "MORPHDIR",
         "morphfits",
+        "mplt",
+        "nanmin",
         "ndimage",
         "ofic",
         "photcat",
@@ -198,6 +201,7 @@
         "statmorph",
         "Subimage",
         "subpackages",
+        "symlog",
         "titlesize",
         "toolkits",
         "tqdm",
@@ -205,8 +209,11 @@
         "xtick",
         "xticks",
         "yaxis",
+        "ylim",
+        "yscale",
         "ytick",
         "yticks",
+        "YYYYMMDDTHHMMSS",
         "zeropoint"
     ]
 }

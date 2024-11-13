@@ -1,24 +1,22 @@
-"""Main program execution for the GALFIT morphology fitter wrapper package.
+"""Make products, run morphology fitting, and other operations for the
+morphology pipeline using GALFIT.
 """
 
 # Imports
 
 
-import gc
 import logging
-import shutil
+import shutil, os
 from subprocess import Popen, PIPE, STDOUT
 from pathlib import Path
-from datetime import datetime as dt
 
-from astropy.io import fits
 from astropy.table import Table
 from jinja2 import Template
 from tqdm import tqdm
 
-from . import GALFIT_DATA_ROOT
-from .. import config, paths, plots, products
-from ..utils import cataloging, science
+from .. import catalog, settings, DATA_ROOT
+from ..settings import RuntimeSettings
+from ..utils import science
 
 
 # Constants
@@ -29,497 +27,515 @@ logger = logging.getLogger("GALWRAP")
 """
 
 
+GALFIT_DATA_ROOT = DATA_ROOT / "galfit"
+"""Path to root directory of GALFIT data standards.
+"""
+
+
+GALWRAP_OUTPUT_START = "GALWRAP OUTPUT:\n"
+GALWRAP_OUTPUT_END = "RETURN CODE: "
+"""Strings to append to the start and end of a GALFIT output log file.
+"""
+
+
+FEEDFILE_COMMENT_COLUMN = 64
+"""Column at which comments begin in the feedfile.
+"""
+
+
+FEEDFILE_FLOAT_LENGTH = 12
+"""Number of characters in str representing float in a feedfile.
+"""
+
+
+FEEDFILE_TEMPLATE_PATH = GALFIT_DATA_ROOT / "feedfile.jinja"
+DEFAULT_CONSTRAINTS_PATH = GALFIT_DATA_ROOT / "default.constraints"
+"""Paths to feedfile template and default constraints.
+"""
+
+
+NUM_FITS_TO_MONITOR = 100
+"""Number of fits after which an append statement will be made to the temporary
+catalog file in the run directory.
+"""
+
+
 # Functions
 
 
-def generate_feedfiles(
-    input_root: Path,
-    product_root: Path,
-    output_root: Path,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    objects: list[int],
-    image_sizes: list[int],
+## Object Level
+
+
+def make_feedfile(
+    path: Path,
+    stamp_path: Path,
+    model_galfit_path: Path,
+    sigma_path: Path,
+    psf_path: Path,
+    mask_path: Path,
+    constraints_path: Path,
+    image_size: int,
+    zeropoint: float,
     pixscale: tuple[float, float],
-    regenerate: bool = False,
-    feedfile_template_path: Path = GALFIT_DATA_ROOT / "feedfile.jinja",
-    constraints_path: Path = GALFIT_DATA_ROOT / "default.constraints",
-    path_length: int = 64,
-    float_length: int = 12,
-    display_progress: bool = False,
+    magnitude: float,
+    half_light_radius: float,
+    axis_ratio: float,
 ):
-    """Generate feedfiles for all objects in a FICL.
+    """Write a GALFIT feedfile for a single object.
 
     Parameters
     ----------
-    input_root : Path
-        Path to root MorphFITS input directory.
-    product_root : Path
-        Path to root MorphFITS products directory.
-    output_root : Path
-        Path to root MorphFITS output directory.
-    field : str
-        Field of observation.
-    image_version : str
-        Version of image processing used on observation.
-    catalog_version : str
-        Version of cataloguing used for field.
-    filter : str
-        Filter used for observation.
-    objects : list[str]
-        List of object IDs in catalog for which to generate feedfiles.
-    image_sizes : list[int]
-        List of image sizes corresponding to each object's stamp.
+    path : Path
+        Path to which to write feedfile.
+    stamp_path : Path
+        Path to stamp for this object.
+    model_galfit_path : Path
+        Path to which to output model file for this object.
+    sigma_path : Path
+        Path to sigma map for this object.
+    psf_path : Path
+        Path to PSF crop for this object.
+    mask_path : Path
+        Path to mask for this object.
+    constraints_path : Path
+        Path to constraints file for this run.
+    image_size : int
+        Number of pixels along each axis of square image.
+    zeropoint : float
+        Magnitude zeropoint for this object.
     pixscale : tuple[float, float]
-        Pixel scale along x and y axes, in arcseconds per pixel.
-    regenerate : bool, optional
-        Regenerate existing feedfiles, by default False.
-    feedfile_template_path : Path, optional
-        Path to jinja2 feedfile template, by default from the repository data
-        directory.
-    constraints_path : Path, optional
-        Path to the GALFIT constraints file, by default from the repository data
-        directory.
-    path_length : int, optional
-        Length of path strings in the template for comment alignment, by default
-        64, so that comments start at column 69.
-    float_length : int, optional
-        Length of float strings in the template for comment alignment, by
-        default 12.
-    display_progress : bool, optional
-        Display progress on terminal screen, by default False.
+        Pixel scale along each axis for this object, in "/pix.
+    magnitude : float
+        Magnitude for this object.
+    half_light_radius : float
+        Half light radius for this object.
+    axis_ratio : float
+        Axis ratio of this object.
     """
-    logger.info("Generating feedfiles.")
+    # Define functions for feedfile column alignment
+    path_str = lambda x: str(x).ljust(FEEDFILE_COMMENT_COLUMN)
+    float_str = lambda x: str(x).ljust(FEEDFILE_FLOAT_LENGTH)[:FEEDFILE_FLOAT_LENGTH]
 
-    # Define functions for comment alignment
-    path_str = lambda x: str(x).ljust(path_length)
-    float_str = lambda x: str(x).ljust(float_length)[:float_length]
+    # Set feedfile values from parameters
+    # Note paths are all relative to ficlo_products
+    feedfile_dict = {
+        "stamp_path": path_str(stamp_path.name),
+        "output_galfit_path": path_str(model_galfit_path.name),
+        "sigma_path": path_str(sigma_path.name),
+        "psf_path": path_str(psf_path.name),
+        "mask_path": path_str(mask_path.name),
+        "constraints_path": path_str(constraints_path),
+        "image_size": str(image_size),
+        "zeropoint": float_str(zeropoint),
+        "pixscale_x": float_str(pixscale[0]),
+        "pixscale_y": float_str(pixscale[1]),
+        "position": str(image_size / 2),
+        "magnitude": float_str(magnitude),
+        "half_light_radius": float_str(half_light_radius),
+        "axis_ratio": float_str(axis_ratio),
+    }
 
-    # Define paths to get for later
-    product_path_names = ["model_galfit", "stamp", "sigma", "psf", "mask"]
-
-    # Load in catalog
-    input_catalog_path = paths.get_path(
-        "input_catalog",
-        input_root=input_root,
-        field=field,
-        image_version=image_version,
-    )
-    input_catalog = Table.read(input_catalog_path)
-
-    # Get zeropoint
-    science_path = paths.get_path(
-        "science",
-        input_root=input_root,
-        field=field,
-        image_version=image_version,
-        filter=filter,
-    )
-    zeropoint = science.get_zeropoint(image_path=science_path)
-
-    # Clear memory
-    del input_catalog_path
-    del science_path
-    gc.collect()
-
-    # Iterate over each object, and image_size tuple
-    skipped = []
-    for i in (
-        tqdm(range(len(objects)), unit="feedfile", leave=False)
-        if display_progress
-        else range(len(objects))
-    ):
-        object, image_size = objects[i], image_sizes[i]
-
-        # Skip objects which already have feedfiles
-        feedfile_path = paths.get_path(
-            "feedfile",
-            product_root=product_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-        if feedfile_path.exists() and not regenerate:
-            if not display_progress:
-                logger.debug(f"Skipping object {object}, feedfile exists.")
-            skipped.append(object)
-            continue
-
-        # Generate feedfile for object
-        if not display_progress:
-            logger.info(f"Generating feedfile for object {object}.")
-
-        # Get paths
-        product_paths = {
-            path_name: paths.get_path(
-                path_name,
-                output_root=output_root,
-                product_root=product_root,
-                field=field,
-                image_version=image_version,
-                catalog_version=catalog_version,
-                filter=filter,
-                object=object,
-            )
-            for path_name in product_path_names
-        }
-
-        # Get constants from catalog
-        # magnitude = catalog[object]["mag_auto"]
-        half_light_radius = input_catalog[object]["a_image"]
-        axis_ratio = input_catalog[object]["b_image"] / input_catalog[object]["a_image"]
-
-        # Get constant from stamp
-        stamp_file = fits.open(product_paths["stamp"])
-        header = stamp_file["PRIMARY"].header
-        magnitude = header["SURFACE_BRIGHTNESS"]
-
-        ## Clear memory
-        stamp_file.close()
-        del stamp_file
-        del header
-
-        # Set configuration parameters from input
-        # Note paths are all relative to ficlo_products
-        feedfile_dict = {
-            "stamp_path": path_str(product_paths["stamp"].name),
-            "output_galfit_path": path_str(product_paths["model_galfit"].name),
-            "sigma_path": path_str(product_paths["sigma"].name),
-            "psf_path": path_str(product_paths["psf"].name),
-            "mask_path": path_str(product_paths["mask"].name),
-            "constraints_path": path_str(constraints_path),
-            "image_size": str(image_size),
-            "zeropoint": float_str(zeropoint),
-            "pixscale_x": float_str(pixscale[0]),
-            "pixscale_y": float_str(pixscale[1]),
-            "position": str(image_size / 2),
-            "magnitude": float_str(magnitude),
-            "half_light_radius": float_str(half_light_radius),
-            "axis_ratio": float_str(axis_ratio),
-        }
-
-        # Write new feedfile from template and save to output directory
-        with open(feedfile_template_path, "r") as feedfile_template:
-            template = Template(feedfile_template.read())
-        lines = template.render(feedfile_dict)
-        with open(feedfile_path, "w") as feedfile:
-            feedfile.write(lines)
-
-        # Clear memory
-        del object
-        del image_size
-        del feedfile_path
-        del product_paths
-        del magnitude
-        del half_light_radius
-        del axis_ratio
-        del feedfile_dict
-        del template
-        del lines
-        gc.collect()
+    # Write new feedfile from template and save to output directory
+    with open(FEEDFILE_TEMPLATE_PATH, "r") as feedfile_template:
+        template = Template(feedfile_template.read())
+    lines = template.render(feedfile_dict)
+    with open(path, "w") as feedfile:
+        feedfile.write(lines)
 
 
-def run_galfit(
+def run(
     galfit_path: Path,
-    input_root: Path,
-    product_root: Path,
-    output_root: Path,
-    run_root: Path,
-    datetime: dt,
-    run_number: int,
-    field: str,
-    image_version: str,
-    catalog_version: str,
-    filter: str,
-    objects: list[int],
-    display_progress: bool = False,
-    refit: bool = False,
+    product_ficlo_path: Path,
+    constraints_path: Path,
+    feedfile_path: Path,
+    galfit_log_path: Path,
+    galfit_model_path: Path,
 ):
-    """Run GALFIT over all objects in a FICL.
+    """Execute the GALFIT binary program on a single object.
 
     Parameters
     ----------
     galfit_path : Path
-        Path to GALFIT binary file.
-    input_root : Path
-        Path to root MorphFITS input directory.
-    product_root : Path
-        Path to root MorphFITS products directory.
-    output_root : Path
-        Path to root MorphFITS output directory.
-    run_root : Path
-        Path to root MorphFITS runs directory.
-    datetime : datetime
-        Datetime of start of run.
-    run_number : int
-        Number of run in runs directory when other runs have the same datetime.
-    field : str
-        Field of observation.
-    image_version : str
-        Version of image processing used on observation.
-    catalog_version : str
-        Version of cataloguing used for field.
-    filter : str
-        Filter used for observation.
-    objects : list[str]
-        List of object IDs in catalog for which to generate feedfiles.
-    display_progress : bool, optional
-        Display progress on terminal screen, by default False.
-    refit : bool, optional
-        Rerun GALFIT on previously fitted objects, by default False.
+        Path to GALFIT binary executable file.
+    product_ficlo_path : Path
+        Path to product directory for this FICLO.
+    constraints_path : Path
+        Path to constraints file for this run.
+    feedfile_path : Path
+        Path to feedfile for this object.
+    galfit_log_path : Path
+        Path to GALFIT log for this object.
+    galfit_model_path : Path
+        Path to output model for this object.
+
+    Raises
+    ------
+    RuntimeError
+        GALFIT exits on failure.
     """
-    logger.info(
-        "Running GALFIT for FICL "
-        + "_".join([field, image_version, catalog_version, filter])
-        + "."
+    # Copy GALFIT binary executable and constraints file to FICLO directory
+    # Due to GALFIT needing to be in the same directory as the feedfile and
+    # where its paths are based from
+    try:
+        os.symlink(galfit_path, product_ficlo_path / "galfit")
+    except:
+        pass
+    try:
+        os.symlink(constraints_path, product_ficlo_path / ".constraints")
+    except:
+        pass
+
+    # Run GALFIT via subprocess
+    process = Popen(
+        f"cd {str(product_ficlo_path)} && ./galfit {feedfile_path.name}",
+        stdout=PIPE,
+        shell=True,
+        stderr=STDOUT,
+        close_fds=True,
     )
-    logger.info(
-        f"Object ID range: {min(objects)} to {max(objects)} "
-        + f"({len(objects)} objects)."
-    )
 
-    # Iterate over each object in FICL
-    for object in (
-        tqdm(objects, unit="run", leave=False) if display_progress else objects
-    ):
-        ## Get model path
-        model_path = paths.get_path(
-            "model_galfit",
-            output_root=output_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
+    # Capture GALFIT output and close subprocess
+    galfit_lines = []
+    for line in iter(process.stdout.readline, b""):
+        galfit_lines.append(line.rstrip().decode("utf-8"))
+    process.stdout.close()
+    process.wait()
+    return_code = process.returncode
 
-        ## Skip previously fitted objects unless otherwise specified
-        if (model_path.exists()) and (not refit):
-            if not display_progress:
-                logger.debug(f"Skipping object {object}, previously fitted.")
-            continue
+    # Write captured output to GALFIT log file
+    with open(galfit_log_path, mode="w") as galfit_log_file:
+        galfit_log_file.write(GALWRAP_OUTPUT_START)
+        for line in galfit_lines:
+            galfit_log_file.write(line + "\n")
 
-        ## Get feedfile path
-        feedfile_path = paths.get_path(
-            "feedfile",
-            product_root=product_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
+    # Clean up files output by GALFIT in product FICLO directory
+    for item_path in product_ficlo_path.iterdir():
+        # Move model to output directory
+        if "galfit.fits" in item_path.name:
+            item_path.rename(galfit_model_path)
 
-        ## Skip object if feedfile missing
-        if not feedfile_path.exists():
-            if not display_progress:
-                logger.debug(f"Skipping object {object}, missing feedfile.")
-            continue
+        # Move logs to output directory
+        elif "log" in item_path.name:
+            summary = []
+            with open(item_path, mode="r") as summary_file:
+                for line in summary_file.readlines():
+                    summary.append(line.strip())
+            with open(galfit_log_path, mode="a") as galfit_log_file:
+                for line in summary:
+                    galfit_log_file.write(line + "\n")
+            item_path.unlink()
 
-        ## Copy GALFIT and constraints to FICLO product directory
-        ficlo_products_path = paths.get_path(
-            "product_ficlo",
-            product_root=product_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-        shutil.copy(galfit_path, ficlo_products_path / "galfit")
-        # constraints_path = GALFIT_DATA_ROOT / "default.constraints"
-        # shutil.copy(constraints_path, ficlo_products_path / ".constraints")
+        # Remove output feedfiles
+        elif "galfit." in item_path.name:
+            item_path.unlink()
 
-        ## Run GALFIT via subprocess and pipe output
-        if not display_progress:
-            logger.info(f"Running GALFIT for object {object} in filter '{filter}'.")
-        process = Popen(
-            f"cd {str(ficlo_products_path)} && ./galfit {feedfile_path.name}",
-            stdout=PIPE,
-            shell=True,
-            stderr=STDOUT,
-            # bufsize=1,
-            close_fds=True,
-        )
+    # Remove binary and constraints files
+    (product_ficlo_path / "galfit").unlink()
+    (product_ficlo_path / ".constraints").unlink()
 
-        ## Capture subprocess output and close subprocess
-        galfit_lines = []
-        for line in iter(process.stdout.readline, b""):
-            galfit_lines.append(line.rstrip().decode("utf-8"))
-        process.stdout.close()
-        process.wait()
-        return_code = process.returncode
-        if return_code != 0:
-            logger.error(
-                f"GALFIT did not run successfully and returned with code {return_code}."
-            )
+    # Write return code to end of GALFIT log file
+    with open(galfit_log_path, mode="a") as galfit_log_file:
+        galfit_log_file.write(GALWRAP_OUTPUT_END + str(return_code))
 
-        ## Write captured output to GALFIT log file
-        galfit_log_path = paths.get_path(
-            "log_galfit",
-            output_root=output_root,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-        )
-        with open(galfit_log_path, mode="w") as galfit_log_file:
-            for line in galfit_lines:
-                galfit_log_file.write(line + "\n")
-
-        ## Clean up GALFIT output
-        for path in ficlo_products_path.iterdir():
-            ### Move model to output directory
-            if "galfit.fits" in path.name:
-                path.rename(
-                    paths.get_path(
-                        "model_galfit",
-                        output_root=output_root,
-                        field=field,
-                        image_version=image_version,
-                        catalog_version=catalog_version,
-                        filter=filter,
-                        object=object,
-                    )
-                )
-            ### Move logs to output directory
-            elif "log" in path.name:
-                summary = []
-                with open(path, mode="r") as summary_file:
-                    for line in summary_file.readlines():
-                        summary.append(line.strip())
-                with open(galfit_log_path, mode="a") as galfit_log_file:
-                    for line in summary:
-                        galfit_log_file.write(line + "\n")
-                path.unlink()
-            ### Remove script, constraints, and feedfile records
-            elif ("galfit" in path.name) or ("constraints" in path.name):
-                path.unlink()
-
-        ## Write parameters to catalog
-        cataloging.write(
-            output_root=output_root,
-            run_root=run_root,
-            datetime=datetime,
-            run_number=run_number,
-            field=field,
-            image_version=image_version,
-            catalog_version=catalog_version,
-            filter=filter,
-            object=object,
-            return_code=return_code,
-        )
+    # Raise error if GALFIT did not return successful
+    if return_code != 0:
+        raise RuntimeError(f"failed with return code {return_code}")
 
 
-## Main
+## FICL Level
 
 
-def main(
-    morphfits_config: config.MorphFITSConfig,
-    regenerate_products: bool = False,
-    regenerate_stamps: bool = False,
-    regenerate_psfs: bool = False,
-    regenerate_masks: bool = False,
-    regenerate_sigmas: bool = False,
-    keep_feedfiles: bool = False,
-    force_refit: bool = False,
-    skip_products: bool = False,
-    skip_fits: bool = False,
-    make_plots: bool = False,
-    display_progress: bool = False,
-):
-    """Orchestrate GalWrap functions for passed configurations.
+def make_all_feedfiles(runtime_settings: RuntimeSettings):
+    """Make all GALFIT feedfiles for a program run.
 
     Parameters
     ----------
-    morphfits_config : MorphFITSConfig
-        Configuration object for this program run.
-    regenerate_products : bool, optional
-        Regenerate all products, by default False.
-    regenerate_stamps : bool, optional
-        Regenerate stamps, by default False.
-    regenerate_masks : bool, optional
-        Regenerate masks, by default False.
-    regenerate_psfs : bool, optional
-        Regenerate psfs, by default False.
-    regenerate_sigmas : bool, optional
-        Regenerate sigmas, by default False.
-    keep_feedfiles : bool, optional
-        Reuse existing feedfiles, by default False.
-    force_refit : bool, optional
-        Run GALFIT over previously fitted objects, overwriting existing models,
-        by default False.
-    skip_products : bool, optional
-        Skip all product generation, by default False.
-    skip_fits : bool, optional
-        Skip all morphology fitting via GALFIT, by default False.
-    make_plots : bool, optional
-        Generate model plots, by default False.
-    display_progress : bool, optional
-        Display progress as loading bar and suppress logging, by default False.
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
     """
-    logger.info("Starting GalWrap.")
+    # Iterate over each FICL in this run
+    for ficl in runtime_settings.ficls:
+        # Try to open required files for FICL
+        try:
+            logger.info(f"FICL {ficl}: Making feedfiles.")
 
-    # Generate products where missing, for each FICLO
-    if not skip_products:
-        products.generate_products(
-            morphfits_config=morphfits_config,
-            regenerate_products=regenerate_products,
-            regenerate_stamps=regenerate_stamps,
-            regenerate_psfs=regenerate_psfs,
-            regenerate_masks=regenerate_masks,
-            regenerate_sigmas=regenerate_sigmas,
-            keep_feedfiles=keep_feedfiles,
-            display_progress=display_progress,
+            # Open input catalog
+            input_catalog_path = settings.get_path(
+                name="input_catalog", path_settings=runtime_settings.roots, ficl=ficl
+            )
+            input_catalog = Table.read(input_catalog_path)
+
+            # Open science frame
+            science_path = settings.get_path(
+                name="science", path_settings=runtime_settings.roots, ficl=ficl
+            )
+            science_image, science_headers = science.get_fits_data(science_path)
+            zeropoint = science.get_zeropoint(headers=science_headers)
+
+            # Get iterable object list, displaying progress bar if flagged
+            if runtime_settings.progress_bar:
+                objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
+            else:
+                objects = ficl.objects
+
+        # Catch any error opening FICL or input catalog
+        except Exception as e:
+            logger.error(f"FICL {ficl}: Skipping feedfiles - failed loading input.")
+            logger.error(e)
+            continue
+
+        # Iterate over each object
+        skipped = 0
+        for object in objects:
+            # Try making feedfile for object
+            try:
+                # Get path to feedfile
+                feedfile_path = settings.get_path(
+                    name="feedfile",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+
+                # Skip existing feedfiles unless requested
+                if feedfile_path.exists() and not runtime_settings.remake.others:
+                    if not runtime_settings.progress_bar:
+                        logger.debug(f"Object {object}: Skipping feedfile - exists.")
+                    skipped += 1
+                    continue
+
+                # Get paths to products and output
+                stamp_path = settings.get_path(
+                    name="stamp",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                model_galfit_path = settings.get_path(
+                    name="model_galfit",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                sigma_path = settings.get_path(
+                    name="sigma",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                psf_path = settings.get_path(
+                    name="psf",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                mask_path = settings.get_path(
+                    name="mask",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                constraints_path = DEFAULT_CONSTRAINTS_PATH
+
+                # Skip objects with missing products
+                if (
+                    (not stamp_path.exists())
+                    or (not sigma_path.exists())
+                    or (not psf_path.exists())
+                    or (not mask_path.exists())
+                ):
+                    if not runtime_settings.progress_bar:
+                        logger.debug(
+                            f"Object {object}: Skipping feedfile - missing products."
+                        )
+                    skipped += 1
+                    continue
+
+                # Get science details for object
+                stamp_path = settings.get_path(
+                    name="stamp",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                stamp_image, stamp_headers = science.get_fits_data(stamp_path)
+                image_size = science.get_image_size(
+                    input_catalog=input_catalog,
+                    catalog_version=ficl.catalog_version,
+                    object=object,
+                    pixscale=ficl.pixscale,
+                )
+                magnitude = science.get_magnitude(
+                    runtime_settings=runtime_settings, headers=stamp_headers
+                )
+                half_light_radius = science.get_half_light_radius(
+                    input_catalog=input_catalog, object=object
+                )
+                axis_ratio = science.get_axis_ratio(
+                    input_catalog=input_catalog, object=object
+                )
+
+                # Make feedfile for object
+                if not runtime_settings.progress_bar:
+                    logger.debug(f"Object {object}: Making feedfile.")
+                make_feedfile(
+                    path=feedfile_path,
+                    stamp_path=stamp_path,
+                    model_galfit_path=model_galfit_path,
+                    sigma_path=sigma_path,
+                    psf_path=psf_path,
+                    mask_path=mask_path,
+                    constraints_path=constraints_path,
+                    image_size=image_size,
+                    zeropoint=zeropoint,
+                    pixscale=ficl.pixscale,
+                    magnitude=magnitude,
+                    half_light_radius=half_light_radius,
+                    axis_ratio=axis_ratio,
+                )
+
+            # Catch any errors making feedfile for object and skip to next
+            except Exception as e:
+                if not runtime_settings.progress_bar:
+                    logger.debug(f"Object {object}: Skipping feedfile - {e}.")
+                skipped += 1
+                continue
+
+        # Log number of skipped or failed objects
+        logger.info(f"FICL {ficl}: Made feedfiles - skipped {skipped} objects.")
+
+
+def run_all(runtime_settings: RuntimeSettings):
+    """Run GALFIT on all FICLOs in this program run.
+
+    Updates to the temporary catalog under the run directory every n number of
+    fits, where n is set by morphfits.wrappers.galfit.NUM_FITS_TO_MONITOR.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this program run.
+    """
+    # Iterate over each FICL in this run
+    for ficl in runtime_settings.ficls:
+        # Try to get objects from FICL
+        try:
+            logger.info(f"FICL {ficl}: Running GALFIT.")
+            logger.info(
+                f"Objects: {min(ficl.objects)} to {max(ficl.objects)} "
+                + f"({len(ficl.objects)} objects)."
+            )
+
+            # Get iterable object list, displaying progress bar if flagged
+            if runtime_settings.progress_bar:
+                objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
+            else:
+                objects = ficl.objects
+
+            #
+            fitted_objects = []
+
+        # Catch any error opening FICL
+        except Exception as e:
+            logger.error(f"FICL {ficl}: Skipping GALFIT - {e}.")
+            continue
+
+        # Iterate over each object
+        skipped = 0
+        for object in objects:
+            # Try running GALFIT for object
+            try:
+                # Get path to model
+                model_path = settings.get_path(
+                    name="model_galfit",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+
+                # Skip previously fitted objects unless requested
+                if model_path.exists() and not runtime_settings.remake.morphology:
+                    if not runtime_settings.progress_bar:
+                        logger.debug(f"Object {object}: Skipping GALFIT - exists.")
+                    skipped += 1
+                    fitted_objects.append(object)
+                    continue
+
+                # Get path to feedfile
+                feedfile_path = settings.get_path(
+                    name="feedfile",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+
+                # Skip objects missing feedfiles
+                if not feedfile_path.exists():
+                    if not runtime_settings.progress_bar:
+                        logger.debug(
+                            f"Object {object}: Skipping GALFIT - missing feedfile."
+                        )
+                    skipped += 1
+                    continue
+
+                # Get paths to product FICLO directory and GALFIT log file
+                product_ficlo_path = settings.get_path(
+                    name="product_ficlo",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+                constraints_path = DEFAULT_CONSTRAINTS_PATH
+                galfit_log_path = settings.get_path(
+                    name="log_galfit",
+                    path_settings=runtime_settings.roots,
+                    ficl=ficl,
+                    object=object,
+                )
+
+                # Run GALFIT for object
+                if not runtime_settings.progress_bar:
+                    logger.debug(f"Object {object}: Running GALFIT.")
+                run(
+                    galfit_path=runtime_settings.morphology.binary,
+                    product_ficlo_path=product_ficlo_path,
+                    constraints_path=constraints_path,
+                    feedfile_path=feedfile_path,
+                    galfit_log_path=galfit_log_path,
+                    galfit_model_path=model_path,
+                )
+
+                #
+                fitted_objects.append(object)
+
+                #
+                if (len(fitted_objects) % NUM_FITS_TO_MONITOR == 0) or (
+                    len(fitted_objects) == len(objects)
+                ):
+                    catalog.update_temporary(
+                        runtime_settings=runtime_settings,
+                        ficl=ficl,
+                        objects=fitted_objects[-NUM_FITS_TO_MONITOR:],
+                    )
+
+            # Catch any errors and skip to next object
+            except Exception as e:
+                if not runtime_settings.progress_bar:
+                    logger.debug(f"Object {object}: Skipping GALFIT - {e}.")
+                skipped += 1
+                continue
+
+        # Log number of skipped or failed objects
+        logger.info(f"FICL {ficl}: Ran GALFIT - skipped {skipped} objects.")
+
+    # Remove temporary catalog
+    try:
+        temp_catalog_path = settings.get_path(
+            name="run_catalog",
+            runtime_settings=runtime_settings,
+            field=runtime_settings.ficls[0].field,
         )
-
-    # Run GALFIT and record parameters, for each FICLO
-    if not skip_fits:
-        for ficl in morphfits_config.ficls:
-            run_galfit(
-                galfit_path=morphfits_config.galfit_path,
-                input_root=morphfits_config.input_root,
-                output_root=morphfits_config.output_root,
-                product_root=morphfits_config.product_root,
-                run_root=morphfits_config.run_root,
-                field=ficl.field,
-                image_version=ficl.image_version,
-                catalog_version=ficl.catalog_version,
-                filter=ficl.filter,
-                objects=ficl.objects,
-                datetime=morphfits_config.datetime,
-                run_number=morphfits_config.run_number,
-                display_progress=display_progress,
-                refit=force_refit,
-            )
-
-    # Plot models, for each FICLO
-    if make_plots:
-        for ficl in morphfits_config.ficls:
-            plots.plot_model(
-                output_root=morphfits_config.output_root,
-                product_root=morphfits_config.product_root,
-                field=ficl.field,
-                image_version=ficl.image_version,
-                catalog_version=ficl.catalog_version,
-                filter=ficl.filter,
-                objects=ficl.objects,
-                wrapper="galfit",
-                display_progress=display_progress,
-            )
-
-    # Plot histograms
-    plots.plot_histograms(
-        output_root=morphfits_config.output_root,
-        run_root=morphfits_config.run_root,
-        field=morphfits_config.ficls[0].field,
-        datetime=morphfits_config.datetime,
-        run_number=morphfits_config.run_number,
-    )
-
-    logger.info("Exiting GalWrap.")
+        if temp_catalog_path.exists():
+            temp_catalog_path.unlink()
+    except Exception as e:
+        logger.error(f"Skipping removing temporary catalog - {e}.")

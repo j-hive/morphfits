@@ -1,4 +1,4 @@
-"""Configure settings and fixtures for pytest.
+"""Base pytest configuration settings and fixtures.
 """
 
 # Imports
@@ -7,7 +7,7 @@
 from pathlib import Path
 import pytest
 
-from morphfits import config
+from morphfits import settings
 
 
 # Fixtures
@@ -31,7 +31,7 @@ def test_data_path(test_root: Path) -> Path:
 
 @pytest.fixture
 def configuration(test_data_path: Path):
-    morphfits_config = config.create_config(
+    morphfits_config = settings.create_config(
         config_path=test_data_path / "config.yaml", download=True
     )
     return morphfits_config

@@ -1,0 +1,32 @@
+galfit_path: path/to/galfit
+input_root: path/to/input
+progress_bar: true
+log_level: info
+batch_n_process: 10
+batch_process_id: 0
+first_object: 500
+last_object: 700
+fields:
+  - abell2744clu
+image_versions:
+  - grizli-v7.2
+catalog_versions:
+  - dja-v7.2
+filters:
+  - f150w-clear
+stages:
+  - unzip
+  - product
+  - morphology
+  - catalog
+  - histogram
+  - plot
+  - cleanup
+remake:
+  - stamps
+  - sigmas
+  - psfs
+  - masks
+  - morphology
+  - plots
+  - other

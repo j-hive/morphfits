@@ -1,4 +1,12 @@
-"""Modules and subpackages for the MorphFITS program.
+"""A morphology fitting data pipeline for JWST data, by J-HIVE.
+
+[Documentation WIP]
+
+References
+----------
+1. [J-HIVE](https://j-hive.org/)
+2. [J-HIVE Organization Page](https://github.com/j-hive)
+3. [MorphFITS Repository](https://github.com/j-hive/morphfits)
 """
 
 # Imports
@@ -11,24 +19,16 @@ from pathlib import Path
 # Constants
 
 
-## Paths
-
-
 ROOT = Path(resources.files(__package__) / ".." / "..").resolve()
-"""Path to root directory of this repository.
+"""Path to root directory of MorphFITS repository.
 """
 
 
 DATA_ROOT = ROOT / "data"
-"""Path to root of the data standards directory.
+"""Path to root MorphFITS data standards directory.
 """
 
 
 EXAMPLES_ROOT = ROOT / "examples"
-"""Path to root of the examples directory.
-"""
-
-
-LOGS_ROOT = ROOT / "logs"
-"""Path to root of the logs directory.
+"""Path to root MorphFITS examples directory.
 """

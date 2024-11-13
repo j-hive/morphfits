@@ -5,30 +5,45 @@
 
 
 import logging
-from typing import Optional, List
-from typing_extensions import Annotated
 from pathlib import Path
+from typing import Annotated, Optional, List
 
 import typer
 
-from . import config, input, paths, plots, products, ROOT
+from . import catalog, initialize, plot, products, settings
 from .wrappers import galfit
-from .utils import logs
 
 
 # App Instantiation
-app = typer.Typer()
 
 
-# Morphology Fitters
+app = typer.Typer(add_completion=False, no_args_is_help=True)
+"""Primary app of program.
+"""
 
 
-@app.command()
+# Commands
+
+
+## Morphology
+
+
+@app.command(
+    short_help="Model galaxy and cluster objects using GALFIT.",
+    help="Model the morphology of identified galaxy and cluster objects "
+    + "from JWST observations using GALFIT. "
+    + "Creates cutouts, deviations, PSF crops, masks, and models "
+    + "of each object, as well as catalogs and histograms of each fitting, "
+    + "and optional plots.",
+    rich_help_panel="Morphology",
+)
 def galwrap(
     galfit_path: Annotated[
-        typer.FileBinaryRead,
+        Optional[typer.FileBinaryRead],
         typer.Option(
-            help="Path to GALFIT binary file.",
+            "--galfit",
+            "-g",
+            help="Path to GALFIT binary executable file.",
             rich_help_panel="Paths",
             exists=True,
             dir_okay=False,
@@ -36,9 +51,11 @@ def galwrap(
             resolve_path=True,
         ),
     ] = None,
-    config_path: Annotated[
-        typer.FileText,
+    settings_path: Annotated[
+        Optional[typer.FileText],
         typer.Option(
+            "--config",
+            "-c",
             help="Path to configuration settings YAML file.",
             rich_help_panel="Paths",
             exists=True,
@@ -48,33 +65,35 @@ def galwrap(
         ),
     ] = None,
     morphfits_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
+            "--root",
+            "-r",
             help="Path to MorphFITS filesystem root.",
             rich_help_panel="Paths",
-            exists=True,
             file_okay=False,
             show_default=False,
             resolve_path=True,
         ),
     ] = None,
     input_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
-            help="Path to root input directory. Must be set here or in --config-path.",
+            "--input",
+            "-i",
+            help="Path to root input directory.",
             rich_help_panel="Paths",
-            exists=True,
             file_okay=False,
             show_default=False,
             resolve_path=True,
         ),
     ] = None,
     output_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
+            "--output",
             help="Path to root output directory.",
             rich_help_panel="Paths",
-            exists=True,
             file_okay=False,
             show_default=False,
             resolve_path=True,
@@ -82,11 +101,11 @@ def galwrap(
         ),
     ] = None,
     product_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
+            "--product",
             help="Path to root products directory.",
             rich_help_panel="Paths",
-            exists=True,
             file_okay=False,
             show_default=False,
             resolve_path=True,
@@ -94,11 +113,11 @@ def galwrap(
         ),
     ] = None,
     run_root: Annotated[
-        Path,
+        Optional[Path],
         typer.Option(
+            "--run",
             help="Path to root runs directory.",
             rich_help_panel="Paths",
-            exists=True,
             file_okay=False,
             show_default=False,
             resolve_path=True,
@@ -155,7 +174,7 @@ def galwrap(
             show_default=False,
         ),
     ] = None,
-    object_first: Annotated[
+    first_object: Annotated[
         Optional[int],
         typer.Option(
             "--first-object",
@@ -164,7 +183,7 @@ def galwrap(
             show_default=False,
         ),
     ] = None,
-    object_last: Annotated[
+    last_object: Annotated[
         Optional[int],
         typer.Option(
             "--last-object",
@@ -174,197 +193,316 @@ def galwrap(
         ),
     ] = None,
     batch_n_process: Annotated[
-        int,
+        Optional[int],
         typer.Option(
             "--batch-n-process",
+            "-n",
             help="Number of cores over which to divide a program run.",
             rich_help_panel="Batch Runs",
             show_default=False,
         ),
-    ] = 1,
+    ] = None,
     batch_process_id: Annotated[
-        int,
+        Optional[int],
         typer.Option(
             "--batch-process-id",
+            "-p",
             help="Process number in batch run (out of batch_n_process).",
             rich_help_panel="Batch Runs",
             show_default=False,
         ),
-    ] = 0,
-    regenerate_products: Annotated[
-        bool,
+    ] = None,
+    skip_unzip: Annotated[
+        Optional[bool],
         typer.Option(
-            "--regenerate-products",
-            help="Regenerate all products. Overrides other flags.",
-            rich_help_panel="Products",
-            is_flag=True,
-        ),
-    ] = False,
-    regenerate_stamps: Annotated[
-        bool,
-        typer.Option(
-            "--regenerate-stamps",
-            help="Regenerate all stamps. Must be set for other products to regenerate.",
-            rich_help_panel="Products",
-            is_flag=True,
-        ),
-    ] = False,
-    regenerate_psfs: Annotated[
-        bool,
-        typer.Option(
-            "--regenerate-psfs",
-            help="Regenerate all PSF crops.",
-            rich_help_panel="Products",
-            is_flag=True,
-        ),
-    ] = False,
-    regenerate_masks: Annotated[
-        bool,
-        typer.Option(
-            "--regenerate-masks",
-            help="Regenerate all bad pixel masks.",
-            rich_help_panel="Products",
-            is_flag=True,
-        ),
-    ] = False,
-    regenerate_sigmas: Annotated[
-        bool,
-        typer.Option(
-            "--regenerate-sigmas",
-            help="Regenerate all sigma maps.",
-            rich_help_panel="Products",
-            is_flag=True,
-        ),
-    ] = False,
-    keep_feedfiles: Annotated[
-        bool,
-        typer.Option(
-            "--keep-feedfiles",
-            help="Use existing GALFIT feedfiles.",
-            rich_help_panel="Products",
-            is_flag=True,
-        ),
-    ] = False,
-    force_refit: Annotated[
-        bool,
-        typer.Option(
-            "--force-refit",
-            help="Run GALFIT over previously fitted objects and overwrite existing models.",
+            "--skip-unzip",
+            help="Skip unzipping any zipped observation files.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
-    skip_products: Annotated[
-        bool,
+    ] = None,
+    skip_product: Annotated[
+        Optional[bool],
         typer.Option(
-            "--skip-products",
-            help="Skip all product generation.",
+            "--skip-product",
+            help="Skip making any product files.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
-    skip_fits: Annotated[
-        bool,
+    ] = None,
+    skip_morphology: Annotated[
+        Optional[bool],
         typer.Option(
-            "--skip-fits",
-            help="Skip all fitting via GALFIT.",
+            "--skip-morphology",
+            help="Skip running any morphology fitting.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
-    make_plots: Annotated[
-        bool,
+    ] = None,
+    skip_catalog: Annotated[
+        Optional[bool],
         typer.Option(
-            "--make-plots",
-            help="Generate model visualizations.",
+            "--skip-catalog",
+            help="Skip writing any catalog files.",
             rich_help_panel="Stages",
             is_flag=True,
         ),
-    ] = False,
-    display_progress: Annotated[
-        bool,
+    ] = None,
+    skip_histogram: Annotated[
+        Optional[bool],
         typer.Option(
-            "--display-progress",
-            "-d",
+            "--skip-histogram",
+            help="Skip making any histogram plots.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = None,
+    skip_plot: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--skip-plot",
+            help="Skip making any model plots.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = None,
+    skip_cleanup: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--skip-cleanup",
+            help="Skip cleaning up the directory structure.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_all: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-all",
+            help="Remake all products and overwrite existing. Overrides other 'remake' flags.",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_stamps: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-stamps",
+            help="Remake stamps and overwrite existing.",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_sigmas: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-sigmas",
+            help="Remake sigma maps and overwrite existing.",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_psfs: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-psfs",
+            help="Remake PSF crops and overwrite existing.",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_masks: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-masks",
+            help="Remake masks and overwrite existing.",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_morphology: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-morphology",
+            help="Remake morphology fit models and overwrite existing.",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_plots: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-plots",
+            help="Remake plots and overwrite existing.",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    remake_feedfiles: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--remake-feedfiles",
+            help="Remake GALFIT feedfiles and overwrite existing.",
+            rich_help_panel="Remake",
+            is_flag=True,
+        ),
+    ] = None,
+    log_level: Annotated[
+        Optional[str],
+        typer.Option(
+            "--log-level",
+            help="Logging level at which to write logs to file, "
+            + "one of the standard Python levels.",
+            show_default=False,
+        ),
+    ] = None,
+    progress_bar: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--progress",
             help="Display progress as a loading bar and suppress per-object logging.",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
 ):
-    """Model objects from given FICLs using GALFIT."""
-    # Create configuration object
-    morphfits_config = config.create_config(
-        config_path=config_path,
+    # Create settings objects
+    runtime_settings, science_settings = settings.get_settings(
+        settings_path=settings_path,
         morphfits_root=morphfits_root,
         input_root=input_root,
         output_root=output_root,
         product_root=product_root,
         run_root=run_root,
+        batch_n_process=batch_n_process,
+        batch_process_id=batch_process_id,
         fields=fields,
         image_versions=image_versions,
         catalog_versions=catalog_versions,
         filters=filters,
         objects=objects,
-        object_first=object_first,
-        object_last=object_last,
-        batch_n_process=batch_n_process,
-        batch_process_id=batch_process_id,
+        first_object=first_object,
+        last_object=last_object,
+        progress_bar=progress_bar,
+        log_level=log_level,
+        skip_unzip=skip_unzip,
+        skip_product=skip_product,
+        skip_morphology=skip_morphology,
+        skip_catalog=skip_catalog,
+        skip_histogram=skip_histogram,
+        skip_plot=skip_plot,
+        skip_cleanup=skip_cleanup,
+        remake_all=remake_all,
+        remake_stamps=remake_stamps,
+        remake_sigmas=remake_sigmas,
+        remake_psfs=remake_psfs,
+        remake_masks=remake_masks,
+        remake_morphology=remake_morphology,
+        remake_plots=remake_plots,
+        remake_others=remake_feedfiles,
+        morphology="galfit",
         galfit_path=galfit_path,
-        display_progress=display_progress,
+        initialized=True,
     )
 
     # Display status
     logger = logging.getLogger("MORPHFITS")
+    logger.info("Starting MorphFITS.")
+    if runtime_settings.process_count > 1:
+        logger.info("Running in batch mode.")
+        logger.info(
+            f"Batch process: {runtime_settings.process_id} "
+            + f"/ {runtime_settings.process_count-1}"
+        )
 
     # Unzip zipped files
-    input.unzip_files(morphfits_config=morphfits_config)
+    if runtime_settings.stages.unzip:
+        initialize.unzip_all(runtime_settings=runtime_settings)
 
-    # Call wrapper
-    galfit.main(
-        morphfits_config=morphfits_config,
-        regenerate_products=regenerate_products,
-        regenerate_stamps=regenerate_stamps,
-        regenerate_psfs=regenerate_psfs,
-        regenerate_masks=regenerate_masks,
-        regenerate_sigmas=regenerate_sigmas,
-        keep_feedfiles=keep_feedfiles,
-        force_refit=force_refit,
-        skip_products=skip_products,
-        skip_fits=skip_fits,
-        make_plots=make_plots,
-        display_progress=display_progress,
-    )
+    # Create product files
+    if runtime_settings.stages.product:
+        products.make_all(runtime_settings=runtime_settings)
+
+    # Create feedfiles
+    if runtime_settings.stages.product:
+        galfit.make_all_feedfiles(runtime_settings=runtime_settings)
+
+    # Run GALFIT
+    if runtime_settings.stages.morphology:
+        galfit.run_all(runtime_settings=runtime_settings)
+
+    # Write catalogs
+    if runtime_settings.stages.catalog:
+        catalog.make_all(runtime_settings=runtime_settings)
+
+    # Plot histograms
+    if runtime_settings.stages.histogram:
+        plot.all_histograms(runtime_settings=runtime_settings)
+
+    # Plot models
+    if runtime_settings.stages.plot:
+        plot.all_models(runtime_settings=runtime_settings)
 
     # Remove empty directories
-    morphfits_config.clean_paths(display_progress=display_progress)
+    if runtime_settings.stages.cleanup:
+        runtime_settings.cleanup_directories()
 
-    # Write configuration to file in run directory
-    morphfits_config.write()
+    # Write settings to file in run directory
+    if runtime_settings.stages.cleanup:
+        runtime_settings.write()
 
     # Exit
     logger.info("Exiting MorphFITS.")
 
 
-@app.command()
+@app.command(
+    short_help="Model galaxy and cluster objects using imcascade.",
+    help="Model the morphology of identified galaxy and cluster objects "
+    + "from JWST observations using imcascade. "
+    + "Creates cutouts, deviations, PSF crops, masks, and models "
+    + "of each object, as well as catalogs and histograms of each fitting, "
+    + "and optional plots.",
+    rich_help_panel="Morphology",
+    hidden=True,
+)
 def imcascade():
-    """[NOT IMPLEMENTED] Model objects from given FICLs using imcascade."""
     raise NotImplementedError
 
 
-@app.command()
+@app.command(
+    short_help="Model galaxy and cluster objects using pysersic.",
+    help="Model the morphology of identified galaxy and cluster objects "
+    + "from JWST observations using pysersic. "
+    + "Creates cutouts, deviations, PSF crops, masks, and models "
+    + "of each object, as well as catalogs and histograms of each fitting, "
+    + "and optional plots.",
+    rich_help_panel="Morphology",
+    hidden=True,
+)
 def pysersic():
-    """[NOT IMPLEMENTED] Model objects from given FICLs using pysersic."""
     raise NotImplementedError
 
 
-# Other Commands
+## Tools
 
 
-@app.command()
-def download(
-    config_path: Annotated[
-        typer.FileText,
+@app.command(
+    name="initialize",
+    short_help="Download and unzip input files from the DJA archive.",
+    help="Download input files required for a morphology fitting run, "
+    + "unzip them, and organize them as per the MorphFITS directory structure. "
+    + "Required files downloaded are the input catalog, segmentation map, "
+    + "science image, and exposure and weights maps. "
+    + "Note the simulated PSF must be manually downloaded from STSci's "
+    + "drop box and moved to the appropriate location. "
+    + "For further details, consult the README.",
+    rich_help_panel="Tools",
+)
+def initialize_command(
+    settings_path: Annotated[
+        Optional[typer.FileText],
         typer.Option(
+            "--config",
+            "-c",
             help="Path to configuration settings YAML file.",
             rich_help_panel="Paths",
             exists=True,
@@ -373,14 +511,40 @@ def download(
             resolve_path=True,
         ),
     ] = None,
-    input_root: Annotated[
-        Path,
+    morphfits_root: Annotated[
+        Optional[Path],
         typer.Option(
-            help="Path to root input directory. Must be set here or in --config-path.",
+            "--root",
+            "-r",
+            help="Path to MorphFITS filesystem root.",
             rich_help_panel="Paths",
             file_okay=False,
             show_default=False,
             resolve_path=True,
+        ),
+    ] = None,
+    input_root: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--input",
+            "-i",
+            help="Path to root input directory.",
+            rich_help_panel="Paths",
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+        ),
+    ] = None,
+    run_root: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--run",
+            help="Path to root runs directory.",
+            rich_help_panel="Paths",
+            file_okay=False,
+            show_default=False,
+            resolve_path=True,
+            writable=True,
         ),
     ] = None,
     fields: Annotated[
@@ -403,6 +567,16 @@ def download(
             show_default=False,
         ),
     ] = None,
+    catalog_versions: Annotated[
+        Optional[List[str]],
+        typer.Option(
+            "--catalog-version",
+            "-C",
+            help="Catalog versions over which to run MorphFITS.",
+            rich_help_panel="FICLOs",
+            show_default=False,
+        ),
+    ] = None,
     filters: Annotated[
         Optional[List[str]],
         typer.Option(
@@ -413,293 +587,100 @@ def download(
             show_default=False,
         ),
     ] = None,
-    skip_download: Annotated[
-        bool,
+    skip_morphology: Annotated[
+        Optional[bool],
         typer.Option(
             "--skip-download",
-            help="Skip downloading files (only unzip existing files).",
+            help="Skip downloading any files from DJA.",
             rich_help_panel="Stages",
-            show_default=False,
-        ),
-    ] = False,
-    skip_unzip: Annotated[
-        bool,
-        typer.Option(
-            "--skip-unzip",
-            help="Skip unzipping files (only download files).",
-            rich_help_panel="Stages",
-            show_default=False,
-        ),
-    ] = False,
-    overwrite: Annotated[
-        bool,
-        typer.Option(
-            "--overwrite",
-            help="Overwrite existing downloads.",
-            rich_help_panel="Stages",
-            show_default=False,
-        ),
-    ] = False,
-):
-    """Download and unzip input files from the DJA archive."""
-
-    # Create configuration object
-    morphfits_config = config.create_config(
-        config_path=config_path,
-        input_root=input_root,
-        fields=fields,
-        image_versions=image_versions,
-        filters=filters,
-        wrappers=[""],
-        galfit_path="",
-        display_progress=False,
-        download=True,
-    )
-
-    # Create program and module logger
-    logger = logging.getLogger("MORPHFITS")
-
-    # Download and unzip files
-    input.main(
-        morphfits_config=morphfits_config,
-        skip_download=skip_download,
-        skip_unzip=skip_unzip,
-        overwrite=overwrite,
-    )
-
-    # Exit
-    logger.info("Exiting MorphFITS.")
-
-
-# In Development
-
-
-@app.command()
-def histogram(
-    config_path: Annotated[
-        typer.FileText,
-        typer.Option(
-            help="Path to configuration settings YAML file.",
-            rich_help_panel="Paths",
-            exists=True,
-            dir_okay=False,
-            show_default=False,
-            resolve_path=True,
-        ),
-    ] = None,
-    morphfits_root: Annotated[
-        Path,
-        typer.Option(
-            help="Path to MorphFITS filesystem root.",
-            rich_help_panel="Paths",
-            exists=True,
-            file_okay=False,
-            show_default=False,
-            resolve_path=True,
-        ),
-    ] = None,
-    input_root: Annotated[
-        Path,
-        typer.Option(
-            help="Path to root input directory. Must be set here or in --config-path.",
-            rich_help_panel="Paths",
-            exists=True,
-            file_okay=False,
-            show_default=False,
-            resolve_path=True,
-        ),
-    ] = None,
-    run_root: Annotated[
-        Path,
-        typer.Option(
-            help="Path to root runs directory.",
-            rich_help_panel="Paths",
-            exists=True,
-            file_okay=False,
-            show_default=False,
-            resolve_path=True,
-            writable=True,
-        ),
-    ] = None,
-    display_progress: Annotated[
-        bool,
-        typer.Option(
-            "--display-progress",
-            "-d",
-            help="Display progress as a loading bar and suppress per-object logging.",
             is_flag=True,
         ),
-    ] = False,
+    ] = None,
+    skip_unzip: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--skip-unzip",
+            help="Skip unzipping any zipped observation files.",
+            rich_help_panel="Stages",
+            is_flag=True,
+        ),
+    ] = None,
+    log_level: Annotated[
+        Optional[str],
+        typer.Option(
+            "--log-level",
+            help="Logging level at which to write logs to file, "
+            + "one of the standard Python levels.",
+            show_default=False,
+        ),
+    ] = None,
 ):
-    """Model objects from given FICLs using GALFIT."""
-    # Create configuration object
-    morphfits_config = config.create_config(
-        config_path=config_path,
+    # Create settings objects
+    runtime_settings, science_settings = settings.get_settings(
+        settings_path=settings_path,
         morphfits_root=morphfits_root,
         input_root=input_root,
-        output_root=output_root,
-        product_root=product_root,
-        run_root=run_root,
         fields=fields,
         image_versions=image_versions,
         catalog_versions=catalog_versions,
         filters=filters,
-        objects=objects,
-        object_first=object_first,
-        object_last=object_last,
-        batch_n_process=batch_n_process,
-        batch_process_id=batch_process_id,
-        galfit_path=galfit_path,
-        display_progress=display_progress,
+        skip_morphology=skip_morphology,
+        skip_unzip=skip_unzip,
+        log_level=log_level,
     )
 
     # Display status
     logger = logging.getLogger("MORPHFITS")
-
-    # Call wrapper
-
-    # Remove empty directories
-
-    # Exit
-    logger.info("Exiting MorphFITS.")
-
-
-@app.command()
-def stamp(
-    input_root: Annotated[
-        Path,
-        typer.Option(
-            help="Path to root input directory.",
-            show_default=False,
-            exists=True,
-            file_okay=False,
-            rich_help_panel="Paths",
-            resolve_path=True,
-        ),
-    ],
-    field: Annotated[
-        str,
-        typer.Option(
-            "--field",
-            "-F",
-            show_default=False,
-            help="Field over which to generate stamps.",
-            rich_help_panel="FICL",
-        ),
-    ],
-    image_version: Annotated[
-        str,
-        typer.Option(
-            "--image-version",
-            "-I",
-            show_default=False,
-            help="Version of image processing over which to generate stamps.",
-            rich_help_panel="FICL",
-        ),
-    ],
-    catalog_version: Annotated[
-        str,
-        typer.Option(
-            "--catalog-version",
-            "-C",
-            show_default=False,
-            help="Version of cataloguing from which object IDs are taken.",
-            rich_help_panel="FICL",
-        ),
-    ],
-    filter: Annotated[
-        str,
-        typer.Option(
-            "--filter",
-            "-L",
-            show_default=False,
-            help="Filter over which to generate stamps.",
-            rich_help_panel="FICL",
-        ),
-    ],
-    product_root: Annotated[
-        Path,
-        typer.Option(
-            help="Path to root product directory.",
-            show_default='"products" directory created at --input-root level',
-            exists=True,
-            file_okay=False,
-            rich_help_panel="Paths",
-            resolve_path=True,
-            writable=True,
-        ),
-    ] = None,
-    output_root: Annotated[
-        Path,
-        typer.Option(
-            help="Path to root output directory.",
-            show_default='"output" directory created at --input-root level',
-            exists=True,
-            file_okay=False,
-            rich_help_panel="Paths",
-            resolve_path=True,
-            writable=True,
-        ),
-    ] = None,
-):
-    """[IN DEVELOPMENT] Generate stamp cutouts of all objects from a given FICL."""
-    # Create configuration object
-    morphfits_config = config.create_config(
-        input_root=input_root,
-        product_root=product_root,
-        output_root=output_root,
-        fields=[field],
-        image_versions=[image_version],
-        catalog_versions=[catalog_version],
-        filters=[filter],
-        display_progress=True,
-    )
-
-    # Create program and module logger
-    logs.create_logger(
-        filename=paths.get_path(
-            "run_log",
-            run_root=morphfits_config.run_root,
-            datetime=morphfits_config.datetime,
-            run_number=morphfits_config.run_number,
-        )
-    )
-    logger = logging.getLogger("MORPHFITS")
     logger.info("Starting MorphFITS.")
 
-    # Display progress
-    ficl = next(morphfits_config.ficls)
-    logger.info(f"Starting MorphFITS stamps for FICL {ficl}.")
+    # Get list of all available files for download from DJA
+    dja_catalog = initialize.get_dja_catalog()
 
-    # Regenerate stamps for each object in FICL
-    products.generate_stamps(
-        input_root=morphfits_config.input_root,
-        product_root=morphfits_config.product_root,
-        image_version=ficl.image_version,
-        field=ficl.field,
-        catalog_version=ficl.catalog_version,
-        filter=ficl.filter,
-        objects=ficl.objects,
-        display_progress=True,
-    )
+    # Get dict of all src to dest for download
+    src_dest = initialize.get_src_dest(runtime_settings, dja_catalog)
 
-    # Plot all objects
-    plots.plot_objects(
-        output_root=morphfits_config.output_root,
-        product_root=morphfits_config.product_root,
-        field=ficl.field,
-        image_version=ficl.image_version,
-        catalog_version=ficl.catalog_version,
-        filter=ficl.filter,
-        objects=ficl.objects,
-        display_progress=True,
-    )
+    # Download files
+    if runtime_settings.stages.morphology:
+        initialize.get_input(src_dest)
+
+    # Unzip zipped files
+    if runtime_settings.stages.unzip:
+        initialize.unzip_all(runtime_settings)
+
+    # Write settings to file in run directory
+    runtime_settings.write()
 
     # Exit
     logger.info("Exiting MorphFITS.")
 
 
-# Main Program
+@app.command(
+    name="product",
+    short_help="Create FICLO products (cutouts for each object).",
+    help="Create products for each FICLO. A product is an intermediate "
+    + "FITS file required for a morphology fitting algorithm. "
+    + "This includes stamps, sigma maps, PSF crops, and masks "
+    + "for each object in a FICL.",
+    rich_help_panel="Tools",
+    hidden=True,
+)
+def product_command():
+    raise NotImplementedError
+
+
+@app.command(
+    name="catalog",
+    short_help="Create morphology catalogs.",
+    help="Update the full merge catalog at output/catalogs/merge "
+    + "and per-FIC catalogs at output/catalogs/morphology.",
+    rich_help_panel="Tools",
+    hidden=True,
+)
+def catalog_command():
+    raise NotImplementedError
+
+
+## Main
 
 
 def main():
