@@ -49,6 +49,7 @@ MERGE_COLUMNS = [
     "flags",
     "convergence",
     "chi^2/nu",
+    "surface brightness guess",
     "center x",
     "center y",
     "surface brightness",
@@ -68,7 +69,7 @@ MERGE_COLUMNS = [
 """
 
 
-MORPHOLOGY_CATALOG_COLUMN_INDICES = [0, 9, 12, 13, 14, 15, 19, 20, 21, 22]
+MORPHOLOGY_CATALOG_COLUMN_INDICES = [0, 9, 13, 14, 15, 16, 20, 21, 22, 23]
 """Indices of the columns from the merge catalog which are required for each
 filter in the morphology catalog.
 """
@@ -105,7 +106,7 @@ PARAMETER_LIST_TYPE = tuple[float, float, float, float, float, float, float]
 
 
 GALFIT_LOG_REGEX = "[\*|\[]?\d{1,10}[\.]\d{1,2}[\*|\[]?"
-GALFIT_LOG_FLOAT_REGEX = "\d{1,10}[\.]\d{1,2}"
+GALFIT_LOG_FLOAT_REGEX = "\d{1,10}[\.]\d{1,4}"
 """Regex for seven .2f numbers found in GALFIT logs, which may or may not be
 enveloped by * or [] characters.
 """
@@ -205,7 +206,7 @@ def get_galfit_flags(model_path: Path) -> int:
 
 def get_parameters(
     fit_log_path: Path,
-) -> tuple[int, int, int, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]:
+) -> tuple[int, int, float, float, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]:
     """Find and return the fitted parameters from a GALFIT log for a given FICLO with a
     successful fit.
 
@@ -216,14 +217,24 @@ def get_parameters(
 
     Returns
     -------
-    tuple[int, int, int, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]
+    tuple[int, int, float, float, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]
         Fitting return code, parameter convergence bitmask, .2f precision
-        reduced chi squared value, .2f precision morphology fitting parameters
-        as strings, and their associated errors as strings.
+        reduced chi squared value, .2f precision initial magnitude guess, .2f
+        precision morphology fitting parameters as strings, and their associated
+        errors as strings.
     """
     # Open log as text file
     with open(fit_log_path, mode="r") as fit_log_file:
         lines = fit_log_file.readlines()
+
+        # Find initial magnitude guess
+        i = 0
+        while i < len(lines) - 3:
+            if ("# Component number: 1" in lines[i]) and ("3)" in lines[i + 3]):
+                raw_guess = re.findall(GALFIT_LOG_FLOAT_REGEX, lines[i + 3])[0]
+                break
+            else:
+                i += 1
 
         # Find parameters and errors from specific line in log via regex
         i = 0
@@ -271,8 +282,14 @@ def get_parameters(
     except:
         chi = None
 
+    # Get initial magnitude guess as float
+    try:
+        guess = float(raw_guess)
+    except:
+        guess = None
+
     # Return convergence bitmask, cleaned parameters, and their errors
-    return return_code, convergence, chi, parameters, errors
+    return return_code, convergence, chi, guess, parameters, errors
 
 
 def get_usability(return_code: int, flags: int, convergence: int) -> bool:
@@ -346,8 +363,8 @@ def get_catalog_row(
                 flags = get_galfit_flags(model_path)
 
                 # Get fitting parameters from fit log file
-                return_code, convergence, chi, parameters, errors = get_parameters(
-                    fit_log_path
+                return_code, convergence, chi, guess, parameters, errors = (
+                    get_parameters(fit_log_path)
                 )
 
                 # Get fitting usability from return code, flags, and convergence
@@ -365,6 +382,7 @@ def get_catalog_row(
                     flags,
                     convergence,
                     chi,
+                    guess,
                 ]
 
                 # Add each parameter and error to row
@@ -405,6 +423,7 @@ def get_catalog_row(
                 ficl.filter,
                 object,
                 return_code,
+                None,
                 None,
                 None,
                 None,
