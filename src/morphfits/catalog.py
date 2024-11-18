@@ -48,6 +48,7 @@ MERGE_COLUMNS = [
     "return code",
     "flags",
     "convergence",
+    "chi^2/nu",
     "center x",
     "center y",
     "surface brightness",
@@ -67,7 +68,7 @@ MERGE_COLUMNS = [
 """
 
 
-MORPHOLOGY_CATALOG_COLUMN_INDICES = [0, 11, 12, 13, 14, 18, 19, 20, 21]
+MORPHOLOGY_CATALOG_COLUMN_INDICES = [0, 9, 12, 13, 14, 15, 19, 20, 21, 22]
 """Indices of the columns from the merge catalog which are required for each
 filter in the morphology catalog.
 """
@@ -204,7 +205,7 @@ def get_galfit_flags(model_path: Path) -> int:
 
 def get_parameters(
     fit_log_path: Path,
-) -> tuple[int, int, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]:
+) -> tuple[int, int, int, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]:
     """Find and return the fitted parameters from a GALFIT log for a given FICLO with a
     successful fit.
 
@@ -215,10 +216,10 @@ def get_parameters(
 
     Returns
     -------
-    tuple[int, int, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]
+    tuple[int, int, int, PARAMETER_LIST_TYPE, PARAMETER_LIST_TYPE]
         Fitting return code, parameter convergence bitmask, .2f precision
-        morphology fitting parameters as strings, and their associated errors
-        as strings.
+        reduced chi squared value, .2f precision morphology fitting parameters
+        as strings, and their associated errors as strings.
     """
     # Open log as text file
     with open(fit_log_path, mode="r") as fit_log_file:
@@ -234,6 +235,7 @@ def get_parameters(
             ):
                 raw_parameters = re.findall(GALFIT_LOG_REGEX, lines[i + 7])
                 raw_errors = re.findall(GALFIT_LOG_FLOAT_REGEX, lines[i + 8])
+                raw_chi = re.findall(GALFIT_LOG_FLOAT_REGEX, lines[i + 12])[0]
                 break
             else:
                 i += 1
@@ -263,8 +265,14 @@ def get_parameters(
         except:
             errors.append(None)
 
+    # Get reduced chi squared as float
+    try:
+        chi = float(raw_chi)
+    except:
+        chi = None
+
     # Return convergence bitmask, cleaned parameters, and their errors
-    return return_code, convergence, parameters, errors
+    return return_code, convergence, chi, parameters, errors
 
 
 def get_usability(return_code: int, flags: int, convergence: int) -> bool:
@@ -338,7 +346,7 @@ def get_catalog_row(
                 flags = get_galfit_flags(model_path)
 
                 # Get fitting parameters from fit log file
-                return_code, convergence, parameters, errors = get_parameters(
+                return_code, convergence, chi, parameters, errors = get_parameters(
                     fit_log_path
                 )
 
@@ -356,6 +364,7 @@ def get_catalog_row(
                     return_code,
                     flags,
                     convergence,
+                    chi,
                 ]
 
                 # Add each parameter and error to row
@@ -396,6 +405,7 @@ def get_catalog_row(
                 ficl.filter,
                 object,
                 return_code,
+                None,
                 None,
                 None,
                 None,
