@@ -25,7 +25,7 @@ MINIMUM_IMAGE_SIZE = 32
 """
 
 
-KRON_SCALE_FACTOR = 3
+KRON_SCALE_FACTOR = 10
 """Scale factor by which to multiply Kron radius for image size.
 """
 
@@ -180,7 +180,7 @@ def get_image_size(
             kron_radius = input_catalog[object]["kron_radius"]
 
         # Calculate image size from scale factor
-        image_size = int(kron_radius / np.nanmax(pixscale) * KRON_SCALE_FACTOR)
+        image_size = int(kron_radius * KRON_SCALE_FACTOR)
 
         # Return maximum between calculated and minimum image size
         return np.nanmax([image_size, MINIMUM_IMAGE_SIZE])
@@ -322,3 +322,24 @@ def get_pixscale(path: Path):
     pixscale_x = np.sqrt(headers["CD1_1"] ** 2 + headers["CD1_2"] ** 2) * 3600
     pixscale_y = np.sqrt(headers["CD2_1"] ** 2 + headers["CD2_2"] ** 2) * 3600
     return (pixscale_x, pixscale_y)
+
+
+def get_str_from_pixscale(pixscale: tuple[int, int]) -> str:
+    """Get a pixel scale as a string.
+
+    Parameters
+    ----------
+    pixscale : tuple[int,int]
+        Pixel scale along x and y axes, respectively, in arcseconds per pixel.
+
+    Returns
+    -------
+    str
+        Pixel scale as a string, in milli-arcseconds per pixel (only expressing
+        'mas').
+    """
+    # Get maximum pixel scale from pair
+    max_pixscale = np.nanmax(pixscale)
+
+    # Return pixel scale in milli-arcseconds, as a str
+    return str(round(max_pixscale * 1000)) + "mas"

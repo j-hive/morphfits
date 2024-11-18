@@ -512,7 +512,7 @@ def sub_histogram(
             alpha=HISTOGRAM_ALPHA,
             bins=bins,
             edgecolor=TEXT_COLOR,
-            linestyle=line_style,
+            linestyle=LINE_STYLES[line_style],
             label=filter,
         )
 
