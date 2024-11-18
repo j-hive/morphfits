@@ -288,6 +288,88 @@ def get_parameter_data(
     return bins, data
 
 
+def get_parameter_comparison_data(
+    catalog: pd.DataFrame,
+    numerator: str,
+    denominator: str,
+    filters: list[str] | None = None,
+) -> tuple[np.ndarray, dict[str, list[float]]]:
+    """Get comparison data for a histogram as a list of floats indexed by
+    filter, along with the appropriate bins for this parameter set.
+
+    Comparison data is data comparing two parameters from the merge catalog, as
+    a quotient.
+
+    Parameters
+    ----------
+    catalog : pd.DataFrame
+        Data frame containing merge catalog fitting information.
+    numerator : str
+        Name of parameter in catalog to use for numerator, e.g. 'sersic'.
+    denominator : str
+        Name of parameter in catalog to use for denominator.
+    filters : list[str] | None, optional
+        List of filters in this catalog, by default None (find in this
+        function).
+
+    Returns
+    -------
+    tuple[np.ndarray, dict[str, list[float]]]
+        Histogram bins for this parameter, and dict containing float fitted
+        values for each filter.
+    """
+    # Get list of all filters in catalog if not passed
+    if filters is None:
+        filters = misc.get_unique(catalog["filter"])
+
+    # Get catalog subset for only filters of interest
+    sub_catalog = catalog[catalog["filter"].isin(filters)]
+
+    # Get comparisons of parameters
+    comparison = sub_catalog[numerator] / sub_catalog[denominator]
+
+    # Get minimum and maximum values from comparison quotient
+    min_value, max_value = np.nanmin(comparison), np.nanmax(comparison)
+
+    # Add two bins if parameter only has one value
+    if min_value == max_value:
+        min_value -= 1
+        max_value += 1
+
+    # Get number of bins from length of sub-catalog
+    num_bins = np.max([int(np.sqrt(len(sub_catalog))), MINIMUM_BINS + 1])
+
+    # Get bins for this parameter
+    bins = np.linspace(min_value, max_value, num_bins)
+
+    # Initialize data as empty dict
+    data = {}
+
+    # Iterate over each filter of interest
+    for filter in filters:
+        filtered_catalog = sub_catalog[sub_catalog["filter"] == filter]
+        data[filter] = []
+
+        # Iterate over object in filter
+        for i_loc in range(len(filtered_catalog)):
+            row = filtered_catalog.iloc[i_loc]
+
+            # Skip rows without information for parameters of interest
+            if (numerator not in row) or (denominator not in row):
+                continue
+
+            # Try to add parameter comparison for this object
+            try:
+                comparison = row[numerator] / row[denominator]
+                assert not np.isnan(comparison)
+                data[filter].append(float(comparison))
+            except:
+                continue
+
+    # Return bins and parameter data
+    return bins, data
+
+
 def get_y_ticks(
     max_count: int | float,
     num_ticks: int = 10,
@@ -576,6 +658,32 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
             )
         except Exception as e:
             logger.debug(f"Skipping making {parameter} sub-histogram - {e}.")
+
+    # Try plotting parameter comparison sub-histograms
+    histogram_comparisons = {
+        "effective radius - fit / error": (
+            axs[2][1],
+            "effective radius",
+            "effective radius error",
+        ),
+        "surface brightness - fit / guess": (
+            axs[2][2],
+            "surface brightness",
+            "surface brightness guess",
+        ),
+    }
+    for comparison, (ax, numerator, denominator) in histogram_comparisons.items():
+        try:
+            bins, data = get_parameter_comparison_data(catalog, numerator, denominator)
+            sub_histogram(
+                ax=ax,
+                filters=filters,
+                data=data,
+                bins=bins,
+                title=comparison,
+            )
+        except Exception as e:
+            logger.debug(f"Skipping making {comparison} sub-histogram - {e}.")
 
     # Save and clear plot
     save(path=path, fig=fig)
