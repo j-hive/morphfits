@@ -628,7 +628,7 @@ def get_priority_remake(
     """
     # Return opposite of flag from CLI call if set
     if cli_settings[f"remake_{product}"] is not None:
-        return not cli_settings[f"remake_{product}"]
+        return cli_settings[f"remake_{product}"]
 
     # Return flag from YAML file if set
     elif ("remake" in file_settings) and (product in file_settings["remake"]):
@@ -1372,14 +1372,6 @@ def get_remake_settings(
     # Set attributes which may be None at this point, if they are set
     # Otherwise they will be set to default as per the class definition
     remake_dict = {}
-    if (remake_all is not None) and (remake_all):
-        remake_dict["stamps"] = True
-        remake_dict["sigmas"] = True
-        remake_dict["psfs"] = True
-        remake_dict["masks"] = True
-        remake_dict["morphology"] = True
-        remake_dict["plots"] = True
-        remake_dict["others"] = True
     if stamps is not None:
         remake_dict["stamps"] = stamps
     if sigmas is not None:
@@ -1394,6 +1386,14 @@ def get_remake_settings(
         remake_dict["plots"] = plots
     if others is not None:
         remake_dict["others"] = others
+    if (remake_all is not None) and (remake_all):
+        remake_dict["stamps"] = True
+        remake_dict["sigmas"] = True
+        remake_dict["psfs"] = True
+        remake_dict["masks"] = True
+        remake_dict["morphology"] = True
+        remake_dict["plots"] = True
+        remake_dict["others"] = True
 
     # Create and return class instance from settings
     return RemakeSettings(**remake_dict)
