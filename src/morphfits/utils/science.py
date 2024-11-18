@@ -307,6 +307,10 @@ def get_pixscale(path: Path):
     # Get headers from FITS file
     headers = fits.getheader(path)
 
+    # Get pixel scale if directly set as header
+    if "PIXELSCL" in headers:
+        return headers["PIXELSCL"]
+
     # Raise error if keys not found in header
     if any([header not in headers for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]]):
         raise KeyError(

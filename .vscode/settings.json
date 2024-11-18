@@ -194,6 +194,7 @@
         "pixnames",
         "psfs",
         "pysersic",
+        "rebin",
         "reproject",
         "sciname",
         "segmap",
