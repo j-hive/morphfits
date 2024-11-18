@@ -67,7 +67,7 @@ MERGE_COLUMNS = [
 """
 
 
-MORPHOLOGY_CATALOG_COLUMN_INDICES = [0, 11, 12, 13, 14]
+MORPHOLOGY_CATALOG_COLUMN_INDICES = [0, 11, 12, 13, 14, 18, 19, 20, 21]
 """Indices of the columns from the merge catalog which are required for each
 filter in the morphology catalog.
 """
