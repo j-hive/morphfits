@@ -4,7 +4,7 @@ morphfits_root:
     _name: "[i]"
     input_psfs:
       _name: psfs
-      input_psf: PSF_NIRCam_in_flight_opd_filter_{L}.fits
+      input_psf: "{L}_{P}_psf.fits"
     input_f:
       _name: "{F}"
       input_fi:

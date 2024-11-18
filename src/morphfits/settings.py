@@ -1578,15 +1578,16 @@ def get_path(
     # Get path as str template from dict
     path = FILESYSTEM[name]
 
+    # DEPRECATED Finds names from STSci PSFs
     # Input PSFs - STSci names with uppercase filter names
-    if name == "input_psf":
-        # Get main filter from pairs like 'f140w-clear'
-        if "-" in filter:
-            filter_1, filter_2 = filter.split("-")
-            filter = filter_1 if "clear" in filter_2 else filter_2
+    # if name == "input_psf":
+    #     # Get main filter from pairs like 'f140w-clear'
+    #     if "-" in filter:
+    #         filter_1, filter_2 = filter.split("-")
+    #         filter = filter_1 if "clear" in filter_2 else filter_2
 
-        # Replace filter template with uppercase main filter name
-        path = path.replace("{L}", filter.upper())
+    #     # Replace filter template with uppercase main filter name
+    #     path = path.replace("{L}", filter.upper())
 
     # Replace template in path str with passed value
     if morphfits_root is not None:
@@ -1618,17 +1619,29 @@ def get_path(
     if run_number is not None:
         path = path.replace("{N}", misc.get_str_from_run_number(run_number=run_number))
 
+    # Input PSFs - two known pixel scales of '20mas' or '40mas'
+    if "{P}" in path:
+        # Get paths to all known pixel scales
+        path_20mas = misc.get_path_obj(path.replace("{P}","20mas"))
+        path_40mas = misc.get_path_obj(path.replace("{P}","40mas"))
+
+        # Return option that exists
+        if path_20mas.exists():
+            return path_20mas
+        else:
+            return path_40mas
+
     # Science, exposure, weights images - can contain either 'drc' or 'drz'
     if "{z}" in path:
         # Get paths to both 'drc' and 'drz'
-        path_c = misc.get_path_obj(path_like=path.replace("{z}", "c"))
-        path_z = misc.get_path_obj(path_like=path.replace("{z}", "z"))
+        path_drc = misc.get_path_obj(path_like=path.replace("{z}", "c"))
+        path_drz = misc.get_path_obj(path_like=path.replace("{z}", "z"))
 
         # Return option that exists
-        if path_z.exists():
-            return path_z
+        if path_drz.exists():
+            return path_drz
         else:
-            return path_c
+            return path_drc
 
     # Return resolved path object
     return misc.get_path_obj(path_like=path)
