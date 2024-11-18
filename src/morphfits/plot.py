@@ -537,6 +537,7 @@ def sub_model(
     title: str,
     vmin: float | None = None,
     vmax: float | None = None,
+    log: bool = False,
 ):
     """Plot an imshow subplot for a MorphFITS model and product comparison plot.
 
@@ -552,9 +553,17 @@ def sub_model(
         Minimum for color map scale, by default None (auto scale).
     vmax : float | None, optional
         Maximum for color map scale, by default None (auto scale).
+    log : bool, optional
+        Plot with log normalization, by default False.
     """
     # Plot image in subplot
-    ax.imshow(image, cmap=JHIVE_CMAP, vmin=vmin, vmax=vmax)
+    ax.imshow(
+        image,
+        cmap=JHIVE_CMAP,
+        vmin=vmin,
+        vmax=vmax,
+        norm=mplc.LogNorm(vmin=vmin, vmax=vmax) if log else None,
+    )
 
     # Set title and turn off axes
     ax.set_title(title, y=0)
@@ -779,7 +788,7 @@ def model(
 
     # Try plotting PSF crop subplot
     try:
-        sub_model(ax=axs[1][2], image=psf_image, title="PSF crop")
+        sub_model(ax=axs[1][2], image=psf_image, title="PSF crop", log=True)
     except Exception as e:
         logger.debug(f"Skipping making psf sub-histogram - {e}.")
 

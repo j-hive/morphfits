@@ -25,7 +25,7 @@ MINIMUM_IMAGE_SIZE = 32
 """
 
 
-KRON_SCALE_FACTOR = 10
+KRON_SCALE_FACTOR = 20
 """Scale factor by which to multiply Kron radius for image size.
 """
 
