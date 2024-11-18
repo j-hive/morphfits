@@ -348,15 +348,27 @@ def get_y_ticks(
 ## Secondary
 
 
-def setup_six_subplots(title: str, spacing: float) -> tuple[Figure, np.ndarray[Axes]]:
+def setup_subplots(
+    rows: int,
+    columns: int,
+    title: str,
+    spacing: float,
+    figsize: tuple[int, int] = FIGURE_SIZE,
+) -> tuple[Figure, np.ndarray[Axes]]:
     """Create a MPL figure with six subplots, in two rows by three columns.
 
     Parameters
     ----------
+    rows : int
+        Number of subplot rows.
+    columns : int
+        Number of subplot columns.
     title : str
         Title of plot.
     spacing : float
         Spacing between subplots, in pixels.
+    figsize : tuple[int, int], optional
+        Dimensions of figure, in inches, by default (12, 8).
 
     Returns
     -------
@@ -365,7 +377,7 @@ def setup_six_subplots(title: str, spacing: float) -> tuple[Figure, np.ndarray[A
     """
     # Clean and create plot
     plt.clf()
-    fig, axs = plt.subplots(2, 3)
+    fig, axs = plt.subplots(rows, columns, figsize=(12, 12))
 
     # Setup figure options
     plt.subplots_adjust(hspace=spacing, wspace=spacing)
@@ -508,7 +520,13 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
     filters = misc.get_unique(catalog["filter"])
 
     # Setup plot
-    fig, axs = setup_six_subplots(title=title, spacing=HISTOGRAM_SUBPLOT_SEPARATION)
+    fig, axs = setup_subplots(
+        rows=3,
+        columns=3,
+        title=title,
+        spacing=HISTOGRAM_SUBPLOT_SEPARATION,
+        figsize=(12, 12),
+    )
 
     # Try plotting usability sub-histogram
     try:
@@ -540,10 +558,11 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
 
     # Try plotting parameter sub-histograms for each parameter of interest
     histogram_parameters = {
-        "surface brightness": axs[0][2],
-        "effective radius": axs[1][0],
-        "sersic": axs[1][1],
-        "axis ratio": axs[1][2],
+        "chi^2/nu": axs[0][2],
+        "surface brightness": axs[1][0],
+        "effective radius": axs[1][1],
+        "sersic": axs[1][2],
+        "axis ratio": axs[2][0],
     }
     for parameter, ax in histogram_parameters.items():
         try:
@@ -608,7 +627,9 @@ def model(
         Maximum for color map scale.
     """
     # Setup plot
-    fig, axs = setup_six_subplots(title=title, spacing=MODEL_SUBPLOT_SEPARATION)
+    fig, axs = setup_subplots(
+        rows=2, columns=3, title=title, spacing=MODEL_SUBPLOT_SEPARATION
+    )
 
     # Try plotting stamp subplot
     try:
