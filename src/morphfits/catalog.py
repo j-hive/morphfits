@@ -518,9 +518,6 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
     for ficl in runtime_settings.ficls:
         # Try to get parameters for FICL
         try:
-            if not runtime_settings.progress_bar:
-                logger.debug(f"FICL {ficl}: Reading fit logs.")
-
             # Get iterable object list, displaying progress bar if flagged
             if runtime_settings.progress_bar:
                 objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)

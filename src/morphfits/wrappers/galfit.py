@@ -359,13 +359,13 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
                     object=object,
                 )
                 stamp_image, stamp_headers = science.get_fits_data(stamp_path)
-                image_size = science.get_image_size(
+                kron_radius = science.get_kron_radius(
                     input_catalog=input_catalog,
                     catalog_version=ficl.catalog_version,
                     object=object,
-                    pixscale=ficl.pixscale,
                 )
-                magnitude = science.get_magnitude(
+                image_size = science.get_image_size(radius=kron_radius)
+                magnitude = science.get_surface_brightness_from_headers(
                     runtime_settings=runtime_settings, headers=stamp_headers
                 )
                 half_light_radius = science.get_half_light_radius(
@@ -376,8 +376,6 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
                 )
 
                 # Make feedfile for object
-                if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Making feedfile.")
                 make_feedfile(
                     path=feedfile_path,
                     stamp_path=stamp_path,
@@ -402,7 +400,9 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
                 continue
 
         # Log number of skipped or failed objects
-        logger.info(f"FICL {ficl}: Made feedfiles - skipped {skipped} objects.")
+        logger.info(
+            f"FICL {ficl}: Made feedfiles - skipped {skipped}/{len(objects)} objects."
+        )
 
 
 def run_all(runtime_settings: RuntimeSettings):
@@ -526,7 +526,9 @@ def run_all(runtime_settings: RuntimeSettings):
                 continue
 
         # Log number of skipped or failed objects
-        logger.info(f"FICL {ficl}: Ran GALFIT - skipped {skipped} objects.")
+        logger.info(
+            f"FICL {ficl}: Ran GALFIT - skipped {skipped}/{len(objects)} objects."
+        )
 
     # Remove temporary catalog
     try:

@@ -895,6 +895,7 @@ def all_models(runtime_settings: RuntimeSettings):
         Settings for this program run.
     """
     # Iterate over each FICL in this run
+    total_objects = 0
     for ficl in runtime_settings.ficls:
         # Try to get objects from FICL
         try:
@@ -903,6 +904,7 @@ def all_models(runtime_settings: RuntimeSettings):
                 f"Objects: {min(ficl.objects)} to {max(ficl.objects)} "
                 + f"({len(ficl.objects)} objects)."
             )
+            total_objects += len(ficl.objects)
 
             # Get iterable object list, displaying progress bar if flagged
             if runtime_settings.progress_bar:
@@ -1023,8 +1025,6 @@ def all_models(runtime_settings: RuntimeSettings):
                     )
 
                 # Plot model comparison for this object
-                if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Plotting model.")
                 model(
                     path=plot_path,
                     title=f"{ficl}_{object} "
@@ -1048,4 +1048,6 @@ def all_models(runtime_settings: RuntimeSettings):
                 continue
 
         # Log number of skipped or failed objects
-        logger.info(f"FICL {ficl}: Plotted models - skipped {skipped} objects.")
+        logger.info(
+            f"FICL {ficl}: Plotted models - skipped {skipped}/{total_objects} objects."
+        )
