@@ -459,7 +459,7 @@ def setup_subplots(
     """
     # Clean and create plot
     plt.clf()
-    fig, axs = plt.subplots(rows, columns, figsize=(12, 12))
+    fig, axs = plt.subplots(rows, columns, figsize=figsize)
 
     # Setup figure options
     plt.subplots_adjust(hspace=spacing, wspace=spacing)

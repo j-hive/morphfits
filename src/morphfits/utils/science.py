@@ -254,7 +254,7 @@ def get_surface_brightness(
     Parameters
     ----------
     image : ndarray
-        Observation cutout of object, as a 2D float array.
+        Observation cutout of object, as a 2D float array of flux data.
     pixscale : tuple[int, int]
         Pixel scale along x-axis and y-axis of the image, in arcseconds/pixel.
     zeropoint : float

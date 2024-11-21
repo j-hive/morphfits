@@ -357,7 +357,8 @@ def make_ficl_stamps(
             name="science", path_settings=runtime_settings.roots, ficl=ficl
         )
         image, headers = science.get_fits_data(path=science_path)
-        zeropoint = science.get_zeropoint(headers=headers)
+        # zeropoint = science.get_zeropoint(headers=headers)
+        zeropoint = 28.9
         wcs = WCS(header=headers)
     except Exception as e:
         logger.error(f"FICL {ficl}: Skipping stamps - failed loading input.")

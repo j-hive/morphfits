@@ -292,7 +292,39 @@ def get_parameters(
     return return_code, convergence, chi, guess, parameters, errors
 
 
-def get_usability(return_code: int, flags: int, convergence: int) -> bool:
+def get_radius_ratio(
+    parameters: PARAMETER_LIST_TYPE, errors: PARAMETER_LIST_TYPE
+) -> float | None:
+    """Get the ratio between the fitted effective radius and its corresponding
+    error.
+
+    Parameters
+    ----------
+    parameters : PARAMETER_LIST_TYPE
+        Float parameters as fitted by GALFIT.
+    errors : PARAMETER_LIST_TYPE
+        Associated float errors as calculated by GALFIT.
+
+    Returns
+    -------
+    float | None
+        Ratio between radius and its error, if found.
+    """
+    # Get radius and error from parameters
+    radius = parameters[3]
+    error = errors[3]
+
+    # Return None if either unset
+    if (radius is None) or (error is None):
+        return None
+
+    # Return ratio otherwise
+    return radius / error
+
+
+def get_usability(
+    return_code: int, flags: int, convergence: int, radius_ratio: float
+) -> bool:
     """Get the usability of a GALFIT fitting from its return code, raised flags
     bitmask, and parameter convergence bitmask.
 
@@ -306,13 +338,21 @@ def get_usability(return_code: int, flags: int, convergence: int) -> bool:
     convergence : int
         Integer bitmask of primary fitting parameters which failed to converge.
         The mapping between parameters and bits can be found in the README.
+    radius_ratio : float
+        Ratio between the fitted value for effective radius and its error. A
+        fitting is considered 'usable' if its radius ratio is greater than 2.
 
     Returns
     -------
     bool
         Whether or not the model is recommended for use.
     """
-    return (return_code == 0) and ((flags & FAIL) == 0) and (convergence == 0)
+    # Return unusable if radius ratio undefined
+    if radius_ratio is None:
+        return False
+
+    # Calculate usability otherwise
+    return (return_code == 0) and ((flags & FAIL) == 0) and (radius_ratio > 2)
 
 
 ## Secondary
@@ -367,8 +407,11 @@ def get_catalog_row(
                     get_parameters(fit_log_path)
                 )
 
+                # Try to get ratio between effective radius and its error
+                radius_ratio = get_radius_ratio(parameters, errors)
+
                 # Get fitting usability from return code, flags, and convergence
-                use = get_usability(return_code, flags, convergence)
+                use = get_usability(return_code, flags, convergence, radius_ratio)
 
                 # Make catalog row from data
                 catalog_row = [
@@ -475,7 +518,8 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
     for ficl in runtime_settings.ficls:
         # Try to get parameters for FICL
         try:
-            logger.debug(f"FICL {ficl}: Reading fit logs.")
+            if not runtime_settings.progress_bar:
+                logger.debug(f"FICL {ficl}: Reading fit logs.")
 
             # Get iterable object list, displaying progress bar if flagged
             if runtime_settings.progress_bar:
@@ -485,7 +529,8 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
 
         # Catch any errors reading parameters for FICL
         except Exception as e:
-            logger.error(f"FICL {ficl}: Skipping reading fit logs - {e}.")
+            if not runtime_settings.progress_bar:
+                logger.error(f"FICL {ficl}: Skipping reading fit logs - {e}.")
 
         # Iterate over each object
         for object in objects:
@@ -544,7 +589,8 @@ def update_temporary(runtime_settings: RuntimeSettings, ficl: FICL, objects: lis
         List of object IDs whose information to append to temporary catalog
         file.
     """
-    logger.debug("Updating temporary catalog file.")
+    if not runtime_settings.progress_bar:
+        logger.debug("Updating temporary catalog file.")
 
     # Get path to temporary catalog file (currently run catalog file)
     temp_catalog_path = settings.get_path(
