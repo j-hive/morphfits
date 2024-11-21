@@ -53,10 +53,9 @@ def make_stamp(
     path: Path,
     image: np.ndarray,
     wcs: WCS,
-    zeropoint: float,
-    pixscale: tuple[int, int],
     position: SkyCoord,
     image_size: int,
+    headers_dict: dict[str, int | float] | None = None,
 ):
     """Create the stamp for a single object.
 
@@ -73,14 +72,13 @@ def make_stamp(
         2D float image data array from input science file.
     wcs : WCS
         Coordinate system object from input science file.
-    zeropoint : float
-        Brightness zeropoint from input science file.
-    pixscale : tuple[int, int]
-        Pixel scales along each axis from input science file, in "/px.
     position : SkyCoord
         Coordinates of object in sky.
     image_size : int
         Number of pixels along one dimension of square stamp.
+    headers_dict : dict[str, int | float] | None, optional
+        Extra headers to store in stamp, as a dict from key to value, by default
+        None (don't add any non-WCS headers).
 
     Raises
     ------
@@ -97,14 +95,13 @@ def make_stamp(
 
     # Write stamp to disk if image nonzero and of correct shape
     if stamp_has_nonzero_data and stamp_is_correct_shape:
+        # Store headers fromm WCS and passed dict
         stamp_headers = stamp.wcs.to_header()
-        stamp_headers["EXPTIME"] = 1
-        stamp_headers["ZP"] = zeropoint
-        stamp_headers["SB"] = science.get_surface_brightness(
-            image=stamp.data, pixscale=pixscale, zeropoint=zeropoint
-        )
+        if headers_dict is not None:
+            for header, value in headers_dict.items():
+                stamp_headers[header] = value
 
-        # Wrote stamp to FITS file
+        # Write stamp to FITS file
         stamp_hdul = fits.PrimaryHDU(data=stamp.data, header=stamp_headers)
         stamp_hdul.writeto(path, overwrite=True)
 
@@ -357,8 +354,7 @@ def make_ficl_stamps(
             name="science", path_settings=runtime_settings.roots, ficl=ficl
         )
         image, headers = science.get_fits_data(path=science_path)
-        # zeropoint = science.get_zeropoint(headers=headers)
-        zeropoint = 28.9
+        zeropoint = science.get_zeropoint(headers=headers)
         wcs = WCS(header=headers)
     except Exception as e:
         logger.error(f"FICL {ficl}: Skipping stamps - failed loading input.")
@@ -391,26 +387,37 @@ def make_ficl_stamps(
                 skipped += 1
                 continue
 
-            # Get object position and image size from catalog
+            # Get object position, Kron radius, and flux from catalog
             position = science.get_position(input_catalog=input_catalog, object=object)
-            image_size = science.get_image_size(
+            kron_radius = science.get_kron_radius(
                 input_catalog=input_catalog,
                 catalog_version=ficl.catalog_version,
                 object=object,
-                pixscale=ficl.pixscale,
+            )
+            flux = science.get_flux(
+                input_catalog=input_catalog,
+                catalog_version=ficl.catalog_version,
+                filter=ficl.filter,
+                object=object,
             )
 
+            # Get image size and surface brightness
+            image_size = science.get_image_size(radius=kron_radius)
+            surface_brightness = science.get_surface_brightness(
+                radius=kron_radius, pixscale=ficl.pixscale, flux=flux
+            )
+
+            # Set headers to be added to stamp
+            headers_dict = {"EXPTIME": 1, "ZP": zeropoint, "SB": surface_brightness}
+
             # Make stamp for object
-            if not runtime_settings.progress_bar:
-                logger.debug(f"Object {object}: Making stamp.")
             make_stamp(
                 path=stamp_path,
                 image=image,
                 wcs=wcs,
-                zeropoint=zeropoint,
-                pixscale=ficl.pixscale,
                 position=position,
                 image_size=image_size,
+                headers_dict=headers_dict,
             )
 
         # Catch any errors and skip to next object
@@ -421,7 +428,7 @@ def make_ficl_stamps(
             continue
 
     # Log number of skipped or failed objects
-    logger.info(f"FICL {ficl}: Made stamps - skipped {skipped} objects.")
+    logger.info(f"FICL {ficl}: Made stamps - skipped {skipped}/{len(objects)} objects.")
 
 
 def make_ficl_sigmas(
@@ -510,16 +517,14 @@ def make_ficl_sigmas(
 
             # Get object position and image size from catalog
             position = science.get_position(input_catalog=input_catalog, object=object)
-            image_size = science.get_image_size(
+            kron_radius = science.get_kron_radius(
                 input_catalog=input_catalog,
                 catalog_version=ficl.catalog_version,
                 object=object,
-                pixscale=ficl.pixscale,
             )
+            image_size = science.get_image_size(radius=kron_radius)
 
             # Make sigma map for object
-            if not runtime_settings.progress_bar:
-                logger.debug(f"Object {object}: Making sigma map.")
             make_sigma(
                 path=sigma_path,
                 stamp_image=stamp_image,
@@ -540,7 +545,9 @@ def make_ficl_sigmas(
             continue
 
     # Log number of skipped or failed objects
-    logger.info(f"FICL {ficl}: Made sigma maps - skipped {skipped} objects.")
+    logger.info(
+        f"FICL {ficl}: Made sigma maps - skipped {skipped}/{len(objects)} objects."
+    )
 
 
 def make_ficl_psfs(runtime_settings: RuntimeSettings, ficl: FICL, input_catalog: Table):
@@ -603,20 +610,18 @@ def make_ficl_psfs(runtime_settings: RuntimeSettings, ficl: FICL, input_catalog:
                 continue
 
             # Get object image size from catalog
-            image_size = science.get_image_size(
+            kron_radius = science.get_kron_radius(
                 input_catalog=input_catalog,
                 catalog_version=ficl.catalog_version,
                 object=object,
-                pixscale=ficl.pixscale,
             )
+            image_size = science.get_image_size(radius=kron_radius)
 
             # Calculate PSF size from ratio of PSF pixscale to science pixscale
             psf_image_size = int(image_size * input_psf_pixscale / max(ficl.pixscale))
             center = int(input_psf_length / 2)
 
             # Make PSF crop for object
-            if not runtime_settings.progress_bar:
-                logger.debug(f"Object {object}: Making PSF crop.")
             make_psf(
                 path=psf_path,
                 image=input_psf_image,
@@ -632,7 +637,9 @@ def make_ficl_psfs(runtime_settings: RuntimeSettings, ficl: FICL, input_catalog:
             continue
 
     # Log number of skipped or failed objects
-    logger.info(f"FICL {ficl}: Made PSF crops - skipped {skipped} objects.")
+    logger.info(
+        f"FICL {ficl}: Made PSF crops - skipped {skipped}/{len(objects)} objects."
+    )
 
 
 def make_ficl_masks(
@@ -702,16 +709,14 @@ def make_ficl_masks(
 
             # Get position and image size of this object
             position = science.get_position(input_catalog=input_catalog, object=object)
-            image_size = science.get_image_size(
+            kron_radius = science.get_kron_radius(
                 input_catalog=input_catalog,
                 catalog_version=ficl.catalog_version,
                 object=object,
-                pixscale=ficl.pixscale,
             )
+            image_size = science.get_image_size(radius=kron_radius)
 
             # Make mask for object
-            if not runtime_settings.progress_bar:
-                logger.debug(f"Object {object}: Making mask.")
             make_mask(
                 path=mask_path,
                 image=segmap_image,
@@ -730,7 +735,7 @@ def make_ficl_masks(
             continue
 
     # Log number of skipped or failed objects
-    logger.info(f"FICL {ficl}: Made masks - skipped {skipped} objects.")
+    logger.info(f"FICL {ficl}: Made masks - skipped {skipped}/{len(objects)} objects.")
 
 
 ## Primary

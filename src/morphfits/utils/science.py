@@ -30,6 +30,11 @@ KRON_SCALE_FACTOR = 20
 """
 
 
+PHOTOMETRY_ZEROPOINT = 23.9
+"""AB zeropoint for fluxes from the DJA photometric catalogs.
+"""
+
+
 # Functions
 
 
@@ -148,11 +153,9 @@ def get_position(input_catalog: Table, object: int) -> SkyCoord:
     )
 
 
-def get_image_size(
-    input_catalog: Table, catalog_version: str, object: int, pixscale: tuple[int, int]
-) -> int:
-    """Calculate the square pixel length of an image containing an object, from
-    its cataloged Kron radius.
+def get_kron_radius(input_catalog: Table, catalog_version: str, object: int) -> float:
+    """Get the Kron radius for an object from its corresponding photometric
+    catalog.
 
     Parameters
     ----------
@@ -162,14 +165,16 @@ def get_image_size(
         Version of cataloging, e.g. 'dja-v7.2'.
     object : int
         Integer ID of object in catalog.
-    pixscale : tuple[int, int]
-        Pixel scale along x-axis and y-axis of the observation, in
-        arcseconds/pixel.
 
     Returns
     -------
-    int
-        Number of pixels in each edge of a square image containing this object.
+    float
+        Characteristic radius of object.
+
+    Raises
+    ------
+    NotImplementedError
+        Unknown catalog version.
     """
     # Expecting DJA catalog version keys to get kron radius
     if "dja" in catalog_version:
@@ -179,33 +184,83 @@ def get_image_size(
         else:
             kron_radius = input_catalog[object]["kron_radius"]
 
-        # Calculate image size from scale factor
-        image_size = int(kron_radius * KRON_SCALE_FACTOR)
+        # Return radius
+        return kron_radius
 
-        # Return maximum between calculated and minimum image size
-        return np.nanmax([image_size, MINIMUM_IMAGE_SIZE])
     # Other catalog versions may store their kron radius elsewhere
     else:
-        logger.warning(f"Catalog version {catalog_version} unrecognized.")
-        return MINIMUM_IMAGE_SIZE
+        raise NotImplementedError("unrecognized")
 
 
-def get_magnitude(runtime_settings, headers: fits.Header) -> float:
-    """Get the magnitude for a FICLO's product from its headers.
+def get_flux(
+    input_catalog: Table, catalog_version: str, filter: str, object: int
+) -> float:
+    """Get the integrated flux for an object from its corresponding photometric
+    catalog.
 
     Parameters
     ----------
-    runtime_settings : RuntimeSettings
-        Settings for this runtime.
-    headers : fits.Header
-        Headers for this FICLO product.
+    input_catalog : Table
+        Catalog detailing each identified object in a field.
+    catalog_version : str
+        Version of cataloging, e.g. 'dja-v7.2'.
+    filter : str
+        Name of filter, e.g. 'f200w-clear'.
+    object : int
+        Integer ID of object in catalog.
 
     Returns
     -------
     float
-        Magnitude for this FICLO product (currently surface brightness).
+        Integrated flux within an effective radius for object in a given filter.
+
+    Raises
+    ------
+    NotImplementedError
+        Unknown catalog version.
     """
-    return headers["SB"]
+    # Expecting DJA catalog version keys to get kron radius
+    if "dja" in catalog_version:
+        # Get cleaned filter name
+        if "-" in filter:
+            filters = filter.split("-")
+            filter = filters[1] if "clear" in filters[0] else filters[0]
+
+        # Get flux from catalog
+        flux_key = f"{filter}_corr_1"
+        if flux_key in input_catalog.keys():
+            flux = input_catalog[object][flux_key]
+        else:
+            raise KeyError(f"flux key {flux_key} not found")
+
+        # Return flux
+        return flux
+
+    # Other catalog versions may store their kron radius elsewhere
+    else:
+        raise NotImplementedError("unrecognized")
+
+
+def get_image_size(radius: float) -> int:
+    """Calculate the square pixel length of an image containing an object, from
+    its cataloged Kron radius.
+
+    Parameters
+    ----------
+    radius : float
+        Characteristic radius of object, in pixels. By default, known as Kron
+        radius.
+
+    Returns
+    -------
+    int
+        Number of pixels in each edge of a square image containing this object.
+    """
+    # Calculate image size from scale factor
+    image_size = int(radius * KRON_SCALE_FACTOR)
+
+    # Return maximum between calculated and minimum image size
+    return np.nanmax([image_size, MINIMUM_IMAGE_SIZE])
 
 
 def get_half_light_radius(input_catalog: Table, object: int) -> float:
@@ -247,44 +302,61 @@ def get_axis_ratio(input_catalog: Table, object: int) -> float:
 
 
 def get_surface_brightness(
-    image: np.ndarray, pixscale: tuple[int, int], zeropoint: float
+    radius: float,
+    pixscale: tuple[int, int],
+    flux: float,
+    zeropoint: float = PHOTOMETRY_ZEROPOINT,
 ) -> float:
-    """Calculate the flux per pixel of an object at its center (peak).
+    """Calculate an estimate of the surface brightness of an object, as an AB
+    magnitude.
 
     Parameters
     ----------
-    image : ndarray
-        Observation cutout of object, as a 2D float array of flux data.
+    radius : float
+        Characteristic radius of object, in pixels. By default, known as Kron
+        radius.
     pixscale : tuple[int, int]
-        Pixel scale along x-axis and y-axis of the image, in arcseconds/pixel.
+        Pixel scale along the x and y axes, respectively, in arcseconds per
+        pixel.
+    flux : float
+        Integrated flux across an effective radius (distinct from the radius
+        parameter for this function). By default, from the photometric catalog.
     zeropoint : float
-        Zeropoint of the observation, in AB magnitude.
+        Zeropoint magnitude for this field, as an AB magnitude.
 
     Returns
     -------
     float
         Surface brightness of the object at its center.
     """
-    # Get location of center of image
-    center = int(image.shape[0] / 2)
+    # Calculate magnitude from integrated flux and offset by zeropoint
+    magnitude = -2.5 * np.log10(flux) + zeropoint
 
-    # If image size is odd, get 9 center pixels, otherwise 4
-    odd_flag = image.shape[0] % 2
+    # Calculate area within radius as squared arcseconds
+    area = np.pi * np.power(radius * np.average(pixscale), 2)
 
-    # Get total flux and area across center pixels
-    total_flux = np.sum(
-        image[
-            center - 1 : center + 1 + odd_flag,
-            center - 1 : center + 1 + odd_flag,
-        ]
-    )
-    total_area = ((2 + odd_flag) ** 2) * pixscale[0] * pixscale[1]
+    # Calculate and return surface brightness as magnitude offset by area
+    return np.nan_to_num(magnitude + 2.5 * np.log10(area))
 
-    # Get flux per pixel
-    flux_per_pixel = total_flux / total_area
 
-    # Return zeroed log of flux per pixel
-    return np.nan_to_num(-2.5 * np.log10(flux_per_pixel) + zeropoint)
+def get_surface_brightness_from_headers(
+    runtime_settings, headers: fits.Header
+) -> float:
+    """Get the surface brightness for a FICLO's product from its headers.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this runtime.
+    headers : fits.Header
+        Headers for this FICLO product.
+
+    Returns
+    -------
+    float
+        Surface brightness for this FICLO product.
+    """
+    return headers["SB"]
 
 
 def get_pixscale(path: Path):
