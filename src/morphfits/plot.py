@@ -732,7 +732,8 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
                 3: "0.6",
                 4: "0.8",
                 5: "1",
-                6.5: ">100",
+                6: "100",
+                6.5: "+",
             },
         )
     except Exception as e:

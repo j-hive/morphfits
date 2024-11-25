@@ -374,6 +374,7 @@ def make_ficl_stamps(
 
     # Iterate over each object
     skipped = 0
+    objects_to_remove = []
     for object in objects:
         # Try making stamp for object
         try:
@@ -427,15 +428,19 @@ def make_ficl_stamps(
                 headers_dict=headers_dict,
             )
 
-        # Catch any errors and skip to next object
+        # Catch any errors, flag object to remove from FICL, and skip to next object
         except Exception as e:
             if not runtime_settings.progress_bar:
                 logger.debug(f"Object {object}: Skipping stamp - {e}.")
             skipped += 1
+            objects_to_remove.append(object)
             continue
 
     # Log number of skipped or failed objects
     logger.info(f"FICL {ficl}: Made stamps - skipped {skipped}/{len(objects)} objects.")
+
+    # Remove objects from FICL
+    ficl.remove_objects(objects_to_remove)
 
 
 def make_ficl_sigmas(

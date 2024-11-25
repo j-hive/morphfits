@@ -188,6 +188,22 @@ class FICL(BaseModel):
             [self.field, self.image_version, self.catalog_version, self.filter]
         )
 
+    def remove_objects(self, objects_to_remove: list[int]):
+        """Remove objects from this FICL's configuration.
+
+        Does nothing if an object is not in FICL's list.
+
+        Parameters
+        ----------
+        objects : list[int]
+            Integer IDs of objects to remove from list of objects.
+        """
+        for object in objects_to_remove:
+            for i in range(len(self.objects)):
+                if object == self.objects[i]:
+                    self.objects.pop(i)
+                    break
+
 
 ## Settings
 
@@ -555,7 +571,7 @@ class ScienceSettings(BaseModel):
         logger.info("Recording science settings.")
 
         # Initialize empty dict for writing
-        settings = {"science":{"scale":self.scale}}
+        settings = {"science": {"scale": self.scale}}
 
         # Add morphology wrapper as a str
         if self.morphology is not None:
@@ -569,7 +585,9 @@ class ScienceSettings(BaseModel):
                 ) in self.morphology.__dict__.items():
                     if morphology_setting == "binary":
                         continue
-                    settings["science"]["galwrap"][morphology_setting] = morphology_value
+                    settings["science"]["galwrap"][
+                        morphology_setting
+                    ] = morphology_value
             elif isinstance(self.morphology, ImcascadeSettings):
                 settings["science"]["imcascade"] = {}
             else:

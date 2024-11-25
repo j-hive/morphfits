@@ -325,7 +325,16 @@ def get_surface_brightness(
     -------
     float
         Surface brightness of the object at its center.
+
+    Raises
+    ------
+    ValueError
+        Negative flux.
     """
+    # Raise error if flux negative
+    if flux <= 0:
+        raise ValueError(f"negative flux {flux}")
+
     # Calculate magnitude from integrated flux and offset by zeropoint
     magnitude = -2.5 * np.log10(flux) + zeropoint
 
@@ -333,7 +342,7 @@ def get_surface_brightness(
     area = np.pi * np.power(radius * np.average(pixscale), 2)
 
     # Calculate and return surface brightness as magnitude offset by area
-    return np.nan_to_num(magnitude + 2.5 * np.log10(area))
+    return magnitude + 2.5 * np.log10(area)
 
 
 def get_surface_brightness_from_headers(
