@@ -389,7 +389,7 @@ def get_parameter_comparison_data(
     sub_catalog = catalog[catalog["filter"].isin(filters)]
 
     # Get comparisons of parameters
-    comparison = sub_catalog[numerator] / sub_catalog[denominator]
+    comparison = np.ma.masked_invalid(sub_catalog[numerator] / sub_catalog[denominator])
 
     # Get minimum and maximum values from comparison quotient
     min_value, max_value = np.nanmin(comparison), np.nanmax(comparison)
@@ -740,9 +740,9 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
 
     # Try plotting parameter sub-histograms for each parameter of interest
     histogram_parameters = {
-        "surface brightness": axs[1][0],
+        "sersic": axs[1][0],
         "effective radius": axs[1][1],
-        "sersic": axs[1][2],
+        "surface brightness": axs[1][2],
         "axis ratio": axs[2][0],
     }
     for parameter, ax in histogram_parameters.items():
@@ -760,12 +760,12 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
 
     # Try plotting parameter comparison sub-histograms
     histogram_comparisons = {
-        "effective radius - fit / error": (
+        "effective radius fit to error ratio": (
             axs[2][1],
             "effective radius",
             "effective radius error",
         ),
-        "surface brightness - fit / guess": (
+        "surface brightness fit to estimate ratio": (
             axs[2][2],
             "surface brightness",
             "surface brightness guess",
