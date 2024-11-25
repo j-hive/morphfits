@@ -429,6 +429,12 @@ def run_all(runtime_settings: RuntimeSettings):
     for ficl in runtime_settings.ficls:
         # Try to get objects from FICL
         try:
+            # Skip if FICL has no objects
+            if len(ficl.objects) == 0:
+                logger.warning(f"FICL {ficl}: Skipping GALFIT - no objects to fit.")
+                continue
+
+            # Log progress
             logger.info(f"FICL {ficl}: Running GALFIT.")
             logger.info(
                 f"Objects: {min(ficl.objects)} to {max(ficl.objects)} "
@@ -441,7 +447,7 @@ def run_all(runtime_settings: RuntimeSettings):
             else:
                 objects = ficl.objects
 
-            #
+            # Track objects fitted
             fitted_objects = []
 
         # Catch any error opening FICL
@@ -514,10 +520,11 @@ def run_all(runtime_settings: RuntimeSettings):
                     galfit_model_path=model_path,
                 )
 
-                #
+                # Track object if successfully fitted
                 fitted_objects.append(object)
 
-                #
+                # Update temporary catalog every certain number of fitted
+                # objects
                 if (len(fitted_objects) % NUM_FITS_TO_MONITOR == 0) or (
                     len(fitted_objects) == len(objects)
                 ):

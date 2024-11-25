@@ -256,7 +256,7 @@ def get_chi_data(
     # Get list of bins between 0 and 1 for detail, and above 1 for "bad fits"
     # But set them as 0 to 8 for equal spacing, and label correctly
     # i.e. "good fits" = [0, 0.2, 0.4, 0.6, 0.8, 1]
-    # "bad fits" = (1, 100, >100]
+    # "bad fits" = (1, 10, >10]
     n_good = 5
     bins = np.arange(n_good + 3)
 
@@ -282,9 +282,9 @@ def get_chi_data(
                         data[filter].append(int(chi * n_good))
 
                 # Map "bad" chi values from float[0, inf) to int[5, 7]
-                elif (chi > 1) and (chi <= 100):
+                elif (chi > 1) and (chi <= 10):
                     data[filter].append(n_good)
-                elif chi > 100:
+                else:
                     data[filter].append(n_good + 1)
             except:
                 continue
@@ -732,7 +732,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
                 3: "0.6",
                 4: "0.8",
                 5: "1",
-                6: "100",
+                6: "10",
                 6.5: "+",
             },
         )
@@ -990,6 +990,12 @@ def all_models(runtime_settings: RuntimeSettings):
     for ficl in runtime_settings.ficls:
         # Try to get objects from FICL
         try:
+            # Skip if FICL has no objects
+            if len(ficl.objects) == 0:
+                logger.warning(f"FICL {ficl}: Skipping plotting - no objects to plot.")
+                continue
+
+            # Log progress
             logger.info(f"FICL {ficl}: Plotting models.")
             logger.info(
                 f"Objects: {min(ficl.objects)} to {max(ficl.objects)} "

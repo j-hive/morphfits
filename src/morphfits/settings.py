@@ -1887,6 +1887,9 @@ def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSett
     # Get settings list to unpack for function calls
     settings_pack = [cli_settings, file_settings]
 
+    # Get primitive settings
+    scale = get_priority_science_setting("scale", *settings_pack)
+
     # Get settings for morphology fitter
     morphology = get_morphology_settings(*settings_pack)
 
@@ -1895,6 +1898,8 @@ def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSett
 
     ## Set attributes which may be None at this point, if they are set
     ## Otherwise they will be set to default as per the class definition
+    if scale is not None:
+        science_dict["scale"] = scale
     if morphology is not None:
         science_dict["morphology"] = morphology
 
@@ -1940,6 +1945,7 @@ def get_settings(
     remake_others: bool | None = None,
     morphology: str | None = None,
     galfit_path: Path | None = None,
+    scale: float | None = None,
     boost: float | None = None,
     initialized: bool | None = None,
 ) -> tuple[RuntimeSettings, ScienceSettings]:
@@ -2019,6 +2025,9 @@ def get_settings(
         Morphology fitting program name, by default None.
     galfit_path : Path | None, optional
         Path to GALFIT binary executable, by default None.
+    scale : float | None, optional
+        Scale factor by which to multiply a stamp's Kron radius for its image
+        size, by default None.
     boost : float | None, optional
         Fractional brightness boost to initial estimate, by default None.
     initialized : bool | None, optional
