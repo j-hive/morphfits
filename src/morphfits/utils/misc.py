@@ -79,7 +79,7 @@ def get_subdirectories(path: Path) -> list[Path]:
     if path.is_dir():
         return [item for item in path.iterdir() if item.is_dir()]
     else:
-        raise ValueError(f"Path {path} is not a directory.")
+        raise ValueError(f"path {path} not directory")
 
 
 def get_str_from_datetime(date_time: datetime) -> str:
@@ -168,9 +168,7 @@ def get_unique_batch_limits(
 
     # Checking if valid process
     if process_id >= n_process:
-        raise ValueError(
-            f"process_id ({process_id}) can not be greater than {n_process - 1}"
-        )
+        raise ValueError(f"process ID {process_id} greater than {n_process - 1}")
 
     # Setting number of items in this process
     n_items_process = n_items // n_process

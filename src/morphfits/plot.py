@@ -922,7 +922,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
 
         # Skip if missing run catalog
         if not run_catalog_path.exists():
-            raise FileNotFoundError("missing run catalog")
+            raise FileNotFoundError("run catalog missing")
 
         # Get catalog as pandas data frame
         run_catalog = pd.read_csv(run_catalog_path)
@@ -955,7 +955,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
 
         # Skip if missing merge catalog
         if not catalog_path.exists():
-            raise FileNotFoundError("missing merge catalog")
+            raise FileNotFoundError("merge catalog missing")
 
         # Get catalog as pandas data frame
         catalog = pd.read_csv(catalog_path)

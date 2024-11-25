@@ -124,7 +124,7 @@ def get_zeropoint(headers: fits.Header, magnitude_system: str = "AB") -> float:
             return -2.5 * np.log10(headers["PHOTFLAM"]) - 21.1
         case _:
             raise NotImplementedError(
-                f"Magnitude system {magnitude_system} not implemented."
+                f"magnitude system {magnitude_system} not implemented"
             )
 
 
@@ -188,7 +188,7 @@ def get_kron_radius(input_catalog: Table, catalog_version: str, object: int) -> 
 
     # Other catalog versions may store their kron radius elsewhere
     else:
-        raise NotImplementedError("unrecognized")
+        raise NotImplementedError(f"catalog version {catalog_version} unrecognized")
 
 
 def get_flux(
@@ -233,11 +233,11 @@ def get_flux(
             raise KeyError(f"flux key {flux_key} not found")
 
         # Return flux
-        return flux
+        return float(flux)
 
     # Other catalog versions may store their kron radius elsewhere
     else:
-        raise NotImplementedError("unrecognized")
+        raise NotImplementedError(f"catalog version {catalog_version} unrecognized")
 
 
 def get_image_size(radius: float, scale: float) -> int:
@@ -340,7 +340,7 @@ def get_surface_brightness(
     """
     # Raise error if flux negative
     if flux <= 0:
-        raise ValueError(f"negative flux {flux}")
+        raise ValueError(f"flux {flux} negative")
 
     # Calculate magnitude from integrated flux and offset by zeropoint
     magnitude = -2.5 * np.log10(flux) + zeropoint
@@ -398,10 +398,7 @@ def get_pixscale(path: Path):
 
     # Raise error if keys not found in header
     if any([header not in headers for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]]):
-        raise KeyError(
-            f"Science frame for science frame {path.name} "
-            + "missing coordinate transformation matrix element header."
-        )
+        raise KeyError(f"frame {path.name} missing coordinate matrix headers")
 
     # Calculate and set pixel scales
     pixscale_x = np.sqrt(headers["CD1_1"] ** 2 + headers["CD1_2"] ** 2) * 3600

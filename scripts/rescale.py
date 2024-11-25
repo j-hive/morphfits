@@ -80,8 +80,7 @@ def get_pixscale(path: Path):
     # Raise error if keys not found in header
     if any([header not in headers for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]]):
         raise KeyError(
-            f"Science frame for science frame {path.name} "
-            + "missing coordinate transformation matrix element header."
+            f"Frame '{path.name}' missing coordinate transformation matrix headers."
         )
 
     # Calculate and set pixel scales

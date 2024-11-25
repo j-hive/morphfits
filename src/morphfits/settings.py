@@ -1602,7 +1602,7 @@ def get_path(
     """
     # Raise error if path name unknown
     if name not in FILESYSTEM:
-        raise FileNotFoundError(f"unknown MorphFITS path name {name}")
+        raise FileNotFoundError(f"path name {name} unknown")
 
     # Resolve parameters
     # Prefer directly passed parameters to those from settings objects

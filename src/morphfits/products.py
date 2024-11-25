@@ -109,12 +109,9 @@ def make_stamp(
 
     # Otherwise raise error to skip object
     elif not stamp_has_nonzero_data:
-        raise ValueError(f"{int(zero_ratio * 100)}% of stamp is zero")
+        raise ValueError(f"zero pixels {int(zero_ratio * 100)}% of stamp")
     else:
-        raise ValueError(
-            f"got dimensions {stamp.data.shape}, "
-            + f"expected ({image_size}, {image_size})"
-        )
+        raise ValueError(f"dimensions {stamp.data.shape} non-square")
 
 
 def make_sigma(
@@ -299,11 +296,6 @@ def make_mask(
         Coordinates of object in sky.
     image_size : int
         Number of pixels along one dimension of square image.
-
-    Raises
-    ------
-    FileExistsError
-        Mask already exists and remaking not requested.
     """
     # Create cutout from segmap
     segmap_cutout = Cutout2D(

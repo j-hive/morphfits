@@ -239,7 +239,7 @@ def run(
 
     # Raise error if GALFIT did not return successful
     if return_code != 0:
-        raise RuntimeError(f"failed with return code {return_code}")
+        raise RuntimeError(f"return code {return_code}")
 
 
 ## FICL Level
