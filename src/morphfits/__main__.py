@@ -430,7 +430,9 @@ def galwrap(
 
     # Create product files
     if runtime_settings.stages.product:
-        products.make_all(runtime_settings=runtime_settings)
+        products.make_all(
+            runtime_settings=runtime_settings, science_settings=science_settings
+        )
 
     # Create feedfiles
     if runtime_settings.stages.product:
@@ -460,8 +462,8 @@ def galwrap(
 
     # Write settings to file in run directory
     if runtime_settings.stages.cleanup:
-        runtime_settings.write()
         science_settings.write(runtime_settings=runtime_settings)
+        runtime_settings.write()
 
     # Exit
     logger.info("Exiting MorphFITS.")

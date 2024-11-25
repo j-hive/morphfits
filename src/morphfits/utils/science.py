@@ -25,11 +25,6 @@ MINIMUM_IMAGE_SIZE = 32
 """
 
 
-KRON_SCALE_FACTOR = 20
-"""Scale factor by which to multiply Kron radius for image size.
-"""
-
-
 PHOTOMETRY_ZEROPOINT = 23.9
 """AB zeropoint for fluxes from the DJA photometric catalogs.
 """
@@ -241,7 +236,7 @@ def get_flux(
         raise NotImplementedError("unrecognized")
 
 
-def get_image_size(radius: float) -> int:
+def get_image_size(radius: float, scale: float) -> int:
     """Calculate the square pixel length of an image containing an object, from
     its cataloged Kron radius.
 
@@ -250,6 +245,8 @@ def get_image_size(radius: float) -> int:
     radius : float
         Characteristic radius of object, in pixels. By default, known as Kron
         radius.
+    scale : float
+        Scale factor by which to multiply initial radius.
 
     Returns
     -------
@@ -257,7 +254,7 @@ def get_image_size(radius: float) -> int:
         Number of pixels in each edge of a square image containing this object.
     """
     # Calculate image size from scale factor
-    image_size = int(radius * KRON_SCALE_FACTOR)
+    image_size = int(radius * scale)
 
     # Return maximum between calculated and minimum image size
     return np.nanmax([image_size, MINIMUM_IMAGE_SIZE])

@@ -192,6 +192,30 @@ class FICL(BaseModel):
 ## Settings
 
 
+class PathSettings(BaseModel):
+    """Paths to root directories for this program run.
+
+    Attributes
+    ----------
+    root : Path
+        Path to root MorphFITS directory.
+    input : Path
+        Path to root input directory.
+    output : Path
+        Path to root output directory.
+    product : Path
+        Path to root product directory.
+    run : Path
+        Path to root run directory.
+    """
+
+    root: Path
+    input: Path
+    output: Path
+    product: Path
+    run: Path
+
+
 class StageSettings(BaseModel):
     """Settings for MorphFITS stages, i.e. which stages are to be run in a
     program run.
@@ -253,7 +277,17 @@ class RemakeSettings(BaseModel):
     others: bool = False
 
 
-class GALFITSettings(BaseModel):
+class MorphologySettings(BaseModel):
+    """Settings for the morphology fitting program for this program run."""
+
+    def _name(self) -> str:
+        return ""
+
+    def _upper_name(self) -> str:
+        return ""
+
+
+class GALFITSettings(MorphologySettings):
     """Settings for a GALFIT run.
 
     Attributes
@@ -270,55 +304,31 @@ class GALFITSettings(BaseModel):
     binary: Path
     boost: float = 0.1
 
-    def _name(self):
+    def _name(self) -> str:
         return "galfit"
 
-    def _upper_name(self):
+    def _upper_name(self) -> str:
         return "GALFIT"
 
 
-class ImcascadeSettings(BaseModel):
+class ImcascadeSettings(MorphologySettings):
     """Settings for an imcascade run."""
 
-    def _name(self):
+    def _name(self) -> str:
         return "imcascade"
 
-    def _upper_name(self):
+    def _upper_name(self) -> str:
         return "ImCascade"
 
 
-class PysersicSettings(BaseModel):
+class PysersicSettings(MorphologySettings):
     """Settings for a pysersic run."""
 
-    def _name(self):
+    def _name(self) -> str:
         return "pysersic"
 
-    def _upper_name(self):
+    def _upper_name(self) -> str:
         return "PySersic"
-
-
-class PathSettings(BaseModel):
-    """Paths to root directories for this program run.
-
-    Attributes
-    ----------
-    root : Path
-        Path to root MorphFITS directory.
-    input : Path
-        Path to root input directory.
-    output : Path
-        Path to root output directory.
-    product : Path
-        Path to root product directory.
-    run : Path
-        Path to root run directory.
-    """
-
-    root: Path
-    input: Path
-    output: Path
-    product: Path
-    run: Path
 
 
 class RuntimeSettings(BaseModel):
@@ -349,7 +359,7 @@ class RuntimeSettings(BaseModel):
         Stages to run in this program run, by default None (N/A).
     remake : RemakeSettings | None
         Files to remake in this program run, by default None (N/A).
-    morphology : GALFITSettings | ImcascadeSettings | PysersicSettings | None
+    morphology : MorphologySettings | None
         Settings for morphology fitting programs, by default None (N/A).
     """
 
@@ -363,9 +373,7 @@ class RuntimeSettings(BaseModel):
     log_level: str = logging._levelToName[logging.INFO]
     stages: Optional[StageSettings] = None
     remake: Optional[RemakeSettings] = None
-    morphology: Optional[Union[GALFITSettings, ImcascadeSettings, PysersicSettings]] = (
-        None
-    )
+    morphology: Optional[MorphologySettings] = None
 
     def setup_directories(self, initialized: bool = True):
         """Create required input, output, and/or product directories for this
@@ -520,11 +528,11 @@ class RuntimeSettings(BaseModel):
                 "y": ficl.pixscale[1],
             }
 
-        # Write settings to file
+        # Append settings to file
         settings_path = get_path(
             name="run_settings", runtime_settings=self, field=self.ficls[0].field
         )
-        yaml.dump(settings, open(settings_path, mode="w"), sort_keys=False)
+        yaml.dump(settings, open(settings_path, mode="a"), sort_keys=False)
 
 
 class ScienceSettings(BaseModel):
@@ -532,26 +540,27 @@ class ScienceSettings(BaseModel):
 
     Parameters
     ----------
-    morphology : GALFITSettings | ImcascadeSettings | PysersicSettings | None
+    scale : float
+        Scale factor by which to multiply the initial radius (usually Kron) for
+        image size, by default 20.
+    morphology : MorphologySettings | None
         Settings for morphology fitting programs, by default None (N/A).
     """
 
-    morphology: Optional[Union[GALFITSettings, ImcascadeSettings, PysersicSettings]] = (
-        None
-    )
+    scale: float = 20
+    morphology: Optional[MorphologySettings] = None
 
     def write(self, runtime_settings: RuntimeSettings):
         """Record science settings to run directory."""
         logger.info("Recording science settings.")
 
         # Initialize empty dict for writing
-        settings = {}
+        settings = {"science":{"scale":self.scale}}
 
         # Add morphology wrapper as a str
         if self.morphology is not None:
             if isinstance(self.morphology, GALFITSettings):
-                settings["morphology"] = {
-                    "name": "GALFIT",
+                settings["science"]["galwrap"] = {
                     "binary": str(self.morphology.binary),
                 }
                 for (
@@ -560,19 +569,19 @@ class ScienceSettings(BaseModel):
                 ) in self.morphology.__dict__.items():
                     if morphology_setting == "binary":
                         continue
-                    settings["morphology"][morphology_setting] = morphology_value
+                    settings["science"]["galwrap"][morphology_setting] = morphology_value
             elif isinstance(self.morphology, ImcascadeSettings):
-                settings["morphology"] = {"name": "imcascade"}
+                settings["science"]["imcascade"] = {}
             else:
-                settings["morphology"] = {"name": "pysersic"}
+                settings["science"]["pysersic"] = {}
 
-        # Append settings to file
+        # Write settings to file
         settings_path = get_path(
             name="run_settings",
             runtime_settings=runtime_settings,
             field=runtime_settings.ficls[0].field,
         )
-        yaml.dump(settings, open(settings_path, mode="a"), sort_keys=False)
+        yaml.dump(settings, open(settings_path, mode="w"), sort_keys=False)
 
 
 # Functions

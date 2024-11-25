@@ -368,7 +368,9 @@ def make_all_feedfiles(
                     catalog_version=ficl.catalog_version,
                     object=object,
                 )
-                image_size = science.get_image_size(radius=kron_radius)
+                image_size = science.get_image_size(
+                    radius=kron_radius, scale=science_settings.scale
+                )
                 magnitude = science.get_surface_brightness_from_headers(
                     runtime_settings=runtime_settings, headers=stamp_headers
                 )

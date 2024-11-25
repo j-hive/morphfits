@@ -26,7 +26,7 @@ from scipy import ndimage
 from tqdm import tqdm
 
 from . import settings
-from .settings import RuntimeSettings, FICL
+from .settings import RuntimeSettings, ScienceSettings, FICL
 from .utils import science
 
 
@@ -328,7 +328,10 @@ def make_mask(
 
 
 def make_ficl_stamps(
-    runtime_settings: RuntimeSettings, ficl: FICL, input_catalog: Table
+    runtime_settings: RuntimeSettings,
+    science_settings: ScienceSettings,
+    ficl: FICL,
+    input_catalog: Table,
 ):
     """Create the stamps for every object in a FICL.
 
@@ -341,6 +344,8 @@ def make_ficl_stamps(
     ----------
     runtime_settings : RuntimeSettings
         Settings for the runtime of this program execution.
+    science_settings : ScienceSettings
+        Settings for the scientific algorithms of this program run.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
     input_catalog : Table
@@ -402,7 +407,9 @@ def make_ficl_stamps(
             )
 
             # Get image size and surface brightness
-            image_size = science.get_image_size(radius=kron_radius)
+            image_size = science.get_image_size(
+                radius=kron_radius, scale=science_settings.scale
+            )
             surface_brightness = science.get_surface_brightness(
                 radius=kron_radius, pixscale=ficl.pixscale, flux=flux
             )
@@ -432,7 +439,10 @@ def make_ficl_stamps(
 
 
 def make_ficl_sigmas(
-    runtime_settings: RuntimeSettings, ficl: FICL, input_catalog: Table
+    runtime_settings: RuntimeSettings,
+    science_settings: ScienceSettings,
+    ficl: FICL,
+    input_catalog: Table,
 ):
     """Create the sigma maps for every object in a FICL.
 
@@ -445,6 +455,8 @@ def make_ficl_sigmas(
     ----------
     runtime_settings : RuntimeSettings
         Settings for the runtime of this program execution.
+    science_settings : ScienceSettings
+        Settings for the scientific algorithms of this program execution.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
     input_catalog : Table
@@ -522,7 +534,9 @@ def make_ficl_sigmas(
                 catalog_version=ficl.catalog_version,
                 object=object,
             )
-            image_size = science.get_image_size(radius=kron_radius)
+            image_size = science.get_image_size(
+                radius=kron_radius, scale=science_settings.scale
+            )
 
             # Make sigma map for object
             make_sigma(
@@ -550,7 +564,12 @@ def make_ficl_sigmas(
     )
 
 
-def make_ficl_psfs(runtime_settings: RuntimeSettings, ficl: FICL, input_catalog: Table):
+def make_ficl_psfs(
+    runtime_settings: RuntimeSettings,
+    science_settings: ScienceSettings,
+    ficl: FICL,
+    input_catalog: Table,
+):
     """Create the PSF crops for every object in a FICL.
 
     Skips the FICL if any error occurs during opening the corresponding
@@ -563,6 +582,8 @@ def make_ficl_psfs(runtime_settings: RuntimeSettings, ficl: FICL, input_catalog:
     ----------
     runtime_settings : RuntimeSettings
         Settings for the runtime of this program execution.
+    science_settings : ScienceSettings
+        Settings for the scientific algorithms of this program run.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
     input_catalog : Table
@@ -615,7 +636,9 @@ def make_ficl_psfs(runtime_settings: RuntimeSettings, ficl: FICL, input_catalog:
                 catalog_version=ficl.catalog_version,
                 object=object,
             )
-            image_size = science.get_image_size(radius=kron_radius)
+            image_size = science.get_image_size(
+                radius=kron_radius, scale=science_settings.scale
+            )
 
             # Calculate PSF size from ratio of PSF pixscale to science pixscale
             psf_image_size = int(image_size * input_psf_pixscale / max(ficl.pixscale))
@@ -643,7 +666,10 @@ def make_ficl_psfs(runtime_settings: RuntimeSettings, ficl: FICL, input_catalog:
 
 
 def make_ficl_masks(
-    runtime_settings: RuntimeSettings, ficl: FICL, input_catalog: Table
+    runtime_settings: RuntimeSettings,
+    science_settings: ScienceSettings,
+    ficl: FICL,
+    input_catalog: Table,
 ):
     """Create the masks for every object in a FICL.
 
@@ -656,6 +682,8 @@ def make_ficl_masks(
     ----------
     runtime_settings : RuntimeSettings
         Settings for the runtime of this program execution.
+    science_settings : ScienceSettings
+        Settings for the scientific algorithms of this program run.
     ficl : FICL
         Settings for a single observation, e.g. field and image version.
     input_catalog : Table
@@ -714,7 +742,9 @@ def make_ficl_masks(
                 catalog_version=ficl.catalog_version,
                 object=object,
             )
-            image_size = science.get_image_size(radius=kron_radius)
+            image_size = science.get_image_size(
+                radius=kron_radius, scale=science_settings.scale
+            )
 
             # Make mask for object
             make_mask(
@@ -741,7 +771,7 @@ def make_ficl_masks(
 ## Primary
 
 
-def make_all(runtime_settings: RuntimeSettings):
+def make_all(runtime_settings: RuntimeSettings, science_settings: ScienceSettings):
     """Create each product for each FICL in this program run.
 
     A product is an intermediate FITS file isolating an object within its field.
@@ -759,6 +789,8 @@ def make_all(runtime_settings: RuntimeSettings):
     ----------
     runtime_settings : RuntimeSettings
         Settings for the runtime of this program execution.
+    science_settings : ScienceSettings
+        Settings for the scientific algorithms of this program run.
     """
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
@@ -777,16 +809,16 @@ def make_all(runtime_settings: RuntimeSettings):
             input_catalog = Table.read(input_catalog_path)
 
             # Make stamps for all objects in FICL
-            make_ficl_stamps(runtime_settings, ficl, input_catalog)
+            make_ficl_stamps(runtime_settings, science_settings, ficl, input_catalog)
 
             # Make sigma map stamps for all objects in FICL
-            make_ficl_sigmas(runtime_settings, ficl, input_catalog)
+            make_ficl_sigmas(runtime_settings, science_settings, ficl, input_catalog)
 
             # Make PSF crops for all objects in FICL
-            make_ficl_psfs(runtime_settings, ficl, input_catalog)
+            make_ficl_psfs(runtime_settings, science_settings, ficl, input_catalog)
 
             # Make mask stamps for all objects in FICL
-            make_ficl_masks(runtime_settings, ficl, input_catalog)
+            make_ficl_masks(runtime_settings, science_settings, ficl, input_catalog)
 
         # Catch any error opening FICL or input catalog
         except Exception as e:
