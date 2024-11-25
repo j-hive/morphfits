@@ -230,6 +230,69 @@ def get_convergence_data(
     return data
 
 
+def get_chi_data(
+    catalog: pd.DataFrame, filters: list[str] | None = None
+) -> tuple[np.ndarray, dict[str, list[float]]]:
+    """Get reduced chi squared data for a histogram as a list of floats
+    indexed by filter.
+
+    Parameters
+    ----------
+    catalog : pd.DataFrame
+        Data frame containing morphology fitting information.
+    filters : list[str] | None, optional
+        List of filters in this catalog, by default None (find in this
+        function).
+
+    Returns
+    -------
+    tuple[np.ndarray, dict[str, list[float]]]
+        Dict containing float reduced chi squared data for each filter.
+    """
+    # Get list of all filters in catalog if not passed
+    if filters is None:
+        filters = misc.get_unique(catalog["filter"])
+
+    # Get list of bins between 0 and 1 for detail, and above 1 for "bad fits"
+    # But set them as 0 to 8 for equal spacing, and label correctly
+    # i.e. "good fits" = [0, 0.2, 0.4, 0.6, 0.8, 1]
+    # "bad fits" = (1, 100, >100]
+    n_good = 5
+    bins = np.arange(n_good + 3)
+
+    # Initialize data as empty dict
+    data = {}
+
+    # Iterate over each filter in catalog
+    for filter in filters:
+        data[filter] = []
+
+        # Iterate over each object's reduced chi squared
+        for datum in catalog[catalog["filter"] == filter]["chi^2/nu"]:
+            # Try to add this object's reduced chi squared value
+            try:
+                assert not np.isnan(datum)
+                chi = float(datum)
+
+                # Map "good" chi values from float[0, 1] to int[0, 4]
+                if int(chi * n_good) <= n_good:
+                    if int(chi * n_good) == n_good:
+                        data[filter].append(n_good - 1)
+                    else:
+                        data[filter].append(int(chi * n_good))
+
+                # Map "bad" chi values from float[0, inf) to int[5, 7]
+                elif (chi > 1) and (chi <= 100):
+                    data[filter].append(n_good)
+                elif chi > 100:
+                    data[filter].append(n_good + 1)
+            except:
+                continue
+
+    # Return bins and chi data
+    return bins, data
+
+
 def get_parameter_data(
     catalog: pd.DataFrame, parameter: str, filters: list[str] | None = None
 ) -> tuple[np.ndarray, dict[str, list[float]]]:
@@ -477,7 +540,7 @@ def sub_histogram(
     data: dict[str, list[int | float]],
     bins: np.ndarray,
     title: str,
-    labels: str | None = None,
+    labels: str | dict[float, str] | None = None,
 ):
     """Plot a subplot for a MorphFITS histogram.
 
@@ -493,8 +556,9 @@ def sub_histogram(
         Bins for this sub-histogram.
     title : str
         Title for this sub-histogram.
-    labels : str | None, optional
-        Labels for this sub-histogram's bins, by default None (N/A).
+    labels : str | dict[float, str] | None, optional
+        Labels for this sub-histogram's bins, as a list of strings or dict of
+        strings indexed by their positions, by default None (N/A).
     """
     # Track maximum y-value for setting y-ticks
     max_count = 0
@@ -523,7 +587,12 @@ def sub_histogram(
     # Set ticks and labels
     ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)
     if labels is not None:
-        ax.set_xticks(bins[:-1] + 0.5, labels)
+        if isinstance(labels, list):
+            ax.set_xticks(bins[:-1] + 0.5, labels)
+        else:
+            sorted_positions = sorted(labels)
+            sorted_labels = [labels[pos] for pos in sorted_positions]
+            ax.set_xticks(sorted_positions, sorted_labels)
     ax.set_yscale("symlog")
     y_ticks = get_y_ticks(max_count=max_count, log=True)
     ax.set_ylim(y_ticks[0], y_ticks[-1])
@@ -647,9 +716,30 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
     except Exception as e:
         logger.debug(f"Skipping making convergence sub-histogram - {e}.")
 
+    # Try plotting reduced chi squared sub-histogram
+    try:
+        chi_bins, chi_data = get_chi_data(catalog)
+        sub_histogram(
+            ax=axs[0][2],
+            filters=filters,
+            data=chi_data,
+            bins=chi_bins,
+            title="reduced chi squared",
+            labels={
+                0: "0",
+                1: "0.2",
+                2: "0.4",
+                3: "0.6",
+                4: "0.8",
+                5: "1",
+                6.5: ">100",
+            },
+        )
+    except Exception as e:
+        logger.debug(f"Skipping making chi sub-histogram - {e}.")
+
     # Try plotting parameter sub-histograms for each parameter of interest
     histogram_parameters = {
-        "chi^2/nu": axs[0][2],
         "surface brightness": axs[1][0],
         "effective radius": axs[1][1],
         "sersic": axs[1][2],
