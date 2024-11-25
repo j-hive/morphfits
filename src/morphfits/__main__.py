@@ -347,6 +347,15 @@ def galwrap(
             is_flag=True,
         ),
     ] = None,
+    boost: Annotated[
+        Optional[float],
+        typer.Option(
+            "--boost",
+            help="Boost the initial estimate by this fraction of itself.",
+            rich_help_panel="Science",
+            show_default=False,
+        ),
+    ] = None,
     log_level: Annotated[
         Optional[str],
         typer.Option(
@@ -401,6 +410,7 @@ def galwrap(
         remake_others=remake_feedfiles,
         morphology="galfit",
         galfit_path=galfit_path,
+        boost=boost,
         initialized=True,
     )
 
@@ -424,7 +434,9 @@ def galwrap(
 
     # Create feedfiles
     if runtime_settings.stages.product:
-        galfit.make_all_feedfiles(runtime_settings=runtime_settings)
+        galfit.make_all_feedfiles(
+            runtime_settings=runtime_settings, science_settings=science_settings
+        )
 
     # Run GALFIT
     if runtime_settings.stages.morphology:
@@ -449,6 +461,7 @@ def galwrap(
     # Write settings to file in run directory
     if runtime_settings.stages.cleanup:
         runtime_settings.write()
+        science_settings.write(runtime_settings=runtime_settings)
 
     # Exit
     logger.info("Exiting MorphFITS.")

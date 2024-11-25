@@ -260,9 +260,15 @@ class GALFITSettings(BaseModel):
     ----------
     binary : Path
         Path to GALFIT executable binary file.
+    boost : float
+        Fractional boost in brightness applied to the estimate prior to running
+        GALFIT, i.e. subtract this value times the estimate from the estimate,
+        by default 0.1, i.e. 10% of the estimate (20 becomes 18). Included as a
+        result of GALFIT tending to fail on accurately or underestimated values.
     """
 
     binary: Path
+    boost: float = 0.1
 
     def _name(self):
         return "galfit"
@@ -491,15 +497,6 @@ class RuntimeSettings(BaseModel):
         settings["process_count"] = self.process_count
         settings["process_id"] = self.process_id
 
-        # Add morphology wrapper as a str
-        if self.morphology is not None:
-            if isinstance(self.morphology, GALFITSettings):
-                settings["morphology"] = "GALFIT"
-            elif isinstance(self.morphology, ImcascadeSettings):
-                settings["morphology"] = "imcascade"
-            else:
-                settings["morphology"] = "pysersic"
-
         # Add stages as a list of stages ran
         if self.stages is not None:
             settings["stages"] = []
@@ -531,9 +528,51 @@ class RuntimeSettings(BaseModel):
 
 
 class ScienceSettings(BaseModel):
-    """Settings for scientific generation for a program run of MorphFITS."""
+    """Settings for scientific generation for a program run of MorphFITS.
 
-    pass
+    Parameters
+    ----------
+    morphology : GALFITSettings | ImcascadeSettings | PysersicSettings | None
+        Settings for morphology fitting programs, by default None (N/A).
+    """
+
+    morphology: Optional[Union[GALFITSettings, ImcascadeSettings, PysersicSettings]] = (
+        None
+    )
+
+    def write(self, runtime_settings: RuntimeSettings):
+        """Record science settings to run directory."""
+        logger.info("Recording science settings.")
+
+        # Initialize empty dict for writing
+        settings = {}
+
+        # Add morphology wrapper as a str
+        if self.morphology is not None:
+            if isinstance(self.morphology, GALFITSettings):
+                settings["morphology"] = {
+                    "name": "GALFIT",
+                    "binary": str(self.morphology.binary),
+                }
+                for (
+                    morphology_setting,
+                    morphology_value,
+                ) in self.morphology.__dict__.items():
+                    if morphology_setting == "binary":
+                        continue
+                    settings["morphology"][morphology_setting] = morphology_value
+            elif isinstance(self.morphology, ImcascadeSettings):
+                settings["morphology"] = {"name": "imcascade"}
+            else:
+                settings["morphology"] = {"name": "pysersic"}
+
+        # Append settings to file
+        settings_path = get_path(
+            name="run_settings",
+            runtime_settings=runtime_settings,
+            field=runtime_settings.ficls[0].field,
+        )
+        yaml.dump(settings, open(settings_path, mode="a"), sort_keys=False)
 
 
 # Functions
@@ -633,6 +672,37 @@ def get_priority_remake(
     # Return flag from YAML file if set
     elif ("remake" in file_settings) and (product in file_settings["remake"]):
         return True
+
+    # Return None if unset
+
+
+def get_priority_science_setting(
+    name: str, cli_settings: dict, file_settings: dict
+) -> float | None:
+    """Get a priority value for a science setting from values passed from a
+    terminal call and a settings file.
+
+    Parameters
+    ----------
+    name : str
+        Name of setting.
+    cli_settings : dict
+        Settings passed from CLI call.
+    file_settings : dict
+        Settings read from YAML file.
+
+    Returns
+    -------
+    float | None
+        Resolved prioritized science setting, if found.
+    """
+    # Return setting from CLI call if set
+    if cli_settings[name] is not None:
+        return cli_settings[name]
+
+    # Return setting from YAML file if set
+    elif ("science" in file_settings) and (name in file_settings["science"]):
+        return file_settings["science"][name]
 
     # Return None if unset
 
@@ -1441,8 +1511,19 @@ def get_morphology_settings(
             elif not galfit_path.exists():
                 raise FileNotFoundError("Terminating - GALFIT binary not found.")
 
+            # Get brightness boost setting from CLI or YAML
+            boost = get_priority_science_setting("boost", cli_settings, file_settings)
+
+            # Set dict from found settings
+            galfit_dict = {"binary": galfit_path}
+            if boost is not None:
+                try:
+                    galfit_dict["boost"] = float(boost)
+                except:
+                    pass
+
             # Return GALFIT settings object
-            return GALFITSettings(binary=galfit_path)
+            return GALFITSettings(**galfit_dict)
 
         case "imcascade":
             raise NotImplementedError("Terminating - not yet implemented.")
@@ -1622,8 +1703,8 @@ def get_path(
     # Input PSFs - two known pixel scales of '20mas' or '40mas'
     if "{P}" in path:
         # Get paths to all known pixel scales
-        path_20mas = misc.get_path_obj(path.replace("{P}","20mas"))
-        path_40mas = misc.get_path_obj(path.replace("{P}","40mas"))
+        path_20mas = misc.get_path_obj(path.replace("{P}", "20mas"))
+        path_40mas = misc.get_path_obj(path.replace("{P}", "40mas"))
 
         # Return option that exists
         if path_20mas.exists():
@@ -1776,7 +1857,25 @@ def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSett
     ScienceSettings
         Science settings for this program run.
     """
-    pass
+    # Get settings list to unpack for function calls
+    settings_pack = [cli_settings, file_settings]
+
+    # Get settings for morphology fitter
+    morphology = get_morphology_settings(*settings_pack)
+
+    # Create object dict from settings that have been set
+    science_dict = {}
+
+    ## Set attributes which may be None at this point, if they are set
+    ## Otherwise they will be set to default as per the class definition
+    if morphology is not None:
+        science_dict["morphology"] = morphology
+
+    # Create class instance from settings
+    science_settings = ScienceSettings(**science_dict)
+
+    # Return science settings object
+    return science_settings
 
 
 def get_settings(
@@ -1814,6 +1913,7 @@ def get_settings(
     remake_others: bool | None = None,
     morphology: str | None = None,
     galfit_path: Path | None = None,
+    boost: float | None = None,
     initialized: bool | None = None,
 ) -> tuple[RuntimeSettings, ScienceSettings]:
     """Get the runtime and science settings for this program run.
@@ -1892,6 +1992,8 @@ def get_settings(
         Morphology fitting program name, by default None.
     galfit_path : Path | None, optional
         Path to GALFIT binary executable, by default None.
+    boost : float | None, optional
+        Fractional brightness boost to initial estimate, by default None.
     initialized : bool | None, optional
         All input files acquired, organized, and unzipped, by default None.
 

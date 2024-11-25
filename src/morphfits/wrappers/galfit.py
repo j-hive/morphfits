@@ -15,7 +15,7 @@ from jinja2 import Template
 from tqdm import tqdm
 
 from .. import catalog, settings, DATA_ROOT
-from ..settings import RuntimeSettings
+from ..settings import RuntimeSettings, ScienceSettings
 from ..utils import science
 
 
@@ -245,13 +245,17 @@ def run(
 ## FICL Level
 
 
-def make_all_feedfiles(runtime_settings: RuntimeSettings):
+def make_all_feedfiles(
+    runtime_settings: RuntimeSettings, science_settings: ScienceSettings
+):
     """Make all GALFIT feedfiles for a program run.
 
     Parameters
     ----------
     runtime_settings : RuntimeSettings
         Settings for this program run.
+    science_settings : ScienceSettings
+        Science configurations for this program run.
     """
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
@@ -374,6 +378,9 @@ def make_all_feedfiles(runtime_settings: RuntimeSettings):
                 axis_ratio = science.get_axis_ratio(
                     input_catalog=input_catalog, object=object
                 )
+
+                # Apply boost to magnitude estimate
+                magnitude -= magnitude * science_settings.morphology.boost
 
                 # Make feedfile for object
                 make_feedfile(
