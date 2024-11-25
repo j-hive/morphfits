@@ -90,10 +90,9 @@ def make_stamp(
     stamp = Cutout2D(data=image, position=position, size=image_size, wcs=wcs)
 
     # Get nonzero and shape correctness of stamp
-    nonzero_fraction = 0.5
-    stamp_has_nonzero_data = (
-        len(np.where(stamp.data == 0.0)) / len(stamp.data.flatten())
-    ) < (1 - nonzero_fraction)
+    max_zero_fraction = 0.3
+    zero_ratio = len(np.where(stamp.data == 0.0)) / len(stamp.data.flatten())
+    stamp_has_nonzero_data = zero_ratio <= max_zero_fraction
     stamp_is_correct_shape = stamp.data.shape == (image_size, image_size)
 
     # Write stamp to disk if image nonzero and of correct shape
@@ -110,7 +109,7 @@ def make_stamp(
 
     # Otherwise raise error to skip object
     elif not stamp_has_nonzero_data:
-        raise ValueError(f"more than {int(nonzero_fraction*100)}% of stamp is zero")
+        raise ValueError(f"{int(zero_ratio * 100)}% of stamp is zero")
     else:
         raise ValueError(
             f"got dimensions {stamp.data.shape}, "
