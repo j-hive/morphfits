@@ -81,7 +81,7 @@ def get_all_objects(input_catalog_path: Path) -> list[int]:
     input_catalog = Table.read(input_catalog_path)
 
     # Return list of IDs as integers
-    return [int(id_object) - 1 for id_object in input_catalog["id"]]
+    return [int(id_object) for id_object in input_catalog["id"]]
 
 
 def get_zeropoint(headers: fits.Header, magnitude_system: str = "AB") -> float:
@@ -144,7 +144,9 @@ def get_position(input_catalog: Table, object: int) -> SkyCoord:
         Position of object as a SkyCoord astropy object.
     """
     return SkyCoord(
-        ra=input_catalog[object]["ra"], dec=input_catalog[object]["dec"], unit="deg"
+        ra=input_catalog[input_catalog["id"] == object]["ra"],
+        dec=input_catalog[input_catalog["id"] == object]["dec"],
+        unit="deg",
     )
 
 
@@ -175,9 +177,11 @@ def get_kron_radius(input_catalog: Table, catalog_version: str, object: int) -> 
     if "dja" in catalog_version:
         # Get Kron radius from catalog
         if "kron_radius_circ" in input_catalog.keys():
-            kron_radius = input_catalog[object]["kron_radius_circ"]
+            kron_radius = input_catalog[input_catalog["id"] == object][
+                "kron_radius_circ"
+            ]
         else:
-            kron_radius = input_catalog[object]["kron_radius"]
+            kron_radius = input_catalog[input_catalog["id"] == object]["kron_radius"]
 
         # Return radius
         return kron_radius
@@ -224,7 +228,7 @@ def get_flux(
         # Get flux from catalog
         flux_key = f"{filter}_corr_1"
         if flux_key in input_catalog.keys():
-            flux = input_catalog[object][flux_key]
+            flux = input_catalog[input_catalog["id"] == object][flux_key]
         else:
             raise KeyError(f"flux key {flux_key} not found")
 
@@ -276,7 +280,7 @@ def get_half_light_radius(input_catalog: Table, object: int) -> float:
     float
         Half light radius of object.
     """
-    return input_catalog[object]["a_image"]
+    return input_catalog[input_catalog["id"] == object]["a_image"]
 
 
 def get_axis_ratio(input_catalog: Table, object: int) -> float:
@@ -295,7 +299,10 @@ def get_axis_ratio(input_catalog: Table, object: int) -> float:
     float
         Axis ratio of object.
     """
-    return input_catalog[object]["b_image"] / input_catalog[object]["a_image"]
+    return (
+        input_catalog[input_catalog["id"] == object]["b_image"]
+        / input_catalog[input_catalog["id"] == object]["a_image"]
+    )
 
 
 def get_surface_brightness(

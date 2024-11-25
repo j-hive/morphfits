@@ -352,22 +352,22 @@ class RuntimeSettings(BaseModel):
 
     Attributes
     ----------
-    roots : PathSettings
-        Paths to root directories for this program run.
     date_time : datetime
         Date time of start of this program run.
-    process_count : int, optional
-        Process number if multiple are started at the same time, by default 1.
     process_id : int, optional
         Process ID if multiple are started at the same time, by default 0.
-    ficls : list[FICL]
-        List of FICLs over which to run MorphFITS.
-    progress_bar : bool, optional
-        Display a progress bar via tqdm and suppress per-object logging, by
-        default False.
+    process_count : int, optional
+        Process number if multiple are started at the same time, by default 1.
     log_level : str, optional
         Level at which to log, one of standard Python logging levels, by default
         info.
+    progress_bar : bool, optional
+        Display a progress bar via tqdm and suppress per-object logging, by
+        default False.
+    ficls : list[FICL]
+        List of FICLs over which to run MorphFITS.
+    roots : PathSettings
+        Paths to root directories for this program run.
     stages : StageSettings | None
         Stages to run in this program run, by default None (N/A).
     remake : RemakeSettings | None
@@ -376,13 +376,13 @@ class RuntimeSettings(BaseModel):
         Settings for morphology fitting programs, by default None (N/A).
     """
 
-    roots: PathSettings
     date_time: datetime
-    process_count: int = 1
     process_id: int = 0
-    ficls: list[FICL]
-    progress_bar: bool = False
+    process_count: int = 1
     log_level: str = logging._levelToName[logging.INFO]
+    progress_bar: bool = False
+    ficls: list[FICL]
+    roots: PathSettings
     stages: Optional[StageSettings] = None
     remake: Optional[RemakeSettings] = None
     morphology: Optional[MorphologySettings] = None
@@ -511,10 +511,10 @@ class RuntimeSettings(BaseModel):
 
         # Add run details
         settings["date_time"] = self.date_time
-        settings["progress_bar"] = self.progress_bar
-        settings["log_level"] = self.log_level
-        settings["process_count"] = self.process_count
         settings["process_id"] = self.process_id
+        settings["process_count"] = self.process_count
+        settings["log_level"] = self.log_level
+        settings["progress_bar"] = self.progress_bar
 
         # Add stages as a list of stages ran
         if self.stages is not None:
@@ -1757,8 +1757,8 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
     date_time = datetime.now()
     progress_bar = get_priority_setting("progress_bar", *settings_pack)
     log_level = get_priority_setting("log_level", *settings_pack)
-    process_count = get_priority_setting("batch_n_process", *settings_pack)
     process_id = get_priority_setting("batch_process_id", *settings_pack)
+    process_count = get_priority_setting("batch_n_process", *settings_pack)
     first_object = get_priority_setting("first_object", *settings_pack)
     last_object = get_priority_setting("last_object", *settings_pack)
 
@@ -1798,10 +1798,10 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
 
     ## Set attributes which may be None at this point, if they are set
     ## Otherwise they will be set to default as per the class definition
-    if process_count is not None:
-        runtime_dict["process_count"] = process_count
     if process_id is not None:
         runtime_dict["process_id"] = process_id
+    if process_count is not None:
+        runtime_dict["process_count"] = process_count
     if progress_bar is not None:
         runtime_dict["progress_bar"] = progress_bar
     if log_level is not None:
