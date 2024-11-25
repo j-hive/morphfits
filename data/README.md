@@ -21,7 +21,7 @@ of a galaxy or cluster to be fitted.
 |`p`|`product_root`|Root products directory.|`morphfits_root/products`|
 |`r`|`run_root`|Root directory for each run.|`morphfits_root/runs`|
 |`D`|`date_time`|Datetime at start of run, in ISO-8601.|`20230625T145928`|
-|`N`|`run_number`|Number of run if multiple are started at the same datetime.|`02`|
+|`N`|`process_id`|ID of process in batch.|`002`|
 
 
 # Filesystem Structure (`paths.yaml`)

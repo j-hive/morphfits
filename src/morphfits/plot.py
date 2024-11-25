@@ -933,7 +933,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
             title="MorphFITS Histogram - Run on "
             + misc.get_str_from_datetime(runtime_settings.date_time)
             + "."
-            + misc.get_str_from_run_number(runtime_settings.run_number),
+            + misc.get_str_from_process_id(runtime_settings.process_id),
             catalog=run_catalog,
         )
 
@@ -966,7 +966,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
             title="MorphFITS Histogram as of "
             + misc.get_str_from_datetime(runtime_settings.date_time)
             + "."
-            + misc.get_str_from_run_number(runtime_settings.run_number),
+            + misc.get_str_from_process_id(runtime_settings.process_id),
             catalog=catalog,
         )
 

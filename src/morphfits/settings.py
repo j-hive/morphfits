@@ -356,9 +356,6 @@ class RuntimeSettings(BaseModel):
         Paths to root directories for this program run.
     date_time : datetime
         Date time of start of this program run.
-    run_number : int, optional
-        Directory number if multiple runs are started at the same date time, by
-        default 1.
     process_count : int, optional
         Process number if multiple are started at the same time, by default 1.
     process_id : int, optional
@@ -381,7 +378,6 @@ class RuntimeSettings(BaseModel):
 
     roots: PathSettings
     date_time: datetime
-    run_number: int = 1
     process_count: int = 1
     process_id: int = 0
     ficls: list[FICL]
@@ -515,7 +511,6 @@ class RuntimeSettings(BaseModel):
 
         # Add run details
         settings["date_time"] = self.date_time
-        settings["run_number"] = self.run_number
         settings["progress_bar"] = self.progress_bar
         settings["log_level"] = self.log_level
         settings["process_count"] = self.process_count
@@ -1349,42 +1344,6 @@ def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FIC
     return ficls
 
 
-def get_run_number(path_settings: PathSettings, field: str, date_time: datetime) -> int:
-    """Get the run number for this program run.
-
-    Parameters
-    ----------
-    path_settings : PathSettings
-        Paths to root directories for this program run.
-    field : str
-        Name of first field in list of FICLs of this program run.
-    date_time : datetime
-        Date time of start of program run.
-
-    Returns
-    -------
-    int
-        Lowest number at which a directory for this date time has not been
-        created.
-    """
-    # Set run number to 1 by default
-    run_number = 1
-
-    # If any other processes in same batch use same date time, increase the run
-    # number until there is a free directory
-    while get_path(
-        "run",
-        run_root=path_settings.run,
-        field=field,
-        date_time=date_time,
-        run_number=run_number,
-    ).exists():
-        run_number += 1
-
-    # Return run number
-    return run_number
-
-
 def get_stage_settings(cli_settings: dict, file_settings: dict) -> StageSettings | None:
     """Get the stages to run for this MorphFITS run.
 
@@ -1579,7 +1538,7 @@ def get_path(
     filter: str | None = None,
     object: int | None = None,
     date_time: datetime | None = None,
-    run_number: int | None = None,
+    process_id: int | None = None,
 ) -> Path:
     """Get the path to a MorphFITS file or directory.
 
@@ -1623,8 +1582,8 @@ def get_path(
         Target galaxy or cluster ID in catalog, by default None.
     date_time : datetime | None, optional
         Datetime at start of program run, by default None.
-    run_number : int | None, optional
-        Number of run in collection with same datetime, by default None.
+    process_id : int | None, optional
+        Integer ID of process in batch, by default None.
 
     Returns
     -------
@@ -1669,8 +1628,8 @@ def get_path(
             run_root = runtime_settings.roots.run
         if date_time is None:
             date_time = runtime_settings.date_time
-        if run_number is None:
-            run_number = runtime_settings.run_number
+        if process_id is None:
+            process_id = runtime_settings.process_id
     if path_settings is not None:
         if morphfits_root is None:
             morphfits_root = path_settings.root
@@ -1723,9 +1682,9 @@ def get_path(
     if object is not None:
         path = path.replace("{O}", str(object))
     if date_time is not None:
-        path = path.replace("{D}", misc.get_str_from_datetime(date_time=date_time))
-    if run_number is not None:
-        path = path.replace("{N}", misc.get_str_from_run_number(run_number=run_number))
+        path = path.replace("{D}", misc.get_str_from_datetime(date_time))
+    if process_id is not None:
+        path = path.replace("{N}", misc.get_str_from_process_id(process_id))
 
     # Input PSFs - two known pixel scales of '20mas' or '40mas'
     if "{P}" in path:
@@ -1767,10 +1726,9 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
         d. process count
         e. process ID
     3. list of FICLs
-    4. run number
-    5. stages to run
-    6. files to remake
-    7. morphology settings
+    4. stages to run
+    5. files to remake
+    6. morphology settings
 
     Creates all input, output, and product directories for this program run.
 
@@ -1821,9 +1779,6 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
     else:
         ficls = get_ficls_to_initialize(*settings_pack)
 
-    # Get run number from field and date time
-    run_number = get_run_number(roots, ficls[0].field, date_time)
-
     # Get list of stages to run
     stages = get_stage_settings(*settings_pack)
 
@@ -1838,7 +1793,6 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
     runtime_dict = {
         "roots": roots,
         "date_time": date_time,
-        "run_number": run_number,
         "ficls": ficls,
     }
 

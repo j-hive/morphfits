@@ -666,7 +666,7 @@ def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
     # Merge all previous catalogs if any exist
     # Remove any failed fit rows and refit rows, except the most recent fit
     if len(previous_catalog_paths) > 0:
-        # Get first catalog sorted by date time and run number, as data frame
+        # Get first catalog sorted by date time and process IS, as data frame
         merge_catalog = pd.read_csv(previous_catalog_paths[0]).dropna()
 
         # Merge every previous merge catalog file sorted by date time and run

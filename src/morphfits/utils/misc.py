@@ -99,21 +99,21 @@ def get_str_from_datetime(date_time: datetime) -> str:
     return date_time.strftime("%Y%m%dT%H%M%S")
 
 
-def get_str_from_run_number(run_number: int) -> str:
-    """Get a string representation of a run number, in the format '01', with one
-    leading zero if the number is one digit.
+def get_str_from_process_id(process_id: int) -> str:
+    """Get a string representation of a process ID, in the format '001', with
+    leading zeroes.
 
     Parameters
     ----------
-    run_number : int
+    process_id : int
         Number to convert to string.
 
     Returns
     -------
     str
-        Run number as string with leading zero.
+        Process ID as string with leading zero.
     """
-    return str(run_number).rjust(2, "0")
+    return str(process_id).rjust(3, "0")
 
 
 def get_str_from_file_size(file_size: int | float) -> str:
