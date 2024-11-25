@@ -120,6 +120,7 @@ def make_stamp(
 def make_sigma(
     path: Path,
     stamp_image: np.ndarray,
+    stamp_wcs: WCS,
     exposure_image: np.ndarray,
     exposure_headers: fits.Header,
     exposure_wcs: WCS,
@@ -141,6 +142,8 @@ def make_sigma(
         Path to which to write sigma map FITS file.
     stamp_image : np.ndarray
         2D float image data array from product stamp file.
+    stamp_wcs : WCS
+        Coordinate system object from product stamp file.
     exposure_image : np.ndarray
         2D float image data array from input exposure map file.
     exposure_headers : fits.Header
@@ -219,12 +222,14 @@ def make_sigma(
     # Write sigma to file
     sigma_hdul = fits.PrimaryHDU(
         data=corrected_sigma,
-        header=exposure_wcs.to_header(),
+        header=stamp_wcs.to_header(),
     )
     sigma_hdul.writeto(path, overwrite=True)
 
 
-def make_psf(path: Path, image: np.ndarray, position: tuple[int, int], image_size: int):
+def make_psf(
+    path: Path, image: np.ndarray, wcs: WCS, position: tuple[int, int], image_size: int
+):
     """Create the PSF crop for a single object.
 
     A PSF crop is a cutout of the simulated PSF for the corresponding filter, at
@@ -239,6 +244,8 @@ def make_psf(path: Path, image: np.ndarray, position: tuple[int, int], image_siz
         Path to which to write PSF crop FITS file.
     image : np.ndarray
         2D float image data array from input PSF file.
+    wcs : WCS
+        Coordinate system object from input PSF file.
     position : SkyCoord
         Coordinates of object in sky.
     image_size : int
@@ -248,7 +255,7 @@ def make_psf(path: Path, image: np.ndarray, position: tuple[int, int], image_siz
     psf = Cutout2D(data=image, position=position, size=image_size)
 
     # Write to file
-    psf_hdul = fits.PrimaryHDU(data=psf.data)
+    psf_hdul = fits.PrimaryHDU(data=psf.data, header=wcs.to_header())
     psf_hdul.writeto(path, overwrite=True)
 
 
@@ -256,6 +263,7 @@ def make_mask(
     path: Path,
     image: np.ndarray,
     wcs: WCS,
+    stamp_wcs: WCS,
     expand: bool,
     object: int,
     position: SkyCoord,
@@ -279,6 +287,8 @@ def make_mask(
         2D float image data array from input segmentation map file.
     wcs : WCS
         Coordinate system object from input segmentation map file.
+    stamp_wcs : WCS
+        Coordinate system object from product stamp file.
     expand : bool
         Expand the segmentation map to twice its size. Used for shorter
         wavelength observations, due to them having half the pixel scale of
@@ -322,7 +332,7 @@ def make_mask(
         mask = ndimage.maximum_filter(input=zeroes, size=2)
 
     # Write to disk
-    mask_hdul = fits.PrimaryHDU(data=mask, header=segmap_cutout.wcs.to_header())
+    mask_hdul = fits.PrimaryHDU(data=mask, header=stamp_wcs.to_header())
     mask_hdul.writeto(path, overwrite=True)
 
 
@@ -533,6 +543,7 @@ def make_ficl_sigmas(
 
             # Get stamp image
             stamp_image, stamp_headers = science.get_fits_data(stamp_path)
+            stamp_wcs = WCS(header=stamp_headers)
 
             # Get object position and image size from catalog
             position = science.get_position(input_catalog=input_catalog, object=object)
@@ -549,6 +560,7 @@ def make_ficl_sigmas(
             make_sigma(
                 path=sigma_path,
                 stamp_image=stamp_image,
+                stamp_wcs=stamp_wcs,
                 exposure_image=exposure_image,
                 exposure_headers=exposure_headers,
                 exposure_wcs=exposure_wcs,
@@ -604,6 +616,7 @@ def make_ficl_psfs(
             name="input_psf", path_settings=runtime_settings.roots, ficl=ficl
         )
         input_psf_image, input_psf_headers = science.get_fits_data(input_psf_path)
+        input_psf_wcs = WCS(header=input_psf_headers)
         input_psf_pixscale = input_psf_headers["PIXELSCL"]
         input_psf_length = input_psf_headers["NAXIS1"]
     except Exception as e:
@@ -655,6 +668,7 @@ def make_ficl_psfs(
             make_psf(
                 path=psf_path,
                 image=input_psf_image,
+                wcs=input_psf_wcs,
                 position=(center, center),
                 image_size=psf_image_size,
             )
@@ -742,6 +756,16 @@ def make_ficl_masks(
                 skipped += 1
                 continue
 
+            # Get stamp WCS
+            stamp_path = settings.get_path(
+                name="stamp",
+                path_settings=runtime_settings.roots,
+                ficl=ficl,
+                object=object,
+            )
+            stamp_image, stamp_headers = science.get_fits_data(stamp_path)
+            stamp_wcs = WCS(header=stamp_headers)
+
             # Get position and image size of this object
             position = science.get_position(input_catalog=input_catalog, object=object)
             kron_radius = science.get_kron_radius(
@@ -758,6 +782,7 @@ def make_ficl_masks(
                 path=mask_path,
                 image=segmap_image,
                 wcs=segmap_wcs,
+                stamp_wcs=stamp_wcs,
                 expand=expand_segmap,
                 object=object,
                 position=position,
