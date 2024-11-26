@@ -332,6 +332,7 @@ def make_all_feedfiles(
                     path_settings=runtime_settings.roots,
                     ficl=ficl,
                     object=object,
+                    resolve=False,
                 )
                 mask_path = settings.get_path(
                     name="mask",

@@ -39,13 +39,15 @@ def get_unique(items: list) -> list:
     return sorted(set(not_nan_items))
 
 
-def get_path_obj(path_like: str | Path) -> Path:
+def get_path_obj(path_like: str | Path, resolve: bool = True) -> Path:
     """Get a resolved Path object for a potential string.
 
     Parameters
     ----------
     path_like : str | Path
         Path which may or may not be of string type.
+    resolve : bool, optional
+        Resolve path object, by default True.
 
     Returns
     -------
@@ -53,9 +55,9 @@ def get_path_obj(path_like: str | Path) -> Path:
         Corresponding Path object.
     """
     if isinstance(path_like, str):
-        return Path(path_like).resolve()
+        return Path(path_like).resolve() if resolve else Path(path_like)
     else:
-        return path_like.resolve()
+        return path_like.resolve() if resolve else path_like
 
 
 def get_subdirectories(path: Path) -> list[Path]:

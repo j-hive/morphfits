@@ -445,16 +445,29 @@ class RuntimeSettings(BaseModel):
         global logger
         logger = logging.getLogger("SETTINGS")
 
-    def cleanup_directories(self):
+    def cleanup_directories(
+        self, ficl: FICL | None = None, objects: list[int] | None = None
+    ):
         """Remove output and/or product directories of failed FICLOs, i.e.
         objects whose products or output files failed to generate.
+
+        Parameters
+        ----------
+        ficl : FICL | None, optional
+            FICL whose directories to cleanup, by default None (iterate over all
+            FICLs in this run).
+        objects : list[int] | None, optional
+            Object IDs whose directories to cleanup, by default None (iterate
+            over all objects in this FICL).
         """
         logger.info("Removing failed directories.")
 
         # Iterate over each FICL
-        for ficl in self.ficls:
+        for ficl in self.ficls if ficl is None else [ficl]:
             # Iterate over each object in FICL
-            for object in tqdm(ficl.objects, unit="dir", leave=False):
+            for object in tqdm(
+                ficl.objects if objects is None else objects, unit="dir", leave=False
+            ):
                 # Iterate over each expected product file
                 for required_file_name in REQUIRED_PRODUCT_FILES:
                     # Remove product directory for FICLO if any product missing
@@ -1553,6 +1566,7 @@ def get_path(
     object: int | None = None,
     date_time: datetime | None = None,
     process_id: int | None = None,
+    resolve: bool = True,
 ) -> Path:
     """Get the path to a MorphFITS file or directory.
 
@@ -1598,6 +1612,8 @@ def get_path(
         Datetime at start of program run, by default None.
     process_id : int | None, optional
         Integer ID of process in batch, by default None.
+    resolve : bool, optional
+        Resolve path object, by default True.
 
     Returns
     -------
@@ -1725,7 +1741,7 @@ def get_path(
             return path_drc
 
     # Return resolved path object
-    return misc.get_path_obj(path_like=path)
+    return misc.get_path_obj(path_like=path, resolve=resolve)
 
 
 def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSettings:

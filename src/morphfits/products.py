@@ -12,6 +12,7 @@ module.
 # Imports
 
 
+import os
 import logging
 from pathlib import Path
 
@@ -307,7 +308,7 @@ def make_mask(
 
     # Set array of ones to zero where object and sky are
     mask = np.ones(shape=(image_size, image_size))
-    object_location = np.where(segmap_cutout.data == object + 1)
+    object_location = np.where(segmap_cutout.data == object)
     sky_location = np.where(segmap_cutout.data == 0)
     mask[object_location] = 0
     mask[sky_location] = 0
@@ -445,6 +446,7 @@ def make_ficl_stamps(
 
     # Remove objects from FICL
     ficl.remove_objects(objects_to_remove)
+    runtime_settings.cleanup_directories(ficl=ficl, objects=objects_to_remove)
 
 
 def make_ficl_sigmas(
@@ -589,6 +591,10 @@ def make_ficl_psfs(
 
     When successful, all created PSf crops are written to disk.
 
+    If the science setting `psf_copy` is `True`, makes one PSF crop for the
+    whole FICL and stores at the path `ficl_psf`, then makes symlinks to this
+    PSF at each object directory.
+
     Parameters
     ----------
     runtime_settings : RuntimeSettings
@@ -610,11 +616,38 @@ def make_ficl_psfs(
         input_psf_image, input_psf_headers = science.get_fits_data(input_psf_path)
         input_psf_wcs = WCS(header=input_psf_headers)
         input_psf_pixscale = input_psf_headers["PIXELSCL"]
-        input_psf_length = input_psf_headers["NAXIS1"]
+        input_psf_center = int(input_psf_headers["NAXIS1"] / 2)
     except Exception as e:
         logger.error(f"FICL {ficl}: Skipping PSF crops - failed loading input.")
         logger.error(e)
         return
+
+    # Make one PSF crop for filter (FICL) if flag activated
+    if science_settings.psf_copy:
+        # Try making PSF crop for filter
+        try:
+            # Get path to FICL PSF crop
+            ficl_psf_path = settings.get_path(
+                name="ficl_psf", path_settings=runtime_settings.roots, ficl=ficl
+            )
+
+            # Skip existing PSF crops unless requested
+            if ficl_psf_path.exists() and not runtime_settings.remake.psfs:
+                raise FileExistsError("exists")
+
+            # Make PSF crop for object
+            make_psf(
+                path=ficl_psf_path,
+                image=input_psf_image,
+                wcs=input_psf_wcs,
+                position=(input_psf_center, input_psf_center),
+                image_size=science_settings.psf_size,
+            )
+
+        # Catch any errors
+        except Exception as e:
+            if not runtime_settings.progress_bar:
+                logger.debug(f"FICL {ficl}: Skipping PSF crop - {e}.")
 
     # Get iterable object list, displaying progress bar if flagged
     if runtime_settings.progress_bar:
@@ -642,28 +675,41 @@ def make_ficl_psfs(
                 skipped += 1
                 continue
 
-            # Get object image size from catalog
-            kron_radius = science.get_kron_radius(
-                input_catalog=input_catalog,
-                catalog_version=ficl.catalog_version,
-                object=object,
-            )
-            image_size = science.get_image_size(
-                radius=kron_radius, scale=science_settings.scale
-            )
+            # Copy FICL PSF crop if flag activated
+            if science_settings.psf_copy:
+                if psf_path.exists():
+                    psf_path.unlink()
+                try:
+                    os.symlink(ficl_psf_path, psf_path)
+                except:
+                    pass
 
-            # Calculate PSF size from ratio of PSF pixscale to science pixscale
-            psf_image_size = int(image_size * input_psf_pixscale / max(ficl.pixscale))
-            center = int(input_psf_length / 2)
+            # Make FICLO PSF crop if flag not activated
+            else:
+                # Get object image size from catalog
+                kron_radius = science.get_kron_radius(
+                    input_catalog=input_catalog,
+                    catalog_version=ficl.catalog_version,
+                    object=object,
+                )
+                image_size = science.get_image_size(
+                    radius=kron_radius, scale=science_settings.scale
+                )
 
-            # Make PSF crop for object
-            make_psf(
-                path=psf_path,
-                image=input_psf_image,
-                wcs=input_psf_wcs,
-                position=(center, center),
-                image_size=psf_image_size,
-            )
+                # Calculate PSF size from ratio of PSF pixscale to science
+                # pixscale
+                psf_image_size = int(
+                    image_size * input_psf_pixscale / max(ficl.pixscale)
+                )
+
+                # Make PSF crop for object
+                make_psf(
+                    path=psf_path,
+                    image=input_psf_image,
+                    wcs=input_psf_wcs,
+                    position=(input_psf_center, input_psf_center),
+                    image_size=psf_image_size,
+                )
 
         # Catch any errors and skip to next object
         except Exception as e:
