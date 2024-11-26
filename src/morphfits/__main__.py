@@ -379,9 +379,9 @@ def galwrap(
         Optional[float],
         typer.Option(
             "--boost",
-            help="Boost the initial estimate by this fraction of the estimate.",
+            help="Boost the initial estimate by this amount.",
             rich_help_panel="Science",
-            show_default="0.1",
+            show_default="1.0",
         ),
     ] = None,
     log_level: Annotated[

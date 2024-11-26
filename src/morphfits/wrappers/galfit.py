@@ -383,7 +383,7 @@ def make_all_feedfiles(
                 )
 
                 # Apply boost to magnitude estimate
-                magnitude -= magnitude * science_settings.morphology.boost
+                magnitude -= science_settings.morphology.boost
 
                 # Make feedfile for object
                 make_feedfile(

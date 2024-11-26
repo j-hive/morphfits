@@ -311,14 +311,14 @@ class GALFITSettings(MorphologySettings):
     binary : Path
         Path to GALFIT executable binary file.
     boost : float
-        Fractional boost in brightness applied to the estimate prior to running
-        GALFIT, i.e. subtract this value times the estimate from the estimate,
-        by default 0.1, i.e. 10% of the estimate (20 becomes 18). Included as a
-        result of GALFIT tending to fail on accurately or underestimated values.
+        Boost in brightness applied to the estimate prior to running GALFIT,
+        i.e. subtract this value from the estimate, by default 1.0.
+        Included as a result of GALFIT tending to fail on accurately or
+        underestimated values.
     """
 
     binary: Path
-    boost: float = 0.1
+    boost: float = 1.0
 
     def _name(self) -> str:
         return "galfit"
@@ -2026,7 +2026,7 @@ def get_settings(
     psf_size : int | None, optional
         Size of per-filter PSF crop, in pixels, by default None.
     boost : float | None, optional
-        Fractional brightness boost to initial estimate, by default None.
+        Brightness boost to initial estimate, by default None.
     initialized : bool | None, optional
         All input files acquired, organized, and unzipped, by default None.
 
