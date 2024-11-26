@@ -356,6 +356,7 @@ def get_parameter_comparison_data(
     numerator: str,
     denominator: str,
     filters: list[str] | None = None,
+    subtract: bool = True,
 ) -> tuple[np.ndarray, dict[str, list[float]]]:
     """Get comparison data for a histogram as a list of floats indexed by
     filter, along with the appropriate bins for this parameter set.
@@ -374,6 +375,9 @@ def get_parameter_comparison_data(
     filters : list[str] | None, optional
         List of filters in this catalog, by default None (find in this
         function).
+    subtract : bool, optional
+        Subtract 'numerator' from 'denominator', else divide, by default True
+        (subtract).
 
     Returns
     -------
@@ -389,7 +393,14 @@ def get_parameter_comparison_data(
     sub_catalog = catalog[catalog["filter"].isin(filters)]
 
     # Get comparisons of parameters
-    comparison = np.ma.masked_invalid(sub_catalog[numerator] / sub_catalog[denominator])
+    if subtract:
+        comparison = np.ma.masked_invalid(
+            sub_catalog[numerator] - sub_catalog[denominator]
+        )
+    else:
+        comparison = np.ma.masked_invalid(
+            sub_catalog[numerator] / sub_catalog[denominator]
+        )
 
     # Get minimum and maximum values from comparison quotient
     min_value, max_value = np.nanmin(comparison), np.nanmax(comparison)
@@ -423,7 +434,10 @@ def get_parameter_comparison_data(
 
             # Try to add parameter comparison for this object
             try:
-                comparison = row[numerator] / row[denominator]
+                if subtract:
+                    comparison = row[numerator] - row[denominator]
+                else:
+                    comparison = row[numerator] / row[denominator]
                 assert not np.isnan(comparison)
                 data[filter].append(float(comparison))
             except:
@@ -696,8 +710,8 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
             filters=filters,
             data=use_data,
             bins=np.arange(3),
-            title="use for analysis",
-            labels=["no", "yes"],
+            title="model quality",
+            labels=["not recommended", "successful"],
         )
     except Exception as e:
         logger.debug(f"Skipping making usability sub-histogram - {e}.")
@@ -711,7 +725,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
             data=convergence_data,
             bins=np.arange(4),
             title="failed to converge",
-            labels=["effective radius", "sersic", "axis ratio"],
+            labels=["radius", "sersic", "axis ratio"],
         )
     except Exception as e:
         logger.debug(f"Skipping making convergence sub-histogram - {e}.")
@@ -761,20 +775,29 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
 
     # Try plotting parameter comparison sub-histograms
     histogram_comparisons = {
-        "effective radius fit to error ratio": (
+        "effective radius to error ratio": (
             axs[2][1],
             "effective radius",
             "effective radius error",
+            False,
         ),
-        "surface brightness fit to estimate ratio": (
+        "surface brightness overestimation": (
             axs[2][2],
             "surface brightness",
             "surface brightness guess",
+            True,
         ),
     }
-    for comparison, (ax, numerator, denominator) in histogram_comparisons.items():
+    for comparison, (
+        ax,
+        numerator,
+        denominator,
+        subtract,
+    ) in histogram_comparisons.items():
         try:
-            bins, data = get_parameter_comparison_data(catalog, numerator, denominator)
+            bins, data = get_parameter_comparison_data(
+                catalog, numerator, denominator, subtract=subtract
+            )
             sub_histogram(
                 ax=ax,
                 filters=filters,
