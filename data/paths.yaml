@@ -52,6 +52,7 @@ morphfits_root:
           _name: "{C}"
           product_ficl:
             _name: "{L}"
+            ficl_psf: "{F}_{I}_{C}_{L}_psf.fits"
             product_ficlo:
               _name: "{O}"
               mask: "{F}_{I}_{C}_{L}_{O}_mask.fits"

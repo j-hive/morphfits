@@ -351,9 +351,28 @@ def galwrap(
         Optional[float],
         typer.Option(
             "--scale",
-            help="Increase the image size of stamps from their original radii by this scale factor.",
+            help="Increase the image size of stamps by this scale factor.",
             rich_help_panel="Science",
             show_default="20",
+        ),
+    ] = None,
+    psf_copy: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--copy-psfs",
+            help="Make one PSF per filter rather than per object.",
+            rich_help_panel="Science",
+            is_flag=True,
+            show_default="True",
+        ),
+    ] = None,
+    psf_size: Annotated[
+        Optional[int],
+        typer.Option(
+            "--psf-size",
+            help="Size of per-filter PSF crop (only used when --copy-psfs raised).",
+            rich_help_panel="Science",
+            show_default="80",
         ),
     ] = None,
     boost: Annotated[
@@ -420,6 +439,8 @@ def galwrap(
         morphology="galfit",
         galfit_path=galfit_path,
         scale=scale,
+        psf_copy=psf_copy,
+        psf_size=psf_size,
         boost=boost,
         initialized=True,
     )

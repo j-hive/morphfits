@@ -554,11 +554,19 @@ class ScienceSettings(BaseModel):
     scale : float
         Scale factor by which to multiply the initial radius (usually Kron) for
         image size, by default 20.
+    psf_copy : bool
+        Generate one PSF crop per filter (FICL) and copy to the directory prior
+        to running morphology, rather than generating one PSF crop per object
+        (FICLO), by default True.
+    psf_size : int
+        Size of per-filter PSF crop, in pixels, by default 80.
     morphology : MorphologySettings | None
         Settings for morphology fitting programs, by default None (N/A).
     """
 
     scale: float = 20
+    psf_copy: bool = True
+    psf_size: int = 80
     morphology: Optional[MorphologySettings] = None
 
     def write(self, runtime_settings: RuntimeSettings):
@@ -566,7 +574,13 @@ class ScienceSettings(BaseModel):
         logger.info("Recording science settings.")
 
         # Initialize empty dict for writing
-        settings = {"science": {"scale": self.scale}}
+        settings = {
+            "science": {
+                "scale": self.scale,
+                "psf_copy": self.psf_copy,
+                "psf_size": self.psf_size,
+            }
+        }
 
         # Add morphology wrapper as a str
         if self.morphology is not None:
@@ -1843,6 +1857,8 @@ def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSett
 
     # Get primitive settings
     scale = get_priority_science_setting("scale", *settings_pack)
+    psf_copy = get_priority_science_setting("psf_copy", *settings_pack)
+    psf_size = get_priority_science_setting("psf_size", *settings_pack)
 
     # Get settings for morphology fitter
     morphology = get_morphology_settings(*settings_pack)
@@ -1854,6 +1870,10 @@ def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSett
     ## Otherwise they will be set to default as per the class definition
     if scale is not None:
         science_dict["scale"] = scale
+    if psf_copy is not None:
+        science_dict["psf_copy"] = psf_copy
+    if psf_size is not None:
+        science_dict["psf_size"] = psf_size
     if morphology is not None:
         science_dict["morphology"] = morphology
 
@@ -1900,6 +1920,8 @@ def get_settings(
     morphology: str | None = None,
     galfit_path: Path | None = None,
     scale: float | None = None,
+    psf_copy: bool | None = None,
+    psf_size: int | None = None,
     boost: float | None = None,
     initialized: bool | None = None,
 ) -> tuple[RuntimeSettings, ScienceSettings]:
@@ -1982,6 +2004,11 @@ def get_settings(
     scale : float | None, optional
         Scale factor by which to multiply a stamp's Kron radius for its image
         size, by default None.
+    psf_copy : bool | None, optional
+        Make one PSF crop per filter (FICL) rather than per object (FICLO) and
+        link to FICLO directory prior to running morphology, by default None.
+    psf_size : int | None, optional
+        Size of per-filter PSF crop, in pixels, by default None.
     boost : float | None, optional
         Fractional brightness boost to initial estimate, by default None.
     initialized : bool | None, optional
