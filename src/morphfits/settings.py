@@ -315,10 +315,13 @@ class GALFITSettings(MorphologySettings):
         i.e. subtract this value from the estimate, by default 1.0.
         Included as a result of GALFIT tending to fail on accurately or
         underestimated values.
+    sky : bool
+        Fit background sky during morphology, by default True.
     """
 
     binary: Path
     boost: float = 1.0
+    sky: bool = True
 
     def _name(self) -> str:
         return "galfit"
@@ -1526,6 +1529,7 @@ def get_morphology_settings(
 
             # Get brightness boost setting from CLI or YAML
             boost = get_priority_science_setting("boost", cli_settings, file_settings)
+            sky = get_priority_science_setting("sky", cli_settings, file_settings)
 
             # Set dict from found settings
             galfit_dict = {"binary": galfit_path}
@@ -1534,6 +1538,8 @@ def get_morphology_settings(
                     galfit_dict["boost"] = float(boost)
                 except:
                     pass
+            if sky is not None:
+                galfit_dict["sky"] = sky
 
             # Return GALFIT settings object
             return GALFITSettings(**galfit_dict)
@@ -1939,6 +1945,7 @@ def get_settings(
     psf_copy: bool | None = None,
     psf_size: int | None = None,
     boost: float | None = None,
+    sky: bool | None = None,
     initialized: bool | None = None,
 ) -> tuple[RuntimeSettings, ScienceSettings]:
     """Get the runtime and science settings for this program run.
@@ -2027,6 +2034,8 @@ def get_settings(
         Size of per-filter PSF crop, in pixels, by default None.
     boost : float | None, optional
         Brightness boost to initial estimate, by default None.
+    sky : bool | None, optional
+        Fit background sky during morphology, by default None.
     initialized : bool | None, optional
         All input files acquired, organized, and unzipped, by default None.
 

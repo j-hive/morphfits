@@ -80,6 +80,7 @@ def make_feedfile(
     magnitude: float,
     half_light_radius: float,
     axis_ratio: float,
+    sky: bool,
 ):
     """Write a GALFIT feedfile for a single object.
 
@@ -111,6 +112,8 @@ def make_feedfile(
         Half light radius for this object.
     axis_ratio : float
         Axis ratio of this object.
+    sky : bool
+        Fit background sky.
     """
     # Define functions for feedfile column alignment
     path_str = lambda x: str(x).ljust(FEEDFILE_COMMENT_COLUMN)
@@ -133,6 +136,7 @@ def make_feedfile(
         "magnitude": float_str(magnitude),
         "half_light_radius": float_str(half_light_radius),
         "axis_ratio": float_str(axis_ratio),
+        "sky": "1" if sky else "0",
     }
 
     # Write new feedfile from template and save to output directory
@@ -400,6 +404,7 @@ def make_all_feedfiles(
                     magnitude=magnitude,
                     half_light_radius=half_light_radius,
                     axis_ratio=axis_ratio,
+                    sky=science_settings.morphology.sky,
                 )
 
             # Catch any errors making feedfile for object and skip to next

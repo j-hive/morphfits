@@ -384,6 +384,15 @@ def galwrap(
             show_default="1.0",
         ),
     ] = None,
+    sky: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--fit-sky",
+            help="Fit the background sky during morphology.",
+            rich_help_panel="Science",
+            show_default="True",
+        ),
+    ] = None,
     log_level: Annotated[
         Optional[str],
         typer.Option(
@@ -442,6 +451,7 @@ def galwrap(
         psf_copy=psf_copy,
         psf_size=psf_size,
         boost=boost,
+        sky=sky,
         initialized=True,
     )
 
