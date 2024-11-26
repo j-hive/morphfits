@@ -444,9 +444,10 @@ def make_ficl_stamps(
     # Log number of skipped or failed objects
     logger.info(f"FICL {ficl}: Made stamps - skipped {skipped}/{len(objects)} objects.")
 
-    # Remove objects from FICL
-    ficl.remove_objects(objects_to_remove)
-    runtime_settings.cleanup_directories(ficl=ficl, objects=objects_to_remove)
+    # Remove failed objects from FICL
+    if len(objects_to_remove) > 0:
+        ficl.remove_objects(objects_to_remove)
+        runtime_settings.cleanup_directories(ficl=ficl)
 
 
 def make_ficl_sigmas(

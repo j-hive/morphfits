@@ -294,6 +294,7 @@ def make_all_feedfiles(
 
         # Iterate over each object
         skipped = 0
+        objects_to_remove = []
         for object in objects:
             # Try making feedfile for object
             try:
@@ -412,12 +413,18 @@ def make_all_feedfiles(
                 if not runtime_settings.progress_bar:
                     logger.debug(f"Object {object}: Skipping feedfile - {e}.")
                 skipped += 1
+                objects_to_remove.append(object)
                 continue
 
         # Log number of skipped or failed objects
         logger.info(
             f"FICL {ficl}: Made feedfiles - skipped {skipped}/{len(objects)} objects."
         )
+
+        # Remove failed objects from FICL
+        if len(objects_to_remove) > 0:
+            ficl.remove_objects(objects_to_remove)
+            runtime_settings.cleanup_directories(ficl=ficl)
 
 
 def run_all(runtime_settings: RuntimeSettings):
@@ -463,6 +470,7 @@ def run_all(runtime_settings: RuntimeSettings):
 
         # Iterate over each object
         skipped = 0
+        objects_to_remove = []
         for object in objects:
             # Try running GALFIT for object
             try:
@@ -545,12 +553,18 @@ def run_all(runtime_settings: RuntimeSettings):
                 if not runtime_settings.progress_bar:
                     logger.debug(f"Object {object}: Skipping GALFIT - {e}.")
                 skipped += 1
+                objects_to_remove.append(object)
                 continue
 
         # Log number of skipped or failed objects
         logger.info(
             f"FICL {ficl}: Ran GALFIT - skipped {skipped}/{len(objects)} objects."
         )
+
+        # Remove failed objects from FICL
+        if len(objects_to_remove) > 0:
+            ficl.remove_objects(objects_to_remove)
+            runtime_settings.cleanup_directories(ficl=ficl)
 
     # Remove temporary catalog
     try:

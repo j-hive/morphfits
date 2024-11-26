@@ -168,6 +168,8 @@ class FICL(BaseModel):
         Observational filter band, e.g. "f140w".
     objects : list[int]
         Integer IDs of galaxies or cluster targets in catalog.
+    failed : list[int], optional
+        Objects for which program failed to generate stamps.
     pixscale : tuple[float, float]
         Pixel scale along x and y axes, in arcseconds per pixel.
 
@@ -181,6 +183,7 @@ class FICL(BaseModel):
     catalog_version: Annotated[str, StringConstraints(to_lower=True)]
     filter: Annotated[str, StringConstraints(to_lower=True)]
     objects: list[int]
+    failed: list[int] = []
     pixscale: tuple[float, float]
 
     def __str__(self) -> str:
@@ -201,7 +204,7 @@ class FICL(BaseModel):
         for object in objects_to_remove:
             for i in range(len(self.objects)):
                 if object == self.objects[i]:
-                    self.objects.pop(i)
+                    self.failed.append(self.objects.pop(i))
                     break
 
 
@@ -448,9 +451,7 @@ class RuntimeSettings(BaseModel):
         global logger
         logger = logging.getLogger("SETTINGS")
 
-    def cleanup_directories(
-        self, ficl: FICL | None = None, objects: list[int] | None = None
-    ):
+    def cleanup_directories(self, ficl: FICL | None = None):
         """Remove output and/or product directories of failed FICLOs, i.e.
         objects whose products or output files failed to generate.
 
@@ -459,17 +460,16 @@ class RuntimeSettings(BaseModel):
         ficl : FICL | None, optional
             FICL whose directories to cleanup, by default None (iterate over all
             FICLs in this run).
-        objects : list[int] | None, optional
-            Object IDs whose directories to cleanup, by default None (iterate
-            over all objects in this FICL).
         """
         logger.info("Removing failed directories.")
 
         # Iterate over each FICL
-        for ficl in self.ficls if ficl is None else [ficl]:
+        for iter_ficl in self.ficls if ficl is None else [ficl]:
             # Iterate over each object in FICL
             for object in tqdm(
-                ficl.objects if objects is None else objects, unit="dir", leave=False
+                iter_ficl.objects if ficl is None else ficl.failed,
+                unit="dir",
+                leave=False,
             ):
                 # Iterate over each expected product file
                 for required_file_name in REQUIRED_PRODUCT_FILES:
@@ -477,14 +477,14 @@ class RuntimeSettings(BaseModel):
                     product_path = get_path(
                         name=required_file_name,
                         path_settings=self.roots,
-                        ficl=ficl,
+                        ficl=iter_ficl,
                         object=object,
                     )
                     if not product_path.exists():
                         product_ficlo_path = get_path(
                             name="product_ficlo",
                             path_settings=self.roots,
-                            ficl=ficl,
+                            ficl=iter_ficl,
                             object=object,
                         )
                         shutil.rmtree(product_ficlo_path, ignore_errors=True)
@@ -501,14 +501,14 @@ class RuntimeSettings(BaseModel):
                     output_path = get_path(
                         name=required_file_name,
                         path_settings=self.roots,
-                        ficl=ficl,
+                        ficl=iter_ficl,
                         object=object,
                     )
                     if not output_path.exists():
                         output_ficlo_path = get_path(
                             name="output_ficlo",
                             path_settings=self.roots,
-                            ficl=ficl,
+                            ficl=iter_ficl,
                             object=object,
                         )
                         shutil.rmtree(output_ficlo_path, ignore_errors=True)
@@ -550,10 +550,9 @@ class RuntimeSettings(BaseModel):
         settings["ficls"] = []
         for ficl in self.ficls:
             settings["ficls"].append(ficl.__dict__)
-            settings["ficls"][-1]["pixscale"] = {
-                "x": ficl.pixscale[0],
-                "y": ficl.pixscale[1],
-            }
+            settings["ficls"][-1]["pixscale"] = science.get_str_from_pixscale(
+                ficl.pixscale
+            )
 
         # Append settings to file
         settings_path = get_path(

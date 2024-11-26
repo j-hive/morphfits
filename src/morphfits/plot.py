@@ -18,7 +18,7 @@ from matplotlib.axes import Axes
 from tqdm import tqdm
 
 from . import settings
-from .settings import RuntimeSettings
+from .settings import FICL, RuntimeSettings
 from .utils import misc, science
 
 
@@ -138,7 +138,7 @@ MODEL_SUBPLOT_SEPARATION = 0.0
 
 
 def get_use_data(
-    catalog: pd.DataFrame, filters: list[str] | None = None
+    catalog: pd.DataFrame, ficls: list[FICL], filters: list[str] | None = None
 ) -> dict[str, list[int]]:
     """Get usability data for a histogram as a list of 1s and 0s corresponding
     to an object fitting's usability, per filter.
@@ -147,6 +147,8 @@ def get_use_data(
     ----------
     catalog : pd.DataFrame
         Data frame containing morphology fitting information.
+    ficls : list[FICL]
+        List of FICLs for this program run.
     filters : list[str] | None, optional
         List of filters in this catalog, by default None (find in this
         function).
@@ -174,6 +176,16 @@ def get_use_data(
                 data[filter].append(1 if bool(usable) else 0)
             except:
                 continue
+
+        # Iterate over each failed object in FICLs
+        for ficl in ficls:
+            # Skip FICLs not from filter
+            if ficl.filter != filter:
+                continue
+
+            # Add -1 for each failed object in FICL
+            for failed_object in ficl.failed:
+                data[filter].append(-1)
 
     # Return usability data
     return data
@@ -670,7 +682,7 @@ def save(path: Path, fig: Figure):
 ## Primary
 
 
-def histogram(path: Path, title: str, catalog: pd.DataFrame):
+def histogram(path: Path, title: str, catalog: pd.DataFrame, ficls: list[FICL]):
     """Plot the distribution of morphology fits.
 
     A MorphFITS histogram has six sub-histograms:
@@ -689,6 +701,8 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
         Title of histogram plot.
     catalog : pd.DataFrame
         Morphology fitting data from which to generate histograms.
+    ficls : list[FICL]
+        List of FICLs for this program run.
     """
     # Get list of filters from catalog
     filters = misc.get_unique(catalog["filter"])
@@ -704,14 +718,14 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame):
 
     # Try plotting usability sub-histogram
     try:
-        use_data = get_use_data(catalog)
+        use_data = get_use_data(catalog, ficls)
         sub_histogram(
             ax=axs[0][0],
             filters=filters,
             data=use_data,
-            bins=np.arange(3),
+            bins=np.arange(4) - 1,
             title="model quality",
-            labels=["not recommended", "successful"],
+            labels=["failed", "inadequate", "good"],
         )
     except Exception as e:
         logger.debug(f"Skipping making usability sub-histogram - {e}.")
@@ -958,6 +972,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
             + "."
             + misc.get_str_from_process_id(runtime_settings.process_id),
             catalog=run_catalog,
+            ficls=runtime_settings.ficls,
         )
 
     # Catch errors and skip to merge histogram
@@ -991,6 +1006,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
             + "."
             + misc.get_str_from_process_id(runtime_settings.process_id),
             catalog=catalog,
+            ficls=runtime_settings.ficls,
         )
 
     # Catch errors and skip
