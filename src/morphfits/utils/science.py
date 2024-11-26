@@ -144,8 +144,8 @@ def get_position(input_catalog: Table, object: int) -> SkyCoord:
         Position of object as a SkyCoord astropy object.
     """
     return SkyCoord(
-        ra=input_catalog[input_catalog["id"] == object]["ra"],
-        dec=input_catalog[input_catalog["id"] == object]["dec"],
+        ra=float(input_catalog[input_catalog["id"] == object]["ra"]),
+        dec=float(input_catalog[input_catalog["id"] == object]["dec"]),
         unit="deg",
     )
 
@@ -184,7 +184,7 @@ def get_kron_radius(input_catalog: Table, catalog_version: str, object: int) -> 
             kron_radius = input_catalog[input_catalog["id"] == object]["kron_radius"]
 
         # Return radius
-        return kron_radius
+        return float(kron_radius)
 
     # Other catalog versions may store their kron radius elsewhere
     else:
@@ -280,7 +280,7 @@ def get_half_light_radius(input_catalog: Table, object: int) -> float:
     float
         Half light radius of object.
     """
-    return input_catalog[input_catalog["id"] == object]["a_image"]
+    return float(input_catalog[input_catalog["id"] == object]["a_image"])
 
 
 def get_axis_ratio(input_catalog: Table, object: int) -> float:
@@ -299,9 +299,8 @@ def get_axis_ratio(input_catalog: Table, object: int) -> float:
     float
         Axis ratio of object.
     """
-    return (
-        input_catalog[input_catalog["id"] == object]["b_image"]
-        / input_catalog[input_catalog["id"] == object]["a_image"]
+    return float(input_catalog[input_catalog["id"] == object]["b_image"]) / float(
+        input_catalog[input_catalog["id"] == object]["a_image"]
     )
 
 
