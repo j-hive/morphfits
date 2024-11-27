@@ -14,9 +14,6 @@ from scipy import ndimage as spn
 from astropy.io import fits
 
 
-# Constants
-
-
 # Functions
 
 

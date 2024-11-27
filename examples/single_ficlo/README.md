@@ -29,7 +29,11 @@ poetry run morphfits initialize -c examples/single_ficlo/settings.yaml
 ```
 
 to download and unzip JWST data, which will take several
-minutes and ~`13GB`. Then, download [the simulated PSF for the filter
+minutes and ~`13GB`. 
+
+*outdated but waiting to upload new PSFs* 
+
+Then, download [the simulated PSF for the filter
 here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
 and move it to `examples/single_ficlo/morphfits_root/input/psfs/`, for example via
 ```

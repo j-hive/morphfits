@@ -31,7 +31,11 @@ poetry run morphfits initialize -c examples/batch_mode/settings.yaml
 ```
 
 to download and unzip JWST data, which will take several
-minutes and ~`13GB`. Then, download [the simulated PSF for the filter
+minutes and ~`13GB`. 
+
+*outdated but waiting to upload new PSFs* 
+
+Then, download [the simulated PSF for the filter
 here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
 and move it to `examples/uncover_run/morphfits_root/input/psfs/`, for example
 via
@@ -76,7 +80,7 @@ configuration file, and generate the following files.
     5. GALFIT feedfiles
 2. Output files @ `morphfits_root/output`
     1. merge catalog CSV (full catalog)
-    2. morphology catalog CSV (per-fic catalog)
+    2. morphology catalog CSV (per-FIC catalog)
     3. histogram PNG
     4. model FITS
     5. fit LOG
