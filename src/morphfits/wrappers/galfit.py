@@ -47,7 +47,10 @@ FEEDFILE_FLOAT_LENGTH = 12
 """
 
 
-FEEDFILE_TEMPLATE_PATH = GALFIT_DATA_ROOT / "feedfile.jinja"
+FEEDFILE_TEMPLATE_PATH = {
+    "sersic": GALFIT_DATA_ROOT / "sersic.jinja",
+    "sersic1": GALFIT_DATA_ROOT / "sersic1.jinja",
+}
 DEFAULT_CONSTRAINTS_PATH = GALFIT_DATA_ROOT / "default.constraints"
 """Paths to feedfile template and default constraints.
 """
@@ -76,6 +79,7 @@ def make_feedfile(
     image_size: int,
     zeropoint: float,
     pixscale: tuple[float, float],
+    profile: str,
     magnitude: float,
     half_light_radius: float,
     axis_ratio: float,
@@ -105,6 +109,8 @@ def make_feedfile(
         Magnitude zeropoint for this object.
     pixscale : tuple[float, float]
         Pixel scale along each axis for this object, in "/pix.
+    profile : str
+        Fitting profile, one of 'sersic' or 'sersic1'.
     magnitude : float
         Magnitude for this object.
     half_light_radius : float
@@ -139,7 +145,7 @@ def make_feedfile(
     }
 
     # Write new feedfile from template and save to output directory
-    with open(FEEDFILE_TEMPLATE_PATH, "r") as feedfile_template:
+    with open(FEEDFILE_TEMPLATE_PATH[profile], "r") as feedfile_template:
         template = Template(feedfile_template.read())
     lines = template.render(feedfile_dict)
     with open(path, "w") as feedfile:
@@ -379,15 +385,23 @@ def make_all_feedfiles(
                 image_size = science.get_image_size(
                     radius=kron_radius, scale=science_settings.scale
                 )
-                magnitude = science.get_surface_brightness_from_headers(
-                    runtime_settings=runtime_settings, headers=stamp_headers
-                )
                 half_light_radius = science.get_half_light_radius(
                     input_catalog=input_catalog, object=object
                 )
                 axis_ratio = science.get_axis_ratio(
                     input_catalog=input_catalog, object=object
                 )
+
+                # Get integrated magnitude if profile is sersic
+                if science_settings.morphology.profile == "sersic":
+                    magnitude = science.get_integrated_magnitude_from_headers(
+                        runtime_settings=runtime_settings, headers=stamp_headers
+                    )
+                # Otherwise get surface brightness
+                else:
+                    magnitude = science.get_surface_brightness_from_headers(
+                        runtime_settings=runtime_settings, headers=stamp_headers
+                    )
 
                 # Apply boost to magnitude estimate
                 magnitude -= science_settings.morphology.boost
@@ -404,6 +418,7 @@ def make_all_feedfiles(
                     image_size=image_size,
                     zeropoint=zeropoint,
                     pixscale=ficl.pixscale,
+                    profile=science_settings.morphology.profile,
                     magnitude=magnitude,
                     half_light_radius=half_light_radius,
                     axis_ratio=axis_ratio,

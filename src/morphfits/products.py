@@ -414,12 +414,20 @@ def make_ficl_stamps(
             image_size = science.get_image_size(
                 radius=kron_radius, scale=science_settings.scale
             )
+            integrated_magnitude = science.get_integrated_magnitude(
+                input_catalog=input_catalog, object=object
+            )
             surface_brightness = science.get_surface_brightness(
                 radius=kron_radius, pixscale=ficl.pixscale, flux=flux
             )
 
             # Set headers to be added to stamp
-            headers_dict = {"EXPTIME": 1, "ZP": zeropoint, "SB": surface_brightness}
+            headers_dict = {
+                "EXPTIME": 1,
+                "ZP": zeropoint,
+                "IM": integrated_magnitude,
+                "SB": surface_brightness,
+            }
 
             # Make stamp for object
             make_stamp(

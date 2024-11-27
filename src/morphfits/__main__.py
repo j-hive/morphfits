@@ -347,6 +347,15 @@ def galwrap(
             is_flag=True,
         ),
     ] = None,
+    profile: Annotated[
+        Optional[str],
+        typer.Option(
+            "--profile",
+            help="Fitting profile.",
+            rich_help_panel="Science",
+            show_default="sersic1",
+        ),
+    ] = None,
     scale: Annotated[
         Optional[float],
         typer.Option(
@@ -447,6 +456,7 @@ def galwrap(
         remake_others=remake_feedfiles,
         morphology="galfit",
         galfit_path=galfit_path,
+        profile=profile,
         scale=scale,
         psf_copy=psf_copy,
         psf_size=psf_size,

@@ -17,7 +17,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from datetime import datetime
-from typing import Annotated, Union, Optional
+from typing import Annotated, Union, Optional, Literal
 
 from tqdm import tqdm
 import yaml
@@ -318,6 +318,8 @@ class GALFITSettings(MorphologySettings):
     ----------
     binary : Path
         Path to GALFIT executable binary file.
+    profile : str
+        GALFIT fitting profile, by default sersic1 (surface brightness).
     boost : float
         Boost in brightness applied to the estimate prior to running GALFIT,
         i.e. subtract this value from the estimate, by default 1.0.
@@ -328,6 +330,7 @@ class GALFITSettings(MorphologySettings):
     """
 
     binary: Path
+    profile: Literal["sersic", "sersic1"] = "sersic1"
     boost: float = 1.0
     sky: bool = True
 
@@ -1533,11 +1536,16 @@ def get_morphology_settings(
                 raise FileNotFoundError("Terminating - GALFIT binary not found.")
 
             # Get brightness boost setting from CLI or YAML
+            profile = get_priority_science_setting(
+                "profile", cli_settings, file_settings
+            )
             boost = get_priority_science_setting("boost", cli_settings, file_settings)
             sky = get_priority_science_setting("sky", cli_settings, file_settings)
 
             # Set dict from found settings
             galfit_dict = {"binary": galfit_path}
+            if profile is not None:
+                galfit_dict["profile"] = profile
             if boost is not None:
                 try:
                     galfit_dict["boost"] = float(boost)
@@ -1950,6 +1958,7 @@ def get_settings(
     remake_others: bool | None = None,
     morphology: str | None = None,
     galfit_path: Path | None = None,
+    profile: str | None = None,
     scale: float | None = None,
     psf_copy: bool | None = None,
     psf_size: int | None = None,
@@ -2033,6 +2042,8 @@ def get_settings(
         Morphology fitting program name, by default None.
     galfit_path : Path | None, optional
         Path to GALFIT binary executable, by default None.
+    profile : str | None, optional
+        Fitting profile, by default None.
     scale : float | None, optional
         Scale factor by which to multiply a stamp's Kron radius for its image
         size, by default None.

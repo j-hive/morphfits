@@ -304,6 +304,25 @@ def get_axis_ratio(input_catalog: Table, object: int) -> float:
     )
 
 
+def get_integrated_magnitude(input_catalog: Table, object: int) -> float:
+    """Calculate an estimate of the integrated magnitude of an object, as an AB
+    magnitude.
+
+    Parameters
+    ----------
+    input_catalog : Table
+        Table cataloging each object in its field.
+    object : int
+        Integer ID of object in the catalog.
+
+    Returns
+    -------
+    float
+        Integrated magnitude of object.
+    """
+    return float(input_catalog[input_catalog["id"] == object]["mag_auto"])
+
+
 def get_surface_brightness(
     radius: float,
     pixscale: tuple[int, int],
@@ -349,6 +368,26 @@ def get_surface_brightness(
 
     # Calculate and return surface brightness as magnitude offset by area
     return magnitude + 2.5 * np.log10(area)
+
+
+def get_integrated_magnitude_from_headers(
+    runtime_settings, headers: fits.Header
+) -> float:
+    """Get the integrated magnitude for a FICLO's product from its headers.
+
+    Parameters
+    ----------
+    runtime_settings : RuntimeSettings
+        Settings for this runtime.
+    headers : fits.Header
+        Headers for this FICLO product.
+
+    Returns
+    -------
+    float
+        Integrated magnitude for this FICLO product.
+    """
+    return headers["IM"]
 
 
 def get_surface_brightness_from_headers(
