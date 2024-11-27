@@ -10,7 +10,7 @@
                                         # by their ratio, as defined by the
                                         # initial parameter file.
 
-    1           n           0.1 to 7    # Soft constraint: Constrains the 
+    1           n           0.1 to 8    # Soft constraint: Constrains the 
                                         # sersic index n to within values 
                                         # from 0.1 to 10.
 
