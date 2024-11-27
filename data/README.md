@@ -59,11 +59,10 @@ morphfits_root/
 │               ├── F-I-L_dr[c/z]_sci.fits
 │               └── F-I-L_dr[c/z]_wht.fits
 ├── output/
-│   ├── catalogs/
-│   │   ├── merge/
-│   │   │   └── D_N_catalog.csv
-│   │   └── morphology/
-│   │       └── F_I_C_catalog.csv
+│   ├── merge/
+│   │   └── D_N_catalog.csv
+│   ├── morphology/
+│   │   └── F_I_C_catalog.csv
 │   ├── histograms/
 │   │   └── D_N_histogram.png
 │   └── F/
@@ -79,6 +78,7 @@ morphfits_root/
 │       └── I/
 │           └── C/
 │               └── L/
+│                   ├── F_I_C_L_psf.fits
 │                   └── O/
 │                       ├── F_I_C_L_O_mask.fits
 │                       ├── F_I_C_L_O_psf.fits
@@ -110,7 +110,6 @@ exposure
 science
 weights
 output_root
-output_catalogs
 output_merge_catalogs
 merge_catalog
 output_morphology_catalogs
@@ -130,6 +129,7 @@ product_f
 product_fi
 product_fic
 product_ficl
+ficl_psf
 product_ficlo
 mask
 psf
@@ -154,8 +154,8 @@ MorphFITS generates three kinds of catalog files.
 
 |Catalog|Location|Description|
 |:---|:---|:---|
-|Merge|`output/catalogs/merge/`|Updated full catalog. The latest file in this directory is the most up to date catalog.|
-|Morphology|`output/catalogs/morphology/`|Per-FIC catalog. Each FIC has its own morphology catalog, which is updated upon each catalog stage run.|
+|Merge|`output/merge/`|Updated full catalog. The latest file in this directory is the most up to date catalog.|
+|Morphology|`output/morphology/`|Per-FIC catalog. Each FIC has its own morphology catalog, which is updated upon each catalog stage run.|
 |Run|`runs/{D}.{N}/`|Catalog for this run. Only contains fitting information from fitting the FICLs for this run.|
 
 A row in a merge catalog contains the following information.
@@ -199,8 +199,11 @@ A row in a morphology catalog contains the following information.
 
 where there is `5*n_filter + 1` columns, 5 for each parameter per filter.
 
-A breakdown of the `return code`, `flags`, and `convergence` follows. Note `use`
-is calculated as an `AND` of all three values.
+A breakdown of the `return code`, `flags`, and `convergence` follows. 
+
+Note for a fit to be considered "usable", it must have a valid return code, a
+valid GALFIT flag bitmask, and its fitted radius to error ratio must be greater
+than 2.
 
 
 ## GALFIT Return Codes
@@ -242,17 +245,19 @@ flags.
 |`I-4`||17|131072|Sigma image has zero or negative pixels; set to 1e10.|
 |`I-5`||18|262144|Pixel mask is not same size as data image.|
 
-For example, a bitmask of 768 would mean the flags at bit 8 and 9 were raised,
+For example, a bitmask of 768 would mean the flags at bits 8 and 9 were raised,
 which would mean the fit is unusable, since 8 is considered a failing flag.
 
 
 ## GALFIT Convergence Bitmask
-These are the values added if a parameter has failed to converge. For a fit to
-be considered "usable", all of its parameters must have converged, i.e.
-`convergence = 0`.
+These are the values added if a parameter has failed to converge.
 
 |Parameter|Fails|Bit|Value|
 |:---|:---|:---|:---|
 |`effective radius`|:x:|0|1|
 |`sersic`|:x:|1|2|
 |`axis ratio`|:x:|2|4|
+
+For example, a bitmask of 3 would mean the flags at bits 0 and 1 were raised,
+which would mean the effective radius and sersic index failed to converge for
+the object.
