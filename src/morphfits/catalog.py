@@ -49,27 +49,27 @@ MERGE_COLUMNS = [
     "flags",
     "convergence",
     "chi^2/nu",
-    "surface brightness guess",
     "center x",
-    "center y",
-    "surface brightness",
-    "effective radius",
-    "sersic",
-    "axis ratio",
-    "position angle",
     "center x error",
+    "center y",
     "center y error",
+    "surface brightness",
     "surface brightness error",
+    "effective radius",
     "effective radius error",
+    "sersic",
     "sersic error",
+    "axis ratio",
     "axis ratio error",
+    "position angle",
     "position angle error",
+    "surface brightness guess",
 ]
 """Column names for a MorphFITS merge catalog.
 """
 
 
-MORPHOLOGY_CATALOG_COLUMN_INDICES = [0, 9, 13, 14, 15, 16, 20, 21, 22, 23]
+MORPHOLOGY_CATALOG_COLUMN_INDICES = [0, 9, 14, 15, 16, 17, 18, 19, 20, 21]
 """Indices of the columns from the merge catalog which are required for each
 filter in the morphology catalog.
 """
