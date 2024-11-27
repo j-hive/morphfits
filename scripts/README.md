@@ -8,7 +8,7 @@ scale of a science frame with the same filter.
 
 The [PSFs from
 STSci](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
-have pixel scales in the neighbourhood of 0.007775 arcseconds per pixel.
+have pixel scales in the neighborhood of 0.007775 arcseconds per pixel.
 Meanwhile, the science frames with filters less than or equal to `f210m` have
 pixel scales of 0.02 arcseconds per pixel, and science frames with filters
 greater than `f210m` have pixel scales of 0.04 arcseconds per pixel. This script

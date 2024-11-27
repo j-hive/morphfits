@@ -38,12 +38,12 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
     rich_help_panel="Morphology",
 )
 def galwrap(
-    galfit_path: Annotated[
-        Optional[typer.FileBinaryRead],
+    settings_path: Annotated[
+        Optional[typer.FileText],
         typer.Option(
-            "--galfit",
-            "-g",
-            help="Path to GALFIT binary executable file.",
+            "--config",
+            "-c",
+            help="Path to configuration settings YAML file.",
             rich_help_panel="Paths",
             exists=True,
             dir_okay=False,
@@ -51,12 +51,12 @@ def galwrap(
             resolve_path=True,
         ),
     ] = None,
-    settings_path: Annotated[
-        Optional[typer.FileText],
+    galfit_path: Annotated[
+        Optional[typer.FileBinaryRead],
         typer.Option(
-            "--config",
-            "-c",
-            help="Path to configuration settings YAML file.",
+            "--galfit",
+            "-g",
+            help="Path to GALFIT binary executable file.",
             rich_help_panel="Paths",
             exists=True,
             dir_okay=False,

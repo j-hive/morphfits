@@ -62,12 +62,24 @@ poetry run morphfits initialize -i [INPUT_ROOT] -F abell2744clu -I grizli-v7.2 -
 ```
 for an `INPUT_ROOT` of your choosing, e.g. `morphfits_root`, which is untracked.
 The program will download the necessary `.fits` files from the DJA archive.
+
+*outdated but waiting to upload new PSFs* 
+
 Then, download [the simulated PSF corresponding to the filter
 here](https://stsci.app.box.com/v/jwst-simulated-psf-library/file/1025339832742),
-and move it to the `psfs` directory under the input root, i.e. 
+and move it to the `scripts` directory, i.e. 
 ```
-mv [DOWNLOADS]/PSF_NIRCam_in_flight_opd_filter_F200W.fits [INPUT_ROOT]/psfs
+mv [DOWNLOADS]/PSF_NIRCam_in_flight_opd_filter_F200W.fits scripts
 ```
+Then, run the rescaling script, i.e.
+```
+python scripts/rescale.py PSF_NIRCam_in_flight_opd_filter_F200W.fits [INPUT_ROOT]/abell2744clu/grizli-v7.2/f200w-clear/abell2744clu-grizli-v7.2-f200w-clear_drc_sci.fits
+```
+and move the PSF to the input PSFs directory, i.e.
+```
+mv scripts/f200w-clear_20mas_psf.fits [INPUT_ROOT]/psfs
+```
+
 Now, with the input state ready for the pipeline, run
 ```
 poetry run morphfits galwrap -i [INPUT_ROOT] -g [GALFIT_PATH] -O 4215
@@ -97,7 +109,9 @@ here](./data/README.md).
 
 For a given FICLO, the program requires the following files.
 
-1. [Simulated PSF](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
+1. [Simulated
+   PSF](https://stsci.app.box.com/v/jwst-simulated-psf-library/folder/174723156124)
+   [(read more here)](./scripts/README.md)
 2. [Segmentation map](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
 3. [Photometric catalog](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
 4. [Exposure map](https://s3.amazonaws.com/grizli-v2/JwstMosaics/v7/index.html)
@@ -120,15 +134,15 @@ File
 <pre>
 input/
 ├── psfs/
-│   └── PSF_NIRCam_in_flight_opd_filter_{L}.fits
+│   └── {L}_{P}_psf.fits
 └── {F}/
     └── {I}/
         ├── {F}-{I}-ir_seg.fits
         ├── {F}-{I}-fix_phot_apcorr.fits
         └── {L}/
-            ├── {F}-{I}-{L}_dr[c/z]_exp.fits
-            ├── {F}-{I}-{L}_dr[c/z]_sci.fits
-            └── {F}-{I}-{L}_dr[c/z]_wht.fits
+            ├── {F}-{I}-{L}_dr{z}_exp.fits
+            ├── {F}-{I}-{L}_dr{z}_sci.fits
+            └── {F}-{I}-{L}_dr{z}_wht.fits
 </pre>
 </td>
 
@@ -240,15 +254,15 @@ remake:
 to only remake the stamps and models.
 
 
-## Settings
-To configure settings via CLI options or YAML file, set by the following keys.
+## Runtime
+To configure runtime settings via CLI options or YAML file, use the following keys.
 
 |CLI Full|CLI|YAML|Type|Description|
 |:---|:---|:---|:---|:---|
 |`--config`|`-c`|`config_path`|`Path`|Path to configuration settings YAML file.|
 |`--galfit`|`-g`|`galfit_path`|`Path`|Path to GALFIT executable binary. Required for `galwrap`.|
-|`--root`|`-r`|`morphfits_root`|`Path`|Path to MorphFITS filesystem root. Either this or input root required.|
-|`--input`|`-i`|`input_root`|`Path`|Path to root input directory. Either this or root required.|
+|`--root`|`-r`|`morphfits_root`|`Path`|Path to MorphFITS filesystem root.|
+|`--input`|`-i`|`input_root`|`Path`|Path to root input directory.|
 |`--output`||`output_root`|`Path`|Path to root output directory.|
 |`--product`||`product_root`|`Path`|Path to root product directory.|
 |`--run`||`run_root`|`Path`|Path to root run directory.|
@@ -261,6 +275,28 @@ To configure settings via CLI options or YAML file, set by the following keys.
 |`--last-object`||`last_object`|`int`|ID of last object in range.|
 |`--batch-n-process`|`-n`|`batch_n_process`|`int`|Number of processes in batch.|
 |`--batch-process-id`|`-p`|`batch_process_id`|`int`|ID of process in batch.|
+|`--log-level`||`log_level`|`str`|Standard Python logging level.|
+|`--progress`||`progress_bar`|`bool`|Display progress as a loading bar.|
+
+
+## Science
+To configure scientific settings via CLI options or YAML file, use the following keys.
+
+|CLI|YAML|Type|Default|Description|
+|:---|:---|:---|---:|:---|
+|`--scale`|`scale`|`float`|20|Kron radius multiplier for stamp generation.|
+|`--copy-psfs`|`psf_copy`|`bool`|`True`|Make PSF crops per-FICL rather than per-FICLOs.|
+|`--psf-size`|`psf_size`|`int`|`80`|Per-FICL PSF crop image size.|
+|`--boost`|`boost`|`float`|`1.0`|Surface brightness estimate scalar additive offset.|
+|`--fit-sky`|`sky`|`bool`|`True`|Fit the background sky.|
+
+where setting in a YAML file requires each key to be under the `science` key,
+e.g.
+```
+science:
+  scale: 25
+  boost: 2
+```
 
 
 # Cookbook
