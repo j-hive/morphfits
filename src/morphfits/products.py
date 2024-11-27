@@ -355,7 +355,7 @@ def make_ficl_stamps(
     input_catalog : Table
         Catalog detailing each object in a field.
     """
-    logger.info(f"FICL {ficl}: Making stamps.")
+    logger.info(f"Making stamps.")
 
     # Try loading image and header data
     try:
@@ -366,8 +366,7 @@ def make_ficl_stamps(
         zeropoint = science.get_zeropoint(headers=headers)
         wcs = WCS(header=headers)
     except Exception as e:
-        logger.error(f"FICL {ficl}: Skipping stamps - failed loading input.")
-        logger.error(e)
+        logger.error(f"Skipping: {e}.")
         return
 
     # Get iterable object list, displaying progress bar if flagged
@@ -393,7 +392,7 @@ def make_ficl_stamps(
             # Skip existing stamps unless requested
             if stamp_path.exists() and not runtime_settings.remake.stamps:
                 if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Skipping stamp - exists.")
+                    logger.debug(f"Skipping O {object}: exists.")
                 skipped += 1
                 continue
 
@@ -435,13 +434,13 @@ def make_ficl_stamps(
         # Catch any errors, flag object to remove from FICL, and skip to next object
         except Exception as e:
             if not runtime_settings.progress_bar:
-                logger.debug(f"Object {object}: Skipping stamp - {e}.")
+                logger.debug(f"Skipping O {object}: {e}.")
             skipped += 1
             objects_to_remove.append(object)
             continue
 
     # Log number of skipped or failed objects
-    logger.info(f"FICL {ficl}: Made stamps - skipped {skipped}/{len(objects)} objects.")
+    logger.debug(f"Made stamps: {len(objects) - skipped} / {len(objects)} objects.")
 
     # Remove failed objects from FICL
     if len(objects_to_remove) > 0:
@@ -474,7 +473,7 @@ def make_ficl_sigmas(
     input_catalog : Table
         Catalog detailing each object in a field.
     """
-    logger.info(f"FICL {ficl}: Making sigma maps.")
+    logger.info(f"Making sigma maps.")
 
     # Try loading image and header data
     try:
@@ -489,8 +488,7 @@ def make_ficl_sigmas(
         weights_image, weights_headers = science.get_fits_data(weights_path)
         weights_wcs = WCS(header=weights_headers)
     except Exception as e:
-        logger.error(f"FICL {ficl}: Skipping sigma maps - failed loading input.")
-        logger.error(e)
+        logger.error(f"Skipping: {e}.")
         return
 
     # Get iterable object list, displaying progress bar if flagged
@@ -515,7 +513,7 @@ def make_ficl_sigmas(
             # Skip existing sigmas unless requested
             if sigma_path.exists() and not runtime_settings.remake.sigmas:
                 if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Skipping sigma map - exists.")
+                    logger.debug(f"Skipping O {object}: exists.")
                 skipped += 1
                 continue
 
@@ -530,9 +528,7 @@ def make_ficl_sigmas(
             # Skip FICLOs without stamps
             if not stamp_path.exists():
                 if not runtime_settings.progress_bar:
-                    logger.debug(
-                        f"Object {object}: Skipping sigma map - missing stamp."
-                    )
+                    logger.debug(f"Skipping O {object}: missing stamp.")
                 skipped += 1
                 continue
 
@@ -568,14 +564,12 @@ def make_ficl_sigmas(
         # Catch any errors and skip to next object
         except Exception as e:
             if not runtime_settings.progress_bar:
-                logger.debug(f"Object {object}: Skipping sigma map - {e}.")
+                logger.debug(f"Skipping O {object}: {e}.")
             skipped += 1
             continue
 
     # Log number of skipped or failed objects
-    logger.info(
-        f"FICL {ficl}: Made sigma maps - skipped {skipped}/{len(objects)} objects."
-    )
+    logger.debug(f"Made sigma maps: {len(objects) - skipped} / {len(objects)} objects.")
 
 
 def make_ficl_psfs(
@@ -607,10 +601,11 @@ def make_ficl_psfs(
     input_catalog : Table
         Catalog detailing each object in a field.
     """
-    logger.info(f"FICL {ficl}: Making PSF crops.")
+    logger.info(f"Making PSF crops.")
 
     # Try opening PSF and getting information from headers
     try:
+        # Get input PSF file data
         input_psf_path = settings.get_path(
             name="input_psf", path_settings=runtime_settings.roots, ficl=ficl
         )
@@ -618,15 +613,9 @@ def make_ficl_psfs(
         input_psf_wcs = WCS(header=input_psf_headers)
         input_psf_pixscale = input_psf_headers["PIXELSCL"]
         input_psf_center = int(input_psf_headers["NAXIS1"] / 2)
-    except Exception as e:
-        logger.error(f"FICL {ficl}: Skipping PSF crops - failed loading input.")
-        logger.error(e)
-        return
 
-    # Make one PSF crop for filter (FICL) if flag activated
-    if science_settings.psf_copy:
-        # Try making PSF crop for filter
-        try:
+        # Make one PSF crop for filter (FICL) if flag activated
+        if science_settings.psf_copy:
             # Get path to FICL PSF crop
             ficl_psf_path = settings.get_path(
                 name="ficl_psf", path_settings=runtime_settings.roots, ficl=ficl
@@ -645,10 +634,10 @@ def make_ficl_psfs(
                 image_size=science_settings.psf_size,
             )
 
-        # Catch any errors
-        except Exception as e:
-            if not runtime_settings.progress_bar:
-                logger.debug(f"FICL {ficl}: Skipping PSF crop - {e}.")
+    # Catch any errors and skip FICL
+    except Exception as e:
+        logger.error(f"Skipping: {e}.")
+        return
 
     # Get iterable object list, displaying progress bar if flagged
     if runtime_settings.progress_bar:
@@ -673,7 +662,7 @@ def make_ficl_psfs(
             # Skip existing PSF crops unless requested
             if psf_path.exists() and not runtime_settings.remake.psfs:
                 if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Skipping PSF crop - exists.")
+                    logger.debug(f"Skipping O {object}: exists.")
                 skipped += 1
                 continue
 
@@ -716,14 +705,12 @@ def make_ficl_psfs(
         # Catch any errors and skip to next object
         except Exception as e:
             if not runtime_settings.progress_bar:
-                logger.debug(f"Object {object}: Skipping PSF crop - {e}.")
+                logger.debug(f"Skipping O {object}: {e}.")
             skipped += 1
             continue
 
     # Log number of skipped or failed objects
-    logger.info(
-        f"FICL {ficl}: Made PSF crops - skipped {skipped}/{len(objects)} objects."
-    )
+    logger.debug(f"Made PSF crops: {len(objects) - skipped} / {len(objects)} objects.")
 
 
 def make_ficl_masks(
@@ -750,7 +737,7 @@ def make_ficl_masks(
     input_catalog : Table
         Catalog detailing each object in a field.
     """
-    logger.info(f"FICL {ficl}: Making masks.")
+    logger.info(f"Making masks.")
 
     # Try opening segmentation map and getting information from headers
     try:
@@ -766,8 +753,7 @@ def make_ficl_masks(
         # of long wavelength observations
         expand_segmap = max(segmap_pixscale) / max(ficl.pixscale) == 2
     except Exception as e:
-        logger.error(f"FICL {ficl}: Skipping masks - failed loading input.")
-        logger.error(e)
+        logger.error(f"Skipping: {e}.")
         return
 
     # Get iterable object list, displaying progress bar if flagged
@@ -792,7 +778,7 @@ def make_ficl_masks(
             # Skip existing masks unless requested
             if mask_path.exists() and not runtime_settings.remake.masks:
                 if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Skipping mask - exists.")
+                    logger.debug(f"Skipping O {object}: exists.")
                 skipped += 1
                 continue
 
@@ -832,12 +818,12 @@ def make_ficl_masks(
         # Catch any errors and skip to next object
         except Exception as e:
             if not runtime_settings.progress_bar:
-                logger.debug(f"Object {object}: Skipping mask - {e}.")
+                logger.debug(f"Skipping O {object}: {e}.")
             skipped += 1
             continue
 
     # Log number of skipped or failed objects
-    logger.info(f"FICL {ficl}: Made masks - skipped {skipped}/{len(objects)} objects.")
+    logger.debug(f"Made masks: {len(objects) - skipped} / {len(objects)} objects.")
 
 
 ## Primary
@@ -864,15 +850,17 @@ def make_all(runtime_settings: RuntimeSettings, science_settings: ScienceSetting
     science_settings : ScienceSettings
         Settings for the scientific algorithms of this program run.
     """
+    n_ficls = len(runtime_settings.ficls)
+    if n_ficls == 1:
+        logger.info(f"Making products: 1 FICL.")
+    else:
+        logger.info(f"Making products: {n_ficls} FICLs.")
+
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
         # Try to make all products for FICL
         try:
-            logger.info(f"FICL {ficl}: Making products.")
-            logger.info(
-                f"Objects: {min(ficl.objects)} to {max(ficl.objects)} "
-                + f"({len(ficl.objects)} objects)."
-            )
+            logger.info(f"Making products: FICL {ficl} ({len(ficl.objects)} objects).")
 
             # Open input catalog
             input_catalog_path = settings.get_path(
@@ -894,5 +882,5 @@ def make_all(runtime_settings: RuntimeSettings, science_settings: ScienceSetting
 
         # Catch any error opening FICL or input catalog
         except Exception as e:
-            logger.error(f"FICL {ficl}: Skipping making products - {e}.")
+            logger.error(f"Skipping: {e}.")
             continue

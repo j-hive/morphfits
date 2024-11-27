@@ -457,11 +457,10 @@ def galwrap(
 
     # Display status
     logger = logging.getLogger("MORPHFITS")
-    logger.info("Starting MorphFITS.")
+    logger.info("Running MorphFITS.")
     if runtime_settings.process_count > 1:
-        logger.info("Running in batch mode.")
         logger.info(
-            f"Batch process: {runtime_settings.process_id} "
+            f"Batch mode: {runtime_settings.process_id} "
             + f"/ {runtime_settings.process_count-1}"
         )
 
@@ -686,7 +685,7 @@ def initialize_command(
 
     # Display status
     logger = logging.getLogger("MORPHFITS")
-    logger.info("Starting MorphFITS.")
+    logger.info("Running MorphFITS.")
 
     # Get list of all available files for download from DJA
     dja_catalog = initialize.get_dja_catalog()

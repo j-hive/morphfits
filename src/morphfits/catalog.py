@@ -527,7 +527,7 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
         # Catch any errors reading parameters for FICL
         except Exception as e:
             if not runtime_settings.progress_bar:
-                logger.error(f"FICL {ficl}: Skipping reading fit logs - {e}.")
+                logger.debug(f"Skipping: {e}.")
 
         # Iterate over each object
         for object in objects:
@@ -623,6 +623,11 @@ def make_run(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
         Settings for this program run.
     catalog_data : pd.DataFrame
         Morphology fitting information for each FICLO in this program run.
+
+    Raises
+    ------
+    ValueError
+        Missing data.
     """
     # Get path to run catalog file
     run_catalog_path = settings.get_path(
@@ -633,8 +638,7 @@ def make_run(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
 
     # Skip writing if missing data
     if len(catalog_data.index) == 0:
-        logger.debug(f"Skipping making run catalog - missing data.")
-        return
+        raise ValueError("missing data")
 
     # Write run catalog CSV file
     catalog_data.to_csv(run_catalog_path, index=False)
@@ -651,6 +655,11 @@ def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
         Settings for this program run.
     catalog_data : pd.DataFrame
         Morphology fitting information for each FICLo in this program run.
+
+    Raises
+    ------
+    ValueError
+        Missing data.
     """
     # Get path to merge catalog file and its parent directory
     catalog_path = settings.get_path(
@@ -690,8 +699,7 @@ def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
 
     # Skip writing if missing data
     if len(merge_catalog.index) == 0:
-        logger.debug(f"Skipping making merge catalog - missing data.")
-        return
+        raise ValueError("missing data")
 
     # Write merge catalog to CSV file
     merge_catalog.to_csv(catalog_path, index=False)
@@ -715,10 +723,7 @@ def make_morphology(runtime_settings: RuntimeSettings):
         latest_merge_path = sorted(list(merge_dir_path.iterdir()))[-1]
         latest_merge = pd.read_csv(latest_merge_path)
     except Exception as e:
-        logger.debug(
-            f"Skipping making morphology catalog - failed opening latest merge catalog."
-        )
-        return
+        raise FileNotFoundError("failed opening latest merge catalog")
 
     # Iterate over each field in merge catalog
     for field in misc.get_unique(latest_merge["field"]):
@@ -734,6 +739,9 @@ def make_morphology(runtime_settings: RuntimeSettings):
             ):
                 # Try creating data dict with all objects' info for FIC
                 try:
+                    fic_str = "_".join([field, imver, catver])
+                    logger.info(f"Writing morphology catalog: FIC {fic_str}.")
+
                     # Create empty data dict
                     morph_dict = {"object": []}
 
@@ -793,10 +801,7 @@ def make_morphology(runtime_settings: RuntimeSettings):
 
                 # Catch all errors and skip to next FIC
                 except Exception as e:
-                    logger.error(
-                        f"FIC {field}_{imver}_{catver}: "
-                        + f"Skipping making morphology catalog - {e}."
-                    )
+                    logger.debug(f"Skipping: {e}.")
                     continue
 
 
@@ -810,33 +815,35 @@ def make_all(runtime_settings: RuntimeSettings):
     runtime_settings : RuntimeSettings
         Settings for this program run.
     """
+    logger.info("Writing catalogs.")
+
     # Get all fit parameters from output files for this run as a dict of lists
     try:
-        logger.info("Reading fitting output files for catalog.")
+        logger.debug("Reading output logs.")
         catalog_data = get_data(runtime_settings)
 
     # Catch any errors and return if un-skip-able error getting data
     except Exception as e:
-        logger.error(f"Skipping making catalogs - {e}.")
+        logger.error(f"Skipping: {e}.")
         return
 
     # Try writing catalog for run
     try:
-        logger.info("Making catalog for run.")
+        logger.info("Writing run catalog.")
         make_run(runtime_settings, catalog_data)
     except Exception as e:
-        logger.error(f"Skipping making run catalog - {e}.")
+        logger.error(f"Skipping: {e}.")
 
     # Try writing new aggregate catalog based on previous catalogs
     try:
-        logger.info("Making new merge catalog.")
+        logger.info("Writing new merge catalog.")
         make_merge(runtime_settings, catalog_data)
     except Exception as e:
-        logger.error(f"Skipping making merge catalog - {e}.")
+        logger.error(f"Skipping: {e}.")
 
     # Try writing new morphology catalog based on newest aggregate catalog
     try:
-        logger.info("Making new morphology catalog.")
+        logger.info("Writing new morphology catalogs.")
         make_morphology(runtime_settings)
     except Exception as e:
-        logger.error(f"Skipping making morphology catalog - {e}.")
+        logger.error(f"Skipping: {e}.")

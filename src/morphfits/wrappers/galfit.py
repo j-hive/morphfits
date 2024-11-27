@@ -260,11 +260,17 @@ def make_all_feedfiles(
     science_settings : ScienceSettings
         Science configurations for this program run.
     """
+    n_ficls = len(runtime_settings.ficls)
+    if n_ficls == 1:
+        logger.info(f"Making feedfiles: 1 FICL.")
+    else:
+        logger.info(f"Making feedfiles: {n_ficls} FICLs.")
+
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
         # Try to open required files for FICL
         try:
-            logger.info(f"FICL {ficl}: Making feedfiles.")
+            logger.info(f"Making feedfiles: FICL {ficl} ({len(ficl.objects)} objects).")
 
             # Open input catalog
             input_catalog_path = settings.get_path(
@@ -287,8 +293,7 @@ def make_all_feedfiles(
 
         # Catch any error opening FICL or input catalog
         except Exception as e:
-            logger.error(f"FICL {ficl}: Skipping feedfiles - failed loading input.")
-            logger.error(e)
+            logger.debug(f"Skipping: {e}.")
             continue
 
         # Iterate over each object
@@ -308,7 +313,7 @@ def make_all_feedfiles(
                 # Skip existing feedfiles unless requested
                 if feedfile_path.exists() and not runtime_settings.remake.others:
                     if not runtime_settings.progress_bar:
-                        logger.debug(f"Object {object}: Skipping feedfile - exists.")
+                        logger.debug(f"Skipping O {object}: exists.")
                     skipped += 1
                     continue
 
@@ -354,9 +359,7 @@ def make_all_feedfiles(
                     or (not mask_path.exists())
                 ):
                     if not runtime_settings.progress_bar:
-                        logger.debug(
-                            f"Object {object}: Skipping feedfile - missing products."
-                        )
+                        logger.debug(f"Skipping O {object}: missing products.")
                     skipped += 1
                     continue
 
@@ -410,14 +413,14 @@ def make_all_feedfiles(
             # Catch any errors making feedfile for object and skip to next
             except Exception as e:
                 if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Skipping feedfile - {e}.")
+                    logger.debug(f"Skipping O {object}: {e}.")
                 skipped += 1
                 objects_to_remove.append(object)
                 continue
 
         # Log number of skipped or failed objects
-        logger.info(
-            f"FICL {ficl}: Made feedfiles - skipped {skipped}/{len(objects)} objects."
+        logger.debug(
+            f"Made feedfiles: {len(objects) - skipped} / {len(objects)} objects."
         )
 
         # Remove failed objects from FICL
@@ -438,21 +441,22 @@ def run_all(runtime_settings: RuntimeSettings):
     runtime_settings : RuntimeSettings
         Settings for this program run.
     """
+    n_ficls = len(runtime_settings.ficls)
+    if n_ficls == 1:
+        logger.info(f"Fitting: 1 FICL.")
+    else:
+        logger.info(f"Fitting: {n_ficls} FICLs.")
+
     # Iterate over each FICL in this run
     for ficl in runtime_settings.ficls:
         # Try to get objects from FICL
         try:
+            # Log progress
+            logger.info(f"Fitting: FICL {ficl} ({len(ficl.objects)} objects).")
+
             # Skip if FICL has no objects
             if len(ficl.objects) == 0:
-                logger.warning(f"FICL {ficl}: Skipping GALFIT - no objects to fit.")
-                continue
-
-            # Log progress
-            logger.info(f"FICL {ficl}: Running GALFIT.")
-            logger.info(
-                f"Objects: {min(ficl.objects)} to {max(ficl.objects)} "
-                + f"({len(ficl.objects)} objects)."
-            )
+                raise ValueError("missing objects")
 
             # Get iterable object list, displaying progress bar if flagged
             if runtime_settings.progress_bar:
@@ -465,7 +469,7 @@ def run_all(runtime_settings: RuntimeSettings):
 
         # Catch any error opening FICL
         except Exception as e:
-            logger.error(f"FICL {ficl}: Skipping GALFIT - {e}.")
+            logger.debug(f"Skipping: {e}.")
             continue
 
         # Iterate over each object
@@ -485,7 +489,7 @@ def run_all(runtime_settings: RuntimeSettings):
                 # Skip previously fitted objects unless requested
                 if model_path.exists() and not runtime_settings.remake.morphology:
                     if not runtime_settings.progress_bar:
-                        logger.debug(f"Object {object}: Skipping GALFIT - exists.")
+                        logger.debug(f"Skipping O {object}: exists.")
                     skipped += 1
                     fitted_objects.append(object)
                     continue
@@ -501,9 +505,7 @@ def run_all(runtime_settings: RuntimeSettings):
                 # Skip objects missing feedfiles
                 if not feedfile_path.exists():
                     if not runtime_settings.progress_bar:
-                        logger.debug(
-                            f"Object {object}: Skipping GALFIT - missing feedfile."
-                        )
+                        logger.debug(f"Skipping O {object}: missing feedfile.")
                     skipped += 1
                     continue
 
@@ -524,7 +526,7 @@ def run_all(runtime_settings: RuntimeSettings):
 
                 # Run GALFIT for object
                 if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Running GALFIT.")
+                    logger.debug(f"Fitting O {object}.")
                 run(
                     galfit_path=runtime_settings.morphology.binary,
                     product_ficlo_path=product_ficlo_path,
@@ -551,15 +553,13 @@ def run_all(runtime_settings: RuntimeSettings):
             # Catch any errors and skip to next object
             except Exception as e:
                 if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Skipping GALFIT - {e}.")
+                    logger.debug(f"Skipping O {object}: {e}.")
                 skipped += 1
                 objects_to_remove.append(object)
                 continue
 
         # Log number of skipped or failed objects
-        logger.info(
-            f"FICL {ficl}: Ran GALFIT - skipped {skipped}/{len(objects)} objects."
-        )
+        logger.debug(f"Fitted: {len(objects) - skipped} / {len(objects)} objects.")
 
         # Remove failed objects from FICL
         if len(objects_to_remove) > 0:
@@ -577,4 +577,4 @@ def run_all(runtime_settings: RuntimeSettings):
         if temp_catalog_path.exists():
             temp_catalog_path.unlink()
     except Exception as e:
-        logger.error(f"Skipping removing temporary catalog - {e}.")
+        logger.debug(f"Skipping: {e}.")

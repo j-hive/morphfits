@@ -143,6 +143,11 @@ DEFAULT_CATALOG_VERSION = "dja-v7.2"
 """
 
 
+DEFAULT_PIXSCALE = [0.04, 0.04]
+"""Default pixel scale, 40mas.
+"""
+
+
 # Classes
 
 
@@ -1018,7 +1023,7 @@ def clean_filter(
 
         # Return new filter name if matching file found
         if possible_science_path.exists():
-            pre_logger.debug(f"Filter {possible_filter}: Changing from {filter}.")
+            pre_logger.debug(f"L {possible_filter}: found from '{filter}'.")
             return possible_filter
 
 
@@ -1168,6 +1173,8 @@ def get_ficls(
     KeyError
         No valid FICLs found for these settings.
     """
+    pre_logger.info("Loading FICLs.")
+
     # Get preferred FICLO settings
     settings_pack = [cli_settings, file_settings]
     fields = get_priority_setting("fields", *settings_pack)
@@ -1177,17 +1184,15 @@ def get_ficls(
     objects = get_priority_setting("objects", *settings_pack)
 
     # Display settings to be searched for from input
-    log_str = "Searching for missing settings -"
+    log_str = "Loading settings: missing"
     if fields is None:
-        log_str += " fields,"
+        log_str += " F,"
     if imvers is None:
-        log_str += " image versions,"
+        log_str += " I,"
     if catvers is None:
-        log_str += " catalog versions,"
+        log_str += " C,"
     if filters is None:
-        log_str += " filters,"
-    if objects is None:
-        log_str += " objects,"
+        log_str += " L,"
     if log_str[-1] == ",":
         pre_logger.debug(log_str[:-1] + ".")
 
@@ -1230,9 +1235,9 @@ def get_ficls(
                     catalog_version=catver,
                 )
                 if missing_file:
+                    fic_str = "_".join([f_path.name, fi_path.name, catver])
                     pre_logger.warning(
-                        f"FIC {'_'.join([f_path.name,fi_path.name,catver])}: "
-                        + f"Skipping - missing input file '{missing_file.name}'."
+                        f"Skipping FIC {fic_str}: missing '{missing_file.name}'."
                     )
                     continue
 
@@ -1279,9 +1284,11 @@ def get_ficls(
                         filter=cleaned_filter,
                     )
                     if missing_file:
+                        ficl_str = "_".join(
+                            [f_path.name, fi_path.name, catver, cleaned_filter]
+                        )
                         pre_logger.warning(
-                            f"FICL {'_'.join([f_path.name,fi_path.name,catver,cleaned_filter])}: "
-                            + f"Skipping - missing input file '{missing_file.name}'."
+                            f"Skipping FICL {ficl_str}: missing '{missing_file.name}'."
                         )
                         continue
 
@@ -1309,13 +1316,12 @@ def get_ficls(
                         objects=objects,
                         pixscale=pixscale,
                     )
-                    pre_logger.info(f"FICL {ficl}: Adding.")
+                    pre_logger.debug(f"Loaded FICL {ficl}.")
                     ficls.append(ficl)
 
     # Terminate if no FICLs set
     if len(ficls) == 0:
-        pre_logger.error("Terminating, no FICLs with valid data found.")
-        raise KeyError("Terminating, no FICLs with valid data found.")
+        raise KeyError("Terminating: missing complete FICL.")
 
     # Return list of FICLs
     return ficls
@@ -1349,7 +1355,7 @@ def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FIC
 
     # NOTE Terminates if any of FIL unset, in future can implement discovery
     if (fields is None) or (imvers is None) or (filters is None):
-        raise KeyError("FICLs not set for initialization.")
+        raise KeyError("Terminating: missing FICL setting.")
 
     # Iterate over each FIL permutation
     # NOTE Uses default catalog version
@@ -1366,7 +1372,7 @@ def get_ficls_to_initialize(cli_settings: dict, file_settings: dict) -> list[FIC
                     objects=[-1],
                     pixscale=[-1, -1],
                 )
-                pre_logger.info(f"FICL {ficl}: Adding.")
+                pre_logger.debug(f"Loaded FICL {ficl}.")
                 ficls.append(ficl)
 
     # Return list of FICLs
@@ -1779,6 +1785,8 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
     RuntimeSettings
         Runtime settings for this program run.
     """
+    pre_logger.info("Loading runtime settings.")
+
     # Get initialized flag from parameter passed from main command
     initialized = cli_settings["initialized"]
 
@@ -1873,6 +1881,8 @@ def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSett
     ScienceSettings
         Science settings for this program run.
     """
+    pre_logger.info("Loading science settings.")
+
     # Get settings list to unpack for function calls
     settings_pack = [cli_settings, file_settings]
 
@@ -2063,7 +2073,6 @@ def get_settings(
     base_logger = logs.create_logger(filename=pre_log_file.name, level=log_level)
     global pre_logger
     pre_logger = logging.getLogger("SETTINGS")
-    pre_logger.info("Loading runtime settings.")
 
     # Get runtime and science settings from file and CLI settings
     runtime_settings = get_runtime_settings(*settings_pack)

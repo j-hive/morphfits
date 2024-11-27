@@ -728,7 +728,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame, ficls: list[FICL]):
             labels=["failed", "inadequate", "good"],
         )
     except Exception as e:
-        logger.debug(f"Skipping making usability sub-histogram - {e}.")
+        logger.debug(f"Skipping quality panel: {e}.")
 
     # Try plotting convergence sub-histogram
     try:
@@ -742,7 +742,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame, ficls: list[FICL]):
             labels=["radius", "sersic", "axis ratio"],
         )
     except Exception as e:
-        logger.debug(f"Skipping making convergence sub-histogram - {e}.")
+        logger.debug(f"Skipping convergence panel: {e}.")
 
     # Try plotting reduced chi squared sub-histogram
     try:
@@ -765,7 +765,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame, ficls: list[FICL]):
             },
         )
     except Exception as e:
-        logger.debug(f"Skipping making chi sub-histogram - {e}.")
+        logger.debug(f"Skipping chi panel: {e}.")
 
     # Try plotting parameter sub-histograms for each parameter of interest
     histogram_parameters = {
@@ -785,7 +785,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame, ficls: list[FICL]):
                 title=parameter,
             )
         except Exception as e:
-            logger.debug(f"Skipping making {parameter} sub-histogram - {e}.")
+            logger.debug(f"Skipping {parameter} panel: {e}.")
 
     # Try plotting parameter comparison sub-histograms
     histogram_comparisons = {
@@ -820,7 +820,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame, ficls: list[FICL]):
                 title=comparison,
             )
         except Exception as e:
-            logger.debug(f"Skipping making {comparison} sub-histogram - {e}.")
+            logger.debug(f"Skipping {comparison} panel: {e}.")
 
     # Save and clear plot
     save(path=path, fig=fig)
@@ -880,7 +880,7 @@ def model(
     try:
         sub_model(ax=axs[0][0], image=stamp_image, title="masked stamp")
     except Exception as e:
-        logger.debug(f"Skipping making stamp sub-histogram - {e}.")
+        logger.debug(f"Skipping stamp subplot: {e}.")
 
     # Try plotting sigma map subplot
     try:
@@ -888,19 +888,19 @@ def model(
             ax=axs[0][1], image=sigma_image, title="sigma map", vmin=vmin, vmax=vmax
         )
     except Exception as e:
-        logger.debug(f"Skipping making sigma sub-histogram - {e}.")
+        logger.debug(f"Skipping sigma subplot: {e}.")
 
     # Try plotting mask subplot
     try:
         sub_model(ax=axs[0][2], image=mask_image, title="mask")
     except Exception as e:
-        logger.debug(f"Skipping making mask sub-histogram - {e}.")
+        logger.debug(f"Skipping mask subplot: {e}.")
 
     # Try plotting model subplot
     try:
         sub_model(ax=axs[1][0], image=model_image, title="model", vmin=vmin, vmax=vmax)
     except Exception as e:
-        logger.debug(f"Skipping making model sub-histogram - {e}.")
+        logger.debug(f"Skipping model subplot: {e}.")
 
     # Try plotting residuals subplot
     try:
@@ -912,13 +912,13 @@ def model(
             vmax=vmax,
         )
     except Exception as e:
-        logger.debug(f"Skipping making residuals sub-histogram - {e}.")
+        logger.debug(f"Skipping residuals subplot: {e}.")
 
     # Try plotting PSF crop subplot
     try:
         sub_model(ax=axs[1][2], image=psf_image, title="PSF crop", log=True)
     except Exception as e:
-        logger.debug(f"Skipping making psf sub-histogram - {e}.")
+        logger.debug(f"Skipping PSF subplot: {e}.")
 
     # Save and clear plot
     save(path=path, fig=fig)
@@ -941,9 +941,11 @@ def all_histograms(runtime_settings: RuntimeSettings):
     FileNotFoundError
         Missing run or merge catalog.
     """
+    logger.info("Plotting histograms.")
+
     # Try making run histogram
     try:
-        logger.info("Making histogram for run.")
+        logger.info("Plotting run histogram.")
 
         # Get paths to run catalog and run histogram
         run_catalog_path = settings.get_path(
@@ -959,7 +961,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
 
         # Skip if missing run catalog
         if not run_catalog_path.exists():
-            raise FileNotFoundError("run catalog missing")
+            raise FileNotFoundError("missing run catalog")
 
         # Get catalog as pandas data frame
         run_catalog = pd.read_csv(run_catalog_path)
@@ -977,11 +979,11 @@ def all_histograms(runtime_settings: RuntimeSettings):
 
     # Catch errors and skip to merge histogram
     except Exception as e:
-        logger.debug(f"Skipping making run histogram - {e}.")
+        logger.debug(f"Skipping: {e}.")
 
     # Try making merge histogram
     try:
-        logger.info("Making histogram for all runs.")
+        logger.info("Plotting merge histogram.")
 
         # Get paths to merge catalog and histogram
         catalog_path = settings.get_path(
@@ -993,7 +995,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
 
         # Skip if missing merge catalog
         if not catalog_path.exists():
-            raise FileNotFoundError("merge catalog missing")
+            raise FileNotFoundError("missing merge catalog")
 
         # Get catalog as pandas data frame
         catalog = pd.read_csv(catalog_path)
@@ -1011,7 +1013,7 @@ def all_histograms(runtime_settings: RuntimeSettings):
 
     # Catch errors and skip
     except Exception as e:
-        logger.debug(f"Skipping making merge histogram - {e}.")
+        logger.debug(f"Skipping: {e}.")
 
 
 def all_models(runtime_settings: RuntimeSettings):
@@ -1024,22 +1026,25 @@ def all_models(runtime_settings: RuntimeSettings):
     runtime_settings : RuntimeSettings
         Settings for this program run.
     """
+    n_ficls = len(runtime_settings.ficls)
+    if n_ficls == 1:
+        logger.info(f"Plotting models: 1 FICL.")
+    else:
+        logger.info(f"Plotting models: {n_ficls} FICLs.")
+
     # Iterate over each FICL in this run
     total_objects = 0
     for ficl in runtime_settings.ficls:
         # Try to get objects from FICL
         try:
-            # Skip if FICL has no objects
-            if len(ficl.objects) == 0:
-                logger.warning(f"FICL {ficl}: Skipping plotting - no objects to plot.")
-                continue
-
             # Log progress
-            logger.info(f"FICL {ficl}: Plotting models.")
-            logger.info(
-                f"Objects: {min(ficl.objects)} to {max(ficl.objects)} "
-                + f"({len(ficl.objects)} objects)."
-            )
+            logger.info(f"Plotting models: FICL {ficl} ({len(ficl.objects)} objects).")
+
+            # Raise error if FICL has no objects
+            if len(ficl.objects) == 0:
+                raise ValueError("missing objects")
+
+            # Add number of objects to total object count
             total_objects += len(ficl.objects)
 
             # Get iterable object list, displaying progress bar if flagged
@@ -1050,7 +1055,7 @@ def all_models(runtime_settings: RuntimeSettings):
 
         # Catch any error opening FICL
         except Exception as e:
-            logger.error(f"FICL {ficl}: Skipping plotting - {e}.")
+            logger.debug(f"Skipping: {e}.")
             continue
 
         # Iterate over each object
@@ -1069,7 +1074,7 @@ def all_models(runtime_settings: RuntimeSettings):
                 # Skip previously fitted objects unless requested
                 if plot_path.exists() and not runtime_settings.remake.plots:
                     if not runtime_settings.progress_bar:
-                        logger.debug(f"Object {object}: Skipping plotting - exists.")
+                        logger.debug(f"Skipping O {object}: exists.")
                     skipped += 1
                     continue
 
@@ -1114,9 +1119,7 @@ def all_models(runtime_settings: RuntimeSettings):
                     or not model_path.exists()
                 ):
                     if not runtime_settings.progress_bar:
-                        logger.debug(
-                            f"Object {object}: Skipping plotting - missing product or model."
-                        )
+                        logger.debug(f"Skipping O {object}: missing product or model.")
                     skipped += 1
                     continue
 
@@ -1179,11 +1182,11 @@ def all_models(runtime_settings: RuntimeSettings):
             # Catch any errors and skip to next object
             except Exception as e:
                 if not runtime_settings.progress_bar:
-                    logger.debug(f"Object {object}: Skipping plotting - {e}.")
+                    logger.debug(f"Skipping O {object}: {e}.")
                 skipped += 1
                 continue
 
         # Log number of skipped or failed objects
-        logger.info(
-            f"FICL {ficl}: Plotted models - skipped {skipped}/{total_objects} objects."
+        logger.debug(
+            f"Plotted models: {len(objects) - skipped} / {len(objects)} objects."
         )

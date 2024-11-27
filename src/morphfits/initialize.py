@@ -67,7 +67,7 @@ def get_dja_catalog() -> dict[str, str]:
     dict[str, str]
         DJA download catalog, as download links indexed by their filenames.
     """
-    logger.info("Downloading file list from DJA.")
+    logger.info("Downloading DJA file list.")
 
     # Try to get DJA file list
     try:
@@ -106,7 +106,7 @@ def get_dja_catalog() -> dict[str, str]:
 
     # Catch any errors and return empty dict
     except Exception as e:
-        logger.error(f"Skipped downloading DJA file list - {e}.")
+        logger.error(f"Skipping: {e}.")
         return {}
 
 
@@ -185,8 +185,7 @@ def get_src_dest(
             else:
                 if "drz" not in required_file.name:
                     logger.warning(
-                        f"Skipping download for '{required_file.name}' "
-                        + "- failed to locate in DJA catalog."
+                        f"Skipping file '{required_file.name}': missing from DJA. "
                     )
 
     # Return source/destination pairs
@@ -219,7 +218,7 @@ def unzip(path: Path) -> tuple[bool, float, float]:
                 shutil.copyfileobj(zipped, unzipped)
         path.unlink()
     except Exception as e:
-        logger.error(f"Skipping unzipping '{path.name}' - {e}.")
+        logger.error(f"Skipping file '{path.name}': {e}.")
         return False, compressed_size, 0
 
     # Return file sizes
@@ -240,7 +239,7 @@ def get_input(src_dest: dict[str, str]):
         Dict containing local path destinations mapped by their DJA download
         link sources.
     """
-    logger.info(f"Downloading {len(src_dest)} files.")
+    logger.info(f"Downloading files: {len(src_dest)} files.")
 
     # Iterate over each source/destination pair for this initialize run
     num_files, total_file_size = 0, 0
@@ -268,23 +267,23 @@ def get_input(src_dest: dict[str, str]):
             total_file_size += file_size
             num_files += 1
             logger.debug(
-                f"Downloaded '{file_name}' "
-                + f"({misc.get_str_from_file_size(file_size)}) "
-                + f"({num_files+1}/{len(src_dest)})."
+                f"Downloaded file '{file_name}': "
+                + f"{misc.get_str_from_file_size(file_size)} "
+                + f"({num_files+1} / {len(src_dest)})."
             )
 
         # Catch errors downloading and skip to next pair
         except Exception as e:
-            logger.debug(f"Skipping downloading '{Path(dest).name}' - {e}.")
+            logger.debug(f"Skipping file '{Path(dest).name}': {e}.")
 
     # Log number of files downloaded
     if num_files > 0:
         logger.info(
-            f"Downloaded {num_files} files "
-            + f"({misc.get_str_from_file_size(total_file_size)})."
+            f"Downloaded {num_files} files: "
+            + f"{misc.get_str_from_file_size(total_file_size)}."
         )
     else:
-        logger.info("Skipping downloading - FICLs already initialized.")
+        logger.debug("Skipping: FICLs already initialized.")
 
 
 def unzip_all(runtime_settings: RuntimeSettings):
@@ -295,7 +294,7 @@ def unzip_all(runtime_settings: RuntimeSettings):
     runtime_settings : RuntimeSettings
         Settings for this program run.
     """
-    logger.info("Unzipping zipped input files.")
+    logger.info("Unzipping compressed input files.")
 
     # Initialize monitoring variables as 0
     num_files, total_compressed_size, total_uncompressed_size = 0, 0, 0
@@ -321,9 +320,9 @@ def unzip_all(runtime_settings: RuntimeSettings):
                 # unzipped, skip otherwise
                 if unzipped:
                     logger.debug(
-                        f"Unzipped '{input_fi_file.name[:-3]}' "
-                        + f"({misc.get_str_from_file_size(compressed_size)} -> "
-                        + f"{misc.get_str_from_file_size(uncompressed_size)})."
+                        f"Unzipped file '{input_fi_file.name[:-3]}': "
+                        + f"{misc.get_str_from_file_size(compressed_size)} -> "
+                        + f"{misc.get_str_from_file_size(uncompressed_size)}."
                     )
 
                     # Store values to monitoring variables
@@ -346,9 +345,9 @@ def unzip_all(runtime_settings: RuntimeSettings):
                     # unzipped, skip otherwise
                     if unzipped:
                         logger.debug(
-                            f"Unzipped '{input_fil_file.name[:-3]}' "
-                            + f"({misc.get_str_from_file_size(compressed_size)} -> "
-                            + f"{misc.get_str_from_file_size(uncompressed_size)})."
+                            f"Unzipped file '{input_fil_file.name[:-3]}': "
+                            + f"{misc.get_str_from_file_size(compressed_size)} -> "
+                            + f"{misc.get_str_from_file_size(uncompressed_size)}."
                         )
 
                         # Store values to monitoring variables
@@ -359,9 +358,9 @@ def unzip_all(runtime_settings: RuntimeSettings):
     # Log number of files and file sizes uncompressed
     if num_files > 0:
         logger.info(
-            f"Unzipped {num_files} files "
-            + f"({misc.get_str_from_file_size(total_compressed_size)} -> "
-            + f"{misc.get_str_from_file_size(total_uncompressed_size)})."
+            f"Unzipped {num_files} files: "
+            + f"{misc.get_str_from_file_size(total_compressed_size)} -> "
+            + f"{misc.get_str_from_file_size(total_uncompressed_size)}."
         )
     else:
-        logger.info("No zipped input files to unzip.")
+        logger.debug("Skipping: missing compressed files.")
