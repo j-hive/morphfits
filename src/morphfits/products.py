@@ -12,7 +12,6 @@ module.
 # Imports
 
 
-import os
 import logging
 from pathlib import Path
 
@@ -594,8 +593,8 @@ def make_ficl_psfs(
     When successful, all created PSf crops are written to disk.
 
     If the science setting `psf_copy` is `True`, makes one PSF crop for the
-    whole FICL and stores at the path `ficl_psf`, then makes symlinks to this
-    PSF at each object directory.
+    whole FICL and stores at the path `ficl_psf`, then makes symbolic links to
+    this PSF at each object directory.
 
     Parameters
     ----------
@@ -668,6 +667,7 @@ def make_ficl_psfs(
                 path_settings=runtime_settings.roots,
                 ficl=ficl,
                 object=object,
+                resolve=False,
             )
 
             # Skip existing PSF crops unless requested
@@ -682,7 +682,7 @@ def make_ficl_psfs(
                 if psf_path.exists():
                     psf_path.unlink()
                 try:
-                    os.symlink(ficl_psf_path, psf_path)
+                    psf_path.symlink_to(ficl_psf_path)
                 except:
                     pass
 

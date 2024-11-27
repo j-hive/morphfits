@@ -6,7 +6,6 @@ morphology pipeline using GALFIT.
 
 
 import logging
-import shutil, os
 from subprocess import Popen, PIPE, STDOUT
 from pathlib import Path
 
@@ -181,11 +180,11 @@ def run(
     # Due to GALFIT needing to be in the same directory as the feedfile and
     # where its paths are based from
     try:
-        os.symlink(galfit_path, product_ficlo_path / "galfit")
+        (product_ficlo_path / "galfit").symlink_to(galfit_path)
     except:
         pass
     try:
-        os.symlink(constraints_path, product_ficlo_path / ".constraints")
+        (product_ficlo_path / ".constraints").symlink_to(constraints_path)
     except:
         pass
 

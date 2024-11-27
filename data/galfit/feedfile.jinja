@@ -8,7 +8,7 @@ D) {{psf_path}} # Input PSF image
 E) 1                                                                # PSF fine sampling factor relative to data
 F) {{mask_path}} # Bad pixel mask  
 G) {{constraints_path}} # File with parameter constraints
-H) 1 {{image_size}} 1 {{image_size}}                                                      # Image region to fit (xmin xmax ymin ymax)
+H) 1 {{image_size}} 1 {{image_size}}                                                        # Image region to fit (xmin xmax ymin ymax)
 I) 150 150                                                          # Size of the convolution box (x y)
 J) {{zeropoint}}                                                     # Magnitude photometric zeropoint
 K) {{pixscale_x}} {{pixscale_y}}                                        # Plate scale (dx dy)    [arcsec per pixel]
@@ -17,7 +17,7 @@ P) 0                                                                # Choose: 0=
 
 # Object number: 1
  0) sersic1                                                         # Component type
- 1) {{position}} {{position}} 1 1                                                 # Position x, y
+ 1) {{position}} {{position}} 1 1                                                   # Position x, y
  3) {{magnitude}} 1                                                  # Central surface brightness [mag/arcsec^2]
  4) {{half_light_radius}} 1                                                  # R_e (half-light radius)   [pix]
  5) 2.0 1                                                           # Sersic index n (de Vaucouleurs n=4)
