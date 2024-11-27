@@ -88,7 +88,7 @@ def get_pixscale(path: Path) -> float:
     # Calculate and set pixel scales
     pixscale_x = np.sqrt(headers["CD1_1"] ** 2 + headers["CD1_2"] ** 2) * 3600
     pixscale_y = np.sqrt(headers["CD2_1"] ** 2 + headers["CD2_2"] ** 2) * 3600
-    return np.average(pixscale_x, pixscale_y)
+    return np.average(np.array([pixscale_x, pixscale_y]))
 
 
 # Primary
