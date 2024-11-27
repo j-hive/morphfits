@@ -447,7 +447,8 @@ def make_ficl_stamps(
     # Remove failed objects from FICL
     if len(objects_to_remove) > 0:
         ficl.remove_objects(objects_to_remove)
-        runtime_settings.cleanup_directories(ficl=ficl)
+        if runtime_settings.stages.cleanup:
+            runtime_settings.cleanup_directories(ficl=ficl)
 
 
 def make_ficl_sigmas(

@@ -520,17 +520,17 @@ class RuntimeSettings(BaseModel):
         # Initialize empty dict for writing
         settings = {}
 
-        # Add paths as strings
-        settings["roots"] = {}
-        for root_name in self.roots.__dict__:
-            settings["roots"][root_name] = str(self.roots.__dict__[root_name])
-
         # Add run details
         settings["date_time"] = self.date_time
         settings["process_id"] = self.process_id
         settings["process_count"] = self.process_count
         settings["log_level"] = self.log_level
         settings["progress_bar"] = self.progress_bar
+
+        # Add paths as strings
+        settings["roots"] = {}
+        for root_name in self.roots.__dict__:
+            settings["roots"][root_name] = str(self.roots.__dict__[root_name])
 
         # Add stages as a list of stages ran
         if self.stages is not None:
@@ -554,11 +554,11 @@ class RuntimeSettings(BaseModel):
                 ficl.pixscale
             )
 
-        # Append settings to file
+        # Write settings to file
         settings_path = get_path(
             name="run_settings", runtime_settings=self, field=self.ficls[0].field
         )
-        yaml.dump(settings, open(settings_path, mode="a"), sort_keys=False)
+        yaml.dump(settings, open(settings_path, mode="w"), sort_keys=False)
 
 
 class ScienceSettings(BaseModel):
@@ -617,13 +617,13 @@ class ScienceSettings(BaseModel):
             else:
                 settings["science"]["pysersic"] = {}
 
-        # Write settings to file
+        # Append settings to file
         settings_path = get_path(
             name="run_settings",
             runtime_settings=runtime_settings,
             field=runtime_settings.ficls[0].field,
         )
-        yaml.dump(settings, open(settings_path, mode="w"), sort_keys=False)
+        yaml.dump(settings, open(settings_path, mode="a"), sort_keys=False)
 
 
 # Functions

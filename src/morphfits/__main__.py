@@ -502,9 +502,8 @@ def galwrap(
         runtime_settings.cleanup_directories()
 
     # Write settings to file in run directory
-    if runtime_settings.stages.cleanup:
-        science_settings.write(runtime_settings=runtime_settings)
-        runtime_settings.write()
+    runtime_settings.write()
+    science_settings.write(runtime_settings=runtime_settings)
 
     # Exit
     logger.info("Exiting MorphFITS.")

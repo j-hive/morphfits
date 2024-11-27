@@ -424,7 +424,8 @@ def make_all_feedfiles(
         # Remove failed objects from FICL
         if len(objects_to_remove) > 0:
             ficl.remove_objects(objects_to_remove)
-            runtime_settings.cleanup_directories(ficl=ficl)
+            if runtime_settings.stages.cleanup:
+                runtime_settings.cleanup_directories(ficl=ficl)
 
 
 def run_all(runtime_settings: RuntimeSettings):
@@ -564,7 +565,8 @@ def run_all(runtime_settings: RuntimeSettings):
         # Remove failed objects from FICL
         if len(objects_to_remove) > 0:
             ficl.remove_objects(objects_to_remove)
-            runtime_settings.cleanup_directories(ficl=ficl)
+            if runtime_settings.stages.cleanup:
+                runtime_settings.cleanup_directories(ficl=ficl)
 
     # Remove temporary catalog
     try:
