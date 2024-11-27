@@ -339,7 +339,7 @@ def get_surface_brightness(
     """
     # Raise error if flux negative
     if flux <= 0:
-        raise ValueError(f"flux negative")
+        raise ValueError(f"flux {flux} negative")
 
     # Calculate magnitude from integrated flux and offset by zeropoint
     magnitude = -2.5 * np.log10(flux) + zeropoint
