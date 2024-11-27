@@ -50,7 +50,7 @@ def get_fits_data(
     return image, headers
 
 
-def get_pixscale(path: Path):
+def get_pixscale(path: Path) -> float:
     """Get an observation's pixscale from its FITS image frame.
 
     Used because not every frame has the same pixel scale. For the most
@@ -61,6 +61,11 @@ def get_pixscale(path: Path):
     ----------
     path : Path
         Path to FITS frame.
+
+    Returns
+    -------
+    float
+        Pixel scale of FITS image.
 
     Raises
     ------
@@ -83,7 +88,7 @@ def get_pixscale(path: Path):
     # Calculate and set pixel scales
     pixscale_x = np.sqrt(headers["CD1_1"] ** 2 + headers["CD1_2"] ** 2) * 3600
     pixscale_y = np.sqrt(headers["CD2_1"] ** 2 + headers["CD2_2"] ** 2) * 3600
-    return (pixscale_x, pixscale_y)
+    return np.average(pixscale_x, pixscale_y)
 
 
 # Primary
