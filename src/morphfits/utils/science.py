@@ -320,7 +320,10 @@ def get_integrated_magnitude(input_catalog: Table, object: int) -> float:
     float
         Integrated magnitude of object.
     """
-    return float(input_catalog[input_catalog["id"] == object]["mag_auto"])
+    integrated_magnitude = float(
+        input_catalog[input_catalog["id"] == object]["mag_auto"]
+    )
+    assert not np.isnan(integrated_magnitude), "magnitude NaN"
 
 
 def get_surface_brightness(
@@ -410,7 +413,7 @@ def get_surface_brightness_from_headers(
     return headers["SB"]
 
 
-def get_pixscale(path: Path):
+def get_pixscale(path: Path) -> tuple[float, float]:
     """Get an observation's pixscale from its FITS image frame.
 
     Used because not every frame has the same pixel scale. For the most
@@ -422,6 +425,11 @@ def get_pixscale(path: Path):
     path : Path
         Path to FITS frame.
 
+    Returns
+    -------
+    tuple[float, float]
+        Pixel scale along x and y axes, respectively, in arcseconds per pixel.
+
     Raises
     ------
     KeyError
@@ -432,16 +440,35 @@ def get_pixscale(path: Path):
 
     # Get pixel scale if directly set as header
     if "PIXELSCL" in headers:
-        return headers["PIXELSCL"]
+        pixscale_str = headers["PIXELSCL"]
 
-    # Raise error if keys not found in header
-    if any([header not in headers for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]]):
-        raise KeyError(f"frame {path.name} missing coordinate matrix headers")
+        # Try to get pixel scale from header as float
+        try:
+            pixscale = float(pixscale_str)
+            return (pixscale, pixscale)
 
-    # Calculate and set pixel scales
-    pixscale_x = np.sqrt(headers["CD1_1"] ** 2 + headers["CD1_2"] ** 2) * 3600
-    pixscale_y = np.sqrt(headers["CD2_1"] ** 2 + headers["CD2_2"] ** 2) * 3600
-    return (pixscale_x, pixscale_y)
+        # Try to get pixel scale from header as string
+        except:
+            try:
+                pixscale = float(pixscale_str.split("mas")) * 1e-3
+                return (pixscale, pixscale)
+
+            # Other formats unknown
+            except:
+                raise ValueError(f"pixel scale {pixscale_str} unrecognized")
+
+    # Get pixel scale from coordinate matrix headers if not set as header
+    else:
+        # Raise error if keys not found in header
+        if any(
+            [header not in headers for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]]
+        ):
+            raise KeyError(f"frame {path.name} missing coordinate matrix headers")
+
+        # Calculate and set pixel scales
+        pixscale_x = np.sqrt(headers["CD1_1"] ** 2 + headers["CD1_2"] ** 2) * 3600
+        pixscale_y = np.sqrt(headers["CD2_1"] ** 2 + headers["CD2_2"] ** 2) * 3600
+        return (pixscale_x, pixscale_y)
 
 
 def get_str_from_pixscale(pixscale: tuple[int, int]) -> str:

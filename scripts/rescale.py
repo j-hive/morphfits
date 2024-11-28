@@ -50,7 +50,7 @@ def get_fits_data(
     return image, headers
 
 
-def get_pixscale(path: Path) -> float:
+def get_pixscale(path: Path) -> tuple[float, float]:
     """Get an observation's pixscale from its FITS image frame.
 
     Used because not every frame has the same pixel scale. For the most
@@ -64,8 +64,8 @@ def get_pixscale(path: Path) -> float:
 
     Returns
     -------
-    float
-        Pixel scale of FITS image.
+    tuple[float, float]
+        Pixel scale along x and y axes, respectively, in arcseconds per pixel.
 
     Raises
     ------
@@ -77,18 +77,35 @@ def get_pixscale(path: Path) -> float:
 
     # Get pixel scale if directly set as header
     if "PIXELSCL" in headers:
-        return headers["PIXELSCL"]
+        pixscale_str = headers["PIXELSCL"]
 
-    # Raise error if keys not found in header
-    if any([header not in headers for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]]):
-        raise KeyError(
-            f"Frame '{path.name}' missing coordinate transformation matrix headers."
-        )
+        # Try to get pixel scale from header as float
+        try:
+            pixscale = float(pixscale_str)
+            return (pixscale, pixscale)
 
-    # Calculate and set pixel scales
-    pixscale_x = np.sqrt(headers["CD1_1"] ** 2 + headers["CD1_2"] ** 2) * 3600
-    pixscale_y = np.sqrt(headers["CD2_1"] ** 2 + headers["CD2_2"] ** 2) * 3600
-    return np.average(np.array([pixscale_x, pixscale_y]))
+        # Try to get pixel scale from header as string
+        except:
+            try:
+                pixscale = float(pixscale_str.split("mas")) * 1e-3
+                return (pixscale, pixscale)
+
+            # Other formats unknown
+            except:
+                raise ValueError(f"pixel scale {pixscale_str} unrecognized")
+
+    # Get pixel scale from coordinate matrix headers if not set as header
+    else:
+        # Raise error if keys not found in header
+        if any(
+            [header not in headers for header in ["CD1_1", "CD2_2", "CD1_2", "CD2_1"]]
+        ):
+            raise KeyError(f"frame {path.name} missing coordinate matrix headers")
+
+        # Calculate and set pixel scales
+        pixscale_x = np.sqrt(headers["CD1_1"] ** 2 + headers["CD1_2"] ** 2) * 3600
+        pixscale_y = np.sqrt(headers["CD2_1"] ** 2 + headers["CD2_2"] ** 2) * 3600
+        return (pixscale_x, pixscale_y)
 
 
 # Primary
@@ -115,7 +132,7 @@ def rescale(
     """
     # Get new pixel scale as float
     if pixscale is None:
-        pixscale = get_pixscale(science_path)
+        pixscale = max(get_pixscale(science_path))
     elif (pixscale is not None) and (isinstance(pixscale, tuple)):
         pixscale = max(pixscale)
 
@@ -123,7 +140,7 @@ def rescale(
     psf_data, psf_headers = get_fits_data(psf_path)
 
     # Get original pixel scale from headers
-    psf_pixscale = get_pixscale(psf_path)
+    psf_pixscale = max(get_pixscale(psf_path))
 
     # Rebin PSF to new pixel scale
     psf_rebin = spn.zoom(input=psf_data, zoom=psf_pixscale / pixscale, order=0)
@@ -133,7 +150,7 @@ def rescale(
 
     # Get new filename
     filter = re.findall(r"F\d{3}[A-Z]", psf_path.name)[0].lower() + "-clear"
-    pixscale_str = str(round(pixscale * 1000)) + "mas"
+    pixscale_str = str(round(pixscale * 1e3)) + "mas"
     filename = f"{filter}_{pixscale_str}_psf.fits"
 
     # Save to FITS file in this directory

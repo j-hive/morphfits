@@ -619,7 +619,7 @@ def make_ficl_psfs(
         )
         input_psf_image, input_psf_headers = science.get_fits_data(input_psf_path)
         input_psf_wcs = WCS(header=input_psf_headers)
-        input_psf_pixscale = input_psf_headers["PIXELSCL"]
+        input_psf_pixscale = science.get_pixscale(input_psf_path)
         input_psf_center = int(input_psf_headers["NAXIS1"] / 2)
 
         # Make one PSF crop for filter (FICL) if flag activated
@@ -698,7 +698,7 @@ def make_ficl_psfs(
                 # Calculate PSF size from ratio of PSF pixscale to science
                 # pixscale
                 psf_image_size = int(
-                    image_size * input_psf_pixscale / max(ficl.pixscale)
+                    image_size * max(input_psf_pixscale) / max(ficl.pixscale)
                 )
 
                 # Make PSF crop for object
