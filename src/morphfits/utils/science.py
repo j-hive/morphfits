@@ -324,6 +324,7 @@ def get_integrated_magnitude(input_catalog: Table, object: int) -> float:
         input_catalog[input_catalog["id"] == object]["mag_auto"]
     )
     assert not np.isnan(integrated_magnitude), "magnitude NaN"
+    return integrated_magnitude
 
 
 def get_surface_brightness(
