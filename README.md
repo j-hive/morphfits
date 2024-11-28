@@ -277,6 +277,7 @@ To configure runtime settings via CLI options or YAML file, use the following ke
 |`--batch-process-id`|`-p`|`batch_process_id`|`int`|ID of process in batch.|
 |`--log-level`||`log_level`|`str`|Standard Python logging level.|
 |`--progress`||`progress_bar`|`bool`|Display progress as a loading bar.|
+|`--monitor`||`monitor`|`int`|Number of fits to monitor at a time.|
 
 
 ## Science

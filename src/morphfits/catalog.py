@@ -575,7 +575,7 @@ def get_data(runtime_settings: RuntimeSettings) -> pd.DataFrame:
     return pd.DataFrame(catalog_data)
 
 
-def update_temporary(runtime_settings: RuntimeSettings, ficl: FICL, objects: list[int]):
+def update_temporary(runtime_settings: RuntimeSettings):
     """Update the temporary catalog file under the run directory, for monitoring
     purposes while the fitting is ongoing.
 
@@ -583,11 +583,6 @@ def update_temporary(runtime_settings: RuntimeSettings, ficl: FICL, objects: lis
     ----------
     runtime_settings : RuntimeSettings
         Settings for this program run.
-    ficl : FICL
-        Field, image version, catalog version, and filter of this object.
-    objects : list[int]
-        List of object IDs whose information to append to temporary catalog
-        file.
     """
     if not runtime_settings.progress_bar:
         logger.debug("Updating temporary catalog file.")
@@ -599,10 +594,22 @@ def update_temporary(runtime_settings: RuntimeSettings, ficl: FICL, objects: lis
         field=runtime_settings.ficls[0].field,
     )
 
-    # Create deep copy of runtime settings for only the past n objects
+    # Create temporary copy of runtime settings
     temp_runtime_settings = runtime_settings.model_copy(deep=True)
-    temp_runtime_settings.ficls = [ficl.model_copy(deep=True)]
-    temp_runtime_settings.ficls[0].objects = objects
+    temp_runtime_settings.ficls = []
+
+    # Iterate over each fitted FICLO
+    for monitor_ficl, monitor_object in runtime_settings.monitor_list[
+        -runtime_settings.monitor_every :
+    ]:
+        # Add FICL to temporary settings object if not already there
+        if monitor_ficl not in temp_runtime_settings.ficls:
+            temp_ficl = monitor_ficl.model_copy(deep=True)
+            temp_ficl.objects = []
+            temp_runtime_settings.ficls.append(temp_ficl)
+
+        # Add O to FICL
+        temp_runtime_settings.ficls[-1].objects.append(monitor_object)
 
     # Get catalog data for the past n objects
     catalog_data = get_data(runtime_settings=temp_runtime_settings)

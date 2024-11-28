@@ -408,7 +408,7 @@ def galwrap(
             "--log-level",
             help="Logging level at which to write logs to file, "
             + "one of the standard Python levels.",
-            show_default=False,
+            show_default="info",
         ),
     ] = None,
     progress_bar: Annotated[
@@ -417,6 +417,14 @@ def galwrap(
             "--progress",
             help="Display progress as a loading bar and suppress per-object logging.",
             is_flag=True,
+        ),
+    ] = None,
+    monitor: Annotated[
+        Optional[int],
+        typer.Option(
+            "--monitor",
+            help="Number of fits after which to update a temporary catalog.",
+            show_default="100",
         ),
     ] = None,
 ):
@@ -437,8 +445,9 @@ def galwrap(
         objects=objects,
         first_object=first_object,
         last_object=last_object,
-        progress_bar=progress_bar,
         log_level=log_level,
+        progress_bar=progress_bar,
+        monitor=monitor,
         skip_unzip=skip_unzip,
         skip_product=skip_product,
         skip_morphology=skip_morphology,

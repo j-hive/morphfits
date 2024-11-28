@@ -56,12 +56,6 @@ DEFAULT_CONSTRAINTS_PATH = GALFIT_DATA_ROOT / "default.constraints"
 """
 
 
-NUM_FITS_TO_MONITOR = 100
-"""Number of fits after which an append statement will be made to the temporary
-catalog file in the run directory.
-"""
-
-
 # Functions
 
 
@@ -479,9 +473,6 @@ def run_all(runtime_settings: RuntimeSettings):
             else:
                 objects = ficl.objects
 
-            # Track objects fitted
-            fitted_objects = []
-
         # Catch any error opening FICL
         except Exception as e:
             logger.debug(f"Skipping: {e}.")
@@ -493,6 +484,13 @@ def run_all(runtime_settings: RuntimeSettings):
         for object in objects:
             # Try running GALFIT for object
             try:
+                # Update temporary catalog every n fits
+                if (runtime_settings.monitor_every > 0) and (
+                    len(runtime_settings.monitor_list) % runtime_settings.monitor_every
+                    == 0
+                ):
+                    catalog.update_temporary(runtime_settings)
+
                 # Get path to model
                 model_path = settings.get_path(
                     name="model_galfit",
@@ -506,7 +504,9 @@ def run_all(runtime_settings: RuntimeSettings):
                     if not runtime_settings.progress_bar:
                         logger.debug(f"Skipping O {object}: exists.")
                     skipped += 1
-                    fitted_objects.append(object)
+
+                    # Track object if skipped
+                    runtime_settings.monitor_list.append((ficl, object))
                     continue
 
                 # Get path to feedfile
@@ -552,18 +552,7 @@ def run_all(runtime_settings: RuntimeSettings):
                 )
 
                 # Track object if successfully fitted
-                fitted_objects.append(object)
-
-                # Update temporary catalog every certain number of fitted
-                # objects
-                if (len(fitted_objects) % NUM_FITS_TO_MONITOR == 0) or (
-                    len(fitted_objects) == len(objects)
-                ):
-                    catalog.update_temporary(
-                        runtime_settings=runtime_settings,
-                        ficl=ficl,
-                        objects=fitted_objects[-NUM_FITS_TO_MONITOR:],
-                    )
+                runtime_settings.monitor_list.append((ficl, object))
 
             # Catch any errors and skip to next object
             except Exception as e:

@@ -196,6 +196,9 @@ class FICL(BaseModel):
             [self.field, self.image_version, self.catalog_version, self.filter]
         )
 
+    def __eq__(self, other):
+        return (isinstance(other, FICL)) and (str(self) == str(other))
+
     def remove_objects(self, objects_to_remove: list[int]):
         """Remove objects from this FICL's configuration.
 
@@ -388,6 +391,12 @@ class RuntimeSettings(BaseModel):
         Files to remake in this program run, by default None (N/A).
     morphology : MorphologySettings | None
         Settings for morphology fitting programs, by default None (N/A).
+    monitor_every: int
+        Number of fits after which to update temporary catalog, by default 100.
+    monitor_list : list[tuple[FICL, int]]
+        Fitted FICLOs, in order of their fitting, as a list of (FICL, object)
+        tuples, by default empty.
+        Used to track fits for writing to temporary catalog.
     """
 
     date_time: datetime
@@ -400,6 +409,8 @@ class RuntimeSettings(BaseModel):
     stages: Optional[StageSettings] = None
     remake: Optional[RemakeSettings] = None
     morphology: Optional[MorphologySettings] = None
+    monitor_every: int = 100
+    monitor_list: list[tuple[FICL, int]] = []
 
     def setup_directories(self, initialized: bool = True):
         """Create required input, output, and/or product directories for this
@@ -534,6 +545,7 @@ class RuntimeSettings(BaseModel):
         settings["process_count"] = self.process_count
         settings["log_level"] = self.log_level
         settings["progress_bar"] = self.progress_bar
+        settings["monitor_every"] = self.monitor_every
 
         # Add paths as strings
         settings["roots"] = {}
@@ -563,8 +575,8 @@ class RuntimeSettings(BaseModel):
                 "catalog version": ficl.catalog_version,
                 "filter": ficl.filter,
                 "pixscale": science.get_str_from_pixscale(ficl.pixscale),
-                "objects":ficl.objects,
-                "failed":ficl.failed,
+                "objects": ficl.objects,
+                "failed": ficl.failed,
             }
             settings["ficls"].append(ficl_dict)
 
@@ -1812,8 +1824,9 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
 
     # Get primitive type runtime setting attributes
     date_time = datetime.now()
-    progress_bar = get_priority_setting("progress_bar", *settings_pack)
     log_level = get_priority_setting("log_level", *settings_pack)
+    progress_bar = get_priority_setting("progress_bar", *settings_pack)
+    monitor_every = get_priority_setting("monitor", *settings_pack)
     process_id = get_priority_setting("batch_process_id", *settings_pack)
     process_count = get_priority_setting("batch_n_process", *settings_pack)
     first_object = get_priority_setting("first_object", *settings_pack)
@@ -1855,14 +1868,16 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
 
     ## Set attributes which may be None at this point, if they are set
     ## Otherwise they will be set to default as per the class definition
+    if log_level is not None:
+        runtime_dict["log_level"] = log_level
+    if progress_bar is not None:
+        runtime_dict["progress_bar"] = progress_bar
+    if monitor_every is not None:
+        runtime_dict["monitor_every"] = monitor_every
     if process_id is not None:
         runtime_dict["process_id"] = process_id
     if process_count is not None:
         runtime_dict["process_count"] = process_count
-    if progress_bar is not None:
-        runtime_dict["progress_bar"] = progress_bar
-    if log_level is not None:
-        runtime_dict["log_level"] = log_level
     if stages is not None:
         runtime_dict["stages"] = stages
     if remake is not None:
@@ -1945,8 +1960,9 @@ def get_settings(
     objects: list[int] | None = None,
     first_object: int | None = None,
     last_object: int | None = None,
-    progress_bar: bool | None = None,
     log_level: str | None = None,
+    progress_bar: bool | None = None,
+    monitor: int | None = None,
     skip_unzip: bool | None = None,
     skip_product: bool | None = None,
     skip_morphology: bool | None = None,
@@ -2010,10 +2026,12 @@ def get_settings(
         First object ID in range, by default None.
     last_object : int | None, optional
         Last object ID in range, by default None.
-    progress_bar : bool | None, optional
-        Show progress bar and suppress per-object logging, by default None.
     log_level : str | None, optional
         Level at which to log, by default None.
+    progress_bar : bool | None, optional
+        Show progress bar and suppress per-object logging, by default None.
+    monitor : int | None, optional
+        Number of fits after which to update temporary catalog, by default None.
     skip_unzip : bool | None, optional
         Skip unzipping stage, by default None.
     skip_product : bool | None, optional
