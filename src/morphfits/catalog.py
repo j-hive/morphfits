@@ -99,6 +99,8 @@ MERGE_CATALOG_ROW_TYPE = tuple[
     float,
     float,
     float,
+    float,
+    float,
 ]
 PARAMETER_LIST_TYPE = tuple[float, float, float, float, float, float, float]
 """Column types for a MorphFITS catalog, and parameter types, as types.
@@ -425,14 +427,15 @@ def get_catalog_row(
                     flags,
                     convergence,
                     chi,
-                    guess,
                 ]
 
                 # Add each parameter and error to row
-                for parameter in parameters:
-                    catalog_row.append(parameter)
-                for error in errors:
-                    catalog_row.append(error)
+                for i in range(len(parameters)):
+                    catalog_row.append(parameters[i])
+                    catalog_row.append(errors[i])
+
+                # Add estimate to row
+                catalog_row.append(guess)
 
             elif isinstance(morphology, ImcascadeSettings):
                 raise NotImplementedError("unimplemented morphology method")

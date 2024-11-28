@@ -143,7 +143,7 @@ DEFAULT_CATALOG_VERSION = "dja-v7.2"
 """
 
 
-DEFAULT_PIXSCALE = [0.04, 0.04]
+DEFAULT_PIXSCALE = (0.04, 0.04)
 """Default pixel scale, 40mas.
 """
 
@@ -557,10 +557,16 @@ class RuntimeSettings(BaseModel):
         # Add FICLs as a list of dicts
         settings["ficls"] = []
         for ficl in self.ficls:
-            settings["ficls"].append(ficl.__dict__)
-            settings["ficls"][-1]["pixscale"] = science.get_str_from_pixscale(
-                ficl.pixscale
-            )
+            ficl_dict = {
+                "field": ficl.field,
+                "image version": ficl.image_version,
+                "catalog version": ficl.catalog_version,
+                "filter": ficl.filter,
+                "pixscale": science.get_str_from_pixscale(ficl.pixscale),
+                "objects":ficl.objects,
+                "failed":ficl.failed,
+            }
+            settings["ficls"].append(ficl_dict)
 
         # Write settings to file
         settings_path = get_path(
@@ -1308,7 +1314,7 @@ def get_ficls(
                         pixscale = science.get_pixscale(science_path)
                     except Exception as e:
                         logger.error(e)
-                        pixscale = [0.04, 0.04]
+                        pixscale = DEFAULT_PIXSCALE
 
                     # Create FICL object and add to list
                     ficl = FICL(
