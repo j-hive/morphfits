@@ -21,7 +21,7 @@ from typing import Annotated, Union, Optional, Literal
 
 from tqdm import tqdm
 import yaml
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, StringConstraints, PositiveInt
 
 from . import DATA_ROOT
 from .utils import logs, misc, science
@@ -391,7 +391,7 @@ class RuntimeSettings(BaseModel):
         Files to remake in this program run, by default None (N/A).
     morphology : MorphologySettings | None
         Settings for morphology fitting programs, by default None (N/A).
-    monitor_every: int
+    monitor_every: PositiveInt
         Number of fits after which to update temporary catalog, by default 100.
     monitor_list : list[tuple[FICL, int]]
         Fitted FICLOs, in order of their fitting, as a list of (FICL, object)
@@ -409,7 +409,7 @@ class RuntimeSettings(BaseModel):
     stages: Optional[StageSettings] = None
     remake: Optional[RemakeSettings] = None
     morphology: Optional[MorphologySettings] = None
-    monitor_every: int = 100
+    monitor_every: PositiveInt = 100
     monitor_list: list[tuple[FICL, int]] = []
 
     def setup_directories(self, initialized: bool = True):

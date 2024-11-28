@@ -483,10 +483,6 @@ def galwrap(
             + f"/ {runtime_settings.process_count-1}"
         )
 
-    # Write settings to file in run directory
-    runtime_settings.write()
-    science_settings.write(runtime_settings=runtime_settings)
-
     # Unzip zipped files
     if runtime_settings.stages.unzip:
         initialize.unzip_all(runtime_settings=runtime_settings)
@@ -522,6 +518,10 @@ def galwrap(
     # Remove empty directories
     if runtime_settings.stages.cleanup:
         runtime_settings.cleanup_directories()
+
+    # Write settings to file in run directory
+    runtime_settings.write()
+    science_settings.write(runtime_settings=runtime_settings)
 
     # Exit
     logger.info("Exiting MorphFITS.")

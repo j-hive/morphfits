@@ -485,10 +485,8 @@ def run_all(runtime_settings: RuntimeSettings):
             # Try running GALFIT for object
             try:
                 # Update temporary catalog every n fits
-                if (runtime_settings.monitor_every > 0) and (
-                    len(runtime_settings.monitor_list) % runtime_settings.monitor_every
-                    == 0
-                ):
+                n_fitted = len(runtime_settings.monitor_list)
+                if (n_fitted % runtime_settings.monitor_every == 0) and (n_fitted > 0):
                     catalog.update_temporary(runtime_settings)
 
                 # Get path to model
