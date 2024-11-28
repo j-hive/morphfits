@@ -397,26 +397,16 @@ def make_ficl_stamps(
                 continue
 
             # Get object position, Kron radius, and flux from catalog
-            position = science.get_position(input_catalog=input_catalog, object=object)
-            kron_radius = science.get_kron_radius(
-                input_catalog=input_catalog,
-                catalog_version=ficl.catalog_version,
-                object=object,
-            )
-            flux = science.get_flux(
-                input_catalog=input_catalog,
-                catalog_version=ficl.catalog_version,
-                filter=ficl.filter,
-                object=object,
-            )
+            row = science.get_catalog_row(input_catalog=input_catalog, object=object)
+            position = science.get_position(row=row)
+            kron_radius = science.get_kron_radius(row=row)
+            flux = science.get_flux(filter=ficl.filter, row=row)
 
-            # Get image size and surface brightness
+            # Get image size and magnitude
             image_size = science.get_image_size(
                 radius=kron_radius, scale=science_settings.scale
             )
-            integrated_magnitude = science.get_integrated_magnitude(
-                input_catalog=input_catalog, object=object
-            )
+            integrated_magnitude = science.get_integrated_magnitude(row=row)
             surface_brightness = science.get_surface_brightness(
                 radius=kron_radius, pixscale=ficl.pixscale, flux=flux
             )
@@ -545,12 +535,9 @@ def make_ficl_sigmas(
             stamp_wcs = WCS(header=stamp_headers)
 
             # Get object position and image size from catalog
-            position = science.get_position(input_catalog=input_catalog, object=object)
-            kron_radius = science.get_kron_radius(
-                input_catalog=input_catalog,
-                catalog_version=ficl.catalog_version,
-                object=object,
-            )
+            row = science.get_catalog_row(input_catalog=input_catalog, object=object)
+            position = science.get_position(row=row)
+            kron_radius = science.get_kron_radius(row=row)
             image_size = science.get_image_size(
                 radius=kron_radius, scale=science_settings.scale
             )
@@ -686,11 +673,8 @@ def make_ficl_psfs(
             # Make FICLO PSF crop if flag not activated
             else:
                 # Get object image size from catalog
-                kron_radius = science.get_kron_radius(
-                    input_catalog=input_catalog,
-                    catalog_version=ficl.catalog_version,
-                    object=object,
-                )
+                row = science.get_catalog_row(input_catalog, object)
+                kron_radius = science.get_kron_radius(row=row)
                 image_size = science.get_image_size(
                     radius=kron_radius, scale=science_settings.scale
                 )
@@ -801,12 +785,9 @@ def make_ficl_masks(
             stamp_wcs = WCS(header=stamp_headers)
 
             # Get position and image size of this object
-            position = science.get_position(input_catalog=input_catalog, object=object)
-            kron_radius = science.get_kron_radius(
-                input_catalog=input_catalog,
-                catalog_version=ficl.catalog_version,
-                object=object,
-            )
+            row = science.get_catalog_row(input_catalog=input_catalog, object=object)
+            position = science.get_position(row=row)
+            kron_radius = science.get_kron_radius(row=row)
             image_size = science.get_image_size(
                 radius=kron_radius, scale=science_settings.scale
             )

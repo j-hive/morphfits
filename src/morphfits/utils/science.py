@@ -33,6 +33,9 @@ PHOTOMETRY_ZEROPOINT = 23.9
 # Functions
 
 
+## FITS
+
+
 def get_fits_data(
     path: Path, hdu: str | int = "PRIMARY"
 ) -> tuple[np.ndarray, fits.Header]:
@@ -54,34 +57,14 @@ def get_fits_data(
     """
     # Open FITS file
     fits_file = fits.open(path)
+    fits_hdu: fits.PrimaryHDU = fits_file[hdu]
 
     # Get data and headers from file
-    image, headers = fits_file[hdu].data, fits_file[hdu].header
+    image, headers = fits_hdu.data, fits_hdu.header
 
     # Close file and return
     fits_file.close()
     return image, headers
-
-
-def get_all_objects(input_catalog_path: Path) -> list[int]:
-    """Get a list of all object integer IDs in a catalog.
-
-    Parameters
-    ----------
-    input_catalog_path : Path
-        Path to input catalog FITS file.
-
-    Returns
-    -------
-    list[int]
-        List of all integer IDs corresponding to each object's ID in the input
-        catalog.
-    """
-    # Read input catalog
-    input_catalog = Table.read(input_catalog_path)
-
-    # Return list of IDs as integers
-    return [int(id_object) for id_object in input_catalog["id"]]
 
 
 def get_zeropoint(headers: fits.Header, magnitude_system: str = "AB") -> float:
@@ -128,8 +111,64 @@ def get_zeropoint(headers: fits.Header, magnitude_system: str = "AB") -> float:
             )
 
 
-def get_position(input_catalog: Table, object: int) -> SkyCoord:
-    """Retrieve the RA and Dec of an object in its catalog as a SkyCoord object.
+def get_integrated_magnitude_from_headers(headers: fits.Header) -> float:
+    """Get the integrated magnitude for a FICLO's product from its headers.
+
+    Parameters
+    ----------
+    headers : fits.Header
+        Headers for this FICLO product.
+
+    Returns
+    -------
+    float
+        Integrated magnitude for this FICLO product.
+    """
+    return headers["IM"]
+
+
+def get_surface_brightness_from_headers(headers: fits.Header) -> float:
+    """Get the surface brightness for a FICLO's product from its headers.
+
+    Parameters
+    ----------
+    headers : fits.Header
+        Headers for this FICLO product.
+
+    Returns
+    -------
+    float
+        Surface brightness for this FICLO product.
+    """
+    return headers["SB"]
+
+
+## Photometric Catalog
+
+
+def get_all_objects(input_catalog_path: Path) -> list[int]:
+    """Get a list of all object integer IDs in a catalog.
+
+    Parameters
+    ----------
+    input_catalog_path : Path
+        Path to input catalog FITS file.
+
+    Returns
+    -------
+    list[int]
+        List of all integer IDs corresponding to each object's ID in the input
+        catalog.
+    """
+    # Read input catalog
+    input_catalog = Table.read(input_catalog_path)
+
+    # Return list of IDs as integers
+    return [int(id_object) for id_object in input_catalog["id"]]
+
+
+def get_catalog_row(input_catalog: Table, object: int) -> Table:
+    """Get an object's data row in its corresponding photometric catalog.
 
     Parameters
     ----------
@@ -137,6 +176,68 @@ def get_position(input_catalog: Table, object: int) -> SkyCoord:
         Catalog detailing each identified object in a field.
     object : int
         Integer ID of object in catalog.
+
+    Returns
+    -------
+    Table
+        Data row of object, if it is found.
+    """
+    return input_catalog[input_catalog["id"] == object]
+
+
+def get_catalog_datum(
+    key: str,
+    type: type,
+    row: Table | None = None,
+    input_catalog: Table | None = None,
+    object: int | None = None,
+) -> bool | int | float:
+    """Get a casted datum from a catalog row.
+
+    Parameters
+    ----------
+    key : str
+        Key in catalog, i.e. column name.
+    type : type
+        Type to which to cast.
+    row : Table | None, optional
+        Data row of object in catalog, by default None (catalog provided).
+    input_catalog : Table | None, optional
+        Catalog detailing each identified object in a field, by default None
+        (row provided).
+    object : int | None, optional
+        Integer ID of object in catalog, by default None (row provided).
+
+
+    Returns
+    -------
+    bool | int | float
+        Casted datum from catalog row.
+    """
+    # Get row if not passed
+    if row is None:
+        row = get_catalog_row(input_catalog, object)
+
+    # Return casted value
+    return type(row[key])
+
+
+def get_position(
+    row: Table | None = None,
+    input_catalog: Table | None = None,
+    object: int | None = None,
+) -> SkyCoord:
+    """Retrieve the RA and Dec of an object, as a SkyCoord object.
+
+    Parameters
+    ----------
+    row : Table | None, optional
+        Data row of object in catalog, by default None (catalog provided).
+    input_catalog : Table | None, optional
+        Catalog detailing each identified object in a field, by default None
+        (row provided).
+    object : int | None, optional
+        Integer ID of object in catalog, by default None (row provided).
 
     Returns
     -------
@@ -144,100 +245,155 @@ def get_position(input_catalog: Table, object: int) -> SkyCoord:
         Position of object as a SkyCoord astropy object.
     """
     return SkyCoord(
-        ra=float(input_catalog[input_catalog["id"] == object]["ra"]),
-        dec=float(input_catalog[input_catalog["id"] == object]["dec"]),
+        ra=get_catalog_datum("ra", float, row, input_catalog, object),
+        dec=get_catalog_datum("dec", float, row, input_catalog, object),
         unit="deg",
     )
 
 
-def get_kron_radius(input_catalog: Table, catalog_version: str, object: int) -> float:
-    """Get the Kron radius for an object from its corresponding photometric
-    catalog.
+def get_kron_radius(
+    row: Table | None = None,
+    input_catalog: Table | None = None,
+    object: int | None = None,
+) -> float:
+    """Get the Kron radius for an object, in pixels.
 
     Parameters
     ----------
-    input_catalog : Table
-        Catalog detailing each identified object in a field.
-    catalog_version : str
-        Version of cataloging, e.g. 'dja-v7.2'.
-    object : int
-        Integer ID of object in catalog.
+    row : Table | None, optional
+        Data row of object in catalog, by default None (catalog provided).
+    input_catalog : Table | None, optional
+        Catalog detailing each identified object in a field, by default None
+        (row provided).
+    object : int | None, optional
+        Integer ID of object in catalog, by default None (row provided).
 
     Returns
     -------
     float
         Characteristic radius of object.
-
-    Raises
-    ------
-    NotImplementedError
-        Unknown catalog version.
     """
-    # Expecting DJA catalog version keys to get kron radius
-    if "dja" in catalog_version:
-        # Get Kron radius from catalog
-        if "kron_radius_circ" in input_catalog.keys():
-            kron_radius = input_catalog[input_catalog["id"] == object][
-                "kron_radius_circ"
-            ]
-        else:
-            kron_radius = input_catalog[input_catalog["id"] == object]["kron_radius"]
-
-        # Return radius
-        return float(kron_radius)
-
-    # Other catalog versions may store their kron radius elsewhere
-    else:
-        raise NotImplementedError(f"catalog version {catalog_version} unrecognized")
+    return get_catalog_datum("kron_radius", float, row, input_catalog, object)
 
 
 def get_flux(
-    input_catalog: Table, catalog_version: str, filter: str, object: int
+    filter: str,
+    row: Table | None = None,
+    input_catalog: Table | None = None,
+    object: int | None = None,
 ) -> float:
-    """Get the integrated flux for an object from its corresponding photometric
-    catalog.
+    """Get the integrated flux for an object, in uJy.
 
     Parameters
     ----------
-    input_catalog : Table
-        Catalog detailing each identified object in a field.
-    catalog_version : str
-        Version of cataloging, e.g. 'dja-v7.2'.
     filter : str
-        Name of filter, e.g. 'f200w-clear'.
-    object : int
-        Integer ID of object in catalog.
+        Filter from which to get flux for object.
+    row : Table | None, optional
+        Data row of object in catalog, by default None (catalog provided).
+    input_catalog : Table | None, optional
+        Catalog detailing each identified object in a field, by default None
+        (row provided).
+    object : int | None, optional
+        Integer ID of object in catalog, by default None (row provided).
 
     Returns
     -------
     float
         Integrated flux within an effective radius for object in a given filter.
-
-    Raises
-    ------
-    NotImplementedError
-        Unknown catalog version.
     """
-    # Expecting DJA catalog version keys to get kron radius
-    if "dja" in catalog_version:
-        # Get cleaned filter name
-        if "-" in filter:
-            filters = filter.split("-")
-            filter = filters[1] if "clear" in filters[0] else filters[0]
+    # Get cleaned filter name
+    if "-" in filter:
+        filters = filter.split("-")
+        filter = filters[1] if "clear" in filters[0] else filters[0]
 
-        # Get flux from catalog
-        flux_key = f"{filter}_corr_1"
-        if flux_key in input_catalog.keys():
-            flux = input_catalog[input_catalog["id"] == object][flux_key]
-        else:
-            raise KeyError(f"flux key {flux_key} not found")
+    # Get flux from catalog
+    flux_key = f"{filter}_corr_1"
+    return get_catalog_datum(flux_key, float, row, input_catalog, object)
 
-        # Return flux
-        return float(flux)
 
-    # Other catalog versions may store their kron radius elsewhere
-    else:
-        raise NotImplementedError(f"catalog version {catalog_version} unrecognized")
+def get_half_light_radius(
+    row: Table | None = None,
+    input_catalog: Table | None = None,
+    object: int | None = None,
+) -> float:
+    """Get the half light radius for an object, in pixels.
+
+    Parameters
+    ----------
+    row : Table | None, optional
+        Data row of object in catalog, by default None (catalog provided).
+    input_catalog : Table | None, optional
+        Catalog detailing each identified object in a field, by default None
+        (row provided).
+    object : int | None, optional
+        Integer ID of object in catalog, by default None (row provided).
+
+    Returns
+    -------
+    float
+        Half light radius of object.
+    """
+    return get_catalog_datum("a_image", float, row, input_catalog, object)
+
+
+def get_axis_ratio(
+    row: Table | None = None,
+    input_catalog: Table | None = None,
+    object: int | None = None,
+) -> float:
+    """Get the axis ratio for an object.
+
+    Parameters
+    ----------
+    row : Table | None, optional
+        Data row of object in catalog, by default None (catalog provided).
+    input_catalog : Table | None, optional
+        Catalog detailing each identified object in a field, by default None
+        (row provided).
+    object : int | None, optional
+        Integer ID of object in catalog, by default None (row provided).
+
+    Returns
+    -------
+    float
+        Axis ratio of object.
+    """
+    a = get_catalog_datum("a_image", float, row, input_catalog, object)
+    b = get_catalog_datum("b_image", float, row, input_catalog, object)
+    return b / a
+
+
+def get_integrated_magnitude(
+    row: Table | None = None,
+    input_catalog: Table | None = None,
+    object: int | None = None,
+) -> float:
+    """Calculate an estimate of the integrated magnitude of an object, as an AB
+    magnitude.
+
+    Parameters
+    ----------
+    row : Table | None, optional
+        Data row of object in catalog, by default None (catalog provided).
+    input_catalog : Table | None, optional
+        Catalog detailing each identified object in a field, by default None
+        (row provided).
+    object : int | None, optional
+        Integer ID of object in catalog, by default None (row provided).
+
+    Returns
+    -------
+    float
+        Integrated magnitude of object.
+    """
+    integrated_magnitude = get_catalog_datum(
+        "mag_auto", float, row, input_catalog, object
+    )
+    assert not np.isnan(integrated_magnitude), "magnitude NaN"
+    return integrated_magnitude
+
+
+## Calculation
 
 
 def get_image_size(radius: float, scale: float) -> int:
@@ -262,69 +418,6 @@ def get_image_size(radius: float, scale: float) -> int:
 
     # Return maximum between calculated and minimum image size
     return np.nanmax([image_size, MINIMUM_IMAGE_SIZE])
-
-
-def get_half_light_radius(input_catalog: Table, object: int) -> float:
-    """Get the half light radius for an object from its entry in its
-    corresponding input catalog.
-
-    Parameters
-    ----------
-    input_catalog : Table
-        Table cataloging each object in its field.
-    object : int
-        Integer ID of object in the catalog.
-
-    Returns
-    -------
-    float
-        Half light radius of object.
-    """
-    return float(input_catalog[input_catalog["id"] == object]["a_image"])
-
-
-def get_axis_ratio(input_catalog: Table, object: int) -> float:
-    """Get the axis ratio for an object from its entry in its corresponding
-    input catalog.
-
-    Parameters
-    ----------
-    input_catalog : Table
-        Table cataloging each object in its field.
-    object : int
-        Integer ID of object in the catalog.
-
-    Returns
-    -------
-    float
-        Axis ratio of object.
-    """
-    return float(input_catalog[input_catalog["id"] == object]["b_image"]) / float(
-        input_catalog[input_catalog["id"] == object]["a_image"]
-    )
-
-
-def get_integrated_magnitude(input_catalog: Table, object: int) -> float:
-    """Calculate an estimate of the integrated magnitude of an object, as an AB
-    magnitude.
-
-    Parameters
-    ----------
-    input_catalog : Table
-        Table cataloging each object in its field.
-    object : int
-        Integer ID of object in the catalog.
-
-    Returns
-    -------
-    float
-        Integrated magnitude of object.
-    """
-    integrated_magnitude = float(
-        input_catalog[input_catalog["id"] == object]["mag_auto"]
-    )
-    assert not np.isnan(integrated_magnitude), "magnitude NaN"
-    return integrated_magnitude
 
 
 def get_surface_brightness(
@@ -372,46 +465,6 @@ def get_surface_brightness(
 
     # Calculate and return surface brightness as magnitude offset by area
     return magnitude + 2.5 * np.log10(area)
-
-
-def get_integrated_magnitude_from_headers(
-    runtime_settings, headers: fits.Header
-) -> float:
-    """Get the integrated magnitude for a FICLO's product from its headers.
-
-    Parameters
-    ----------
-    runtime_settings : RuntimeSettings
-        Settings for this runtime.
-    headers : fits.Header
-        Headers for this FICLO product.
-
-    Returns
-    -------
-    float
-        Integrated magnitude for this FICLO product.
-    """
-    return headers["IM"]
-
-
-def get_surface_brightness_from_headers(
-    runtime_settings, headers: fits.Header
-) -> float:
-    """Get the surface brightness for a FICLO's product from its headers.
-
-    Parameters
-    ----------
-    runtime_settings : RuntimeSettings
-        Settings for this runtime.
-    headers : fits.Header
-        Headers for this FICLO product.
-
-    Returns
-    -------
-    float
-        Surface brightness for this FICLO product.
-    """
-    return headers["SB"]
 
 
 def get_pixscale(path: Path) -> tuple[float, float]:

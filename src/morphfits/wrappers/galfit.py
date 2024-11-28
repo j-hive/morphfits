@@ -371,30 +371,23 @@ def make_all_feedfiles(
                     object=object,
                 )
                 stamp_image, stamp_headers = science.get_fits_data(stamp_path)
-                kron_radius = science.get_kron_radius(
-                    input_catalog=input_catalog,
-                    catalog_version=ficl.catalog_version,
-                    object=object,
-                )
+                row = science.get_catalog_row(input_catalog, object)
+                kron_radius = science.get_kron_radius(row=row)
+                half_light_radius = science.get_half_light_radius(row=row)
+                axis_ratio = science.get_axis_ratio(row=row)
                 image_size = science.get_image_size(
                     radius=kron_radius, scale=science_settings.scale
-                )
-                half_light_radius = science.get_half_light_radius(
-                    input_catalog=input_catalog, object=object
-                )
-                axis_ratio = science.get_axis_ratio(
-                    input_catalog=input_catalog, object=object
                 )
 
                 # Get integrated magnitude if profile is sersic
                 if science_settings.morphology.profile == "sersic":
                     magnitude = science.get_integrated_magnitude_from_headers(
-                        runtime_settings=runtime_settings, headers=stamp_headers
+                        headers=stamp_headers
                     )
                 # Otherwise get surface brightness
                 else:
                     magnitude = science.get_surface_brightness_from_headers(
-                        runtime_settings=runtime_settings, headers=stamp_headers
+                        headers=stamp_headers
                     )
 
                 # Apply boost to magnitude estimate
