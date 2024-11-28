@@ -592,6 +592,8 @@ class ScienceSettings(BaseModel):
 
     Parameters
     ----------
+    minimum : int
+        Minimum square image size, in pixels, by default 32.
     scale : float
         Scale factor by which to multiply the initial radius (usually Kron) for
         image size, by default 20.
@@ -605,6 +607,7 @@ class ScienceSettings(BaseModel):
         Settings for morphology fitting programs, by default None (N/A).
     """
 
+    minimum: int = 32
     scale: float = 20
     psf_copy: bool = True
     psf_size: int = 80
@@ -617,6 +620,7 @@ class ScienceSettings(BaseModel):
         # Initialize empty dict for writing
         settings = {
             "science": {
+                "minimum": self.minimum,
                 "scale": self.scale,
                 "psf_copy": self.psf_copy,
                 "psf_size": self.psf_size,
@@ -1916,6 +1920,7 @@ def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSett
     settings_pack = [cli_settings, file_settings]
 
     # Get primitive settings
+    minimum = get_priority_science_setting("minimum", *settings_pack)
     scale = get_priority_science_setting("scale", *settings_pack)
     psf_copy = get_priority_science_setting("psf_copy", *settings_pack)
     psf_size = get_priority_science_setting("psf_size", *settings_pack)
@@ -1928,6 +1933,8 @@ def get_science_settings(cli_settings: dict, file_settings: dict) -> ScienceSett
 
     ## Set attributes which may be None at this point, if they are set
     ## Otherwise they will be set to default as per the class definition
+    if minimum is not None:
+        science_dict["minimum"] = minimum
     if scale is not None:
         science_dict["scale"] = scale
     if psf_copy is not None:
@@ -1981,6 +1988,7 @@ def get_settings(
     morphology: str | None = None,
     galfit_path: Path | None = None,
     profile: str | None = None,
+    minimum: int | None = None,
     scale: float | None = None,
     psf_copy: bool | None = None,
     psf_size: int | None = None,
@@ -2068,6 +2076,8 @@ def get_settings(
         Path to GALFIT binary executable, by default None.
     profile : str | None, optional
         Fitting profile, by default None.
+    minimum : int | None, optional
+        Minimum image size, in pixels, by default None.
     scale : float | None, optional
         Scale factor by which to multiply a stamp's Kron radius for its image
         size, by default None.

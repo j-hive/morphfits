@@ -376,7 +376,9 @@ def make_all_feedfiles(
                 half_light_radius = science.get_half_light_radius(row=row)
                 axis_ratio = science.get_axis_ratio(row=row)
                 image_size = science.get_image_size(
-                    radius=kron_radius, scale=science_settings.scale
+                    radius=kron_radius,
+                    scale=science_settings.scale,
+                    minimum=science_settings.minimum,
                 )
 
                 # Get integrated magnitude if profile is sersic

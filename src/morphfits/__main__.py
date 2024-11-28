@@ -356,6 +356,15 @@ def galwrap(
             show_default="sersic1",
         ),
     ] = None,
+    minimum: Annotated[
+        Optional[int],
+        typer.Option(
+            "--minimum",
+            help="Minimum image size, in pixels.",
+            rich_help_panel="Science",
+            show_default="32",
+        ),
+    ] = None,
     scale: Annotated[
         Optional[float],
         typer.Option(
@@ -466,6 +475,7 @@ def galwrap(
         morphology="galfit",
         galfit_path=galfit_path,
         profile=profile,
+        minimum=minimum,
         scale=scale,
         psf_copy=psf_copy,
         psf_size=psf_size,

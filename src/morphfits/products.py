@@ -404,7 +404,9 @@ def make_ficl_stamps(
 
             # Get image size and magnitude
             image_size = science.get_image_size(
-                radius=kron_radius, scale=science_settings.scale
+                radius=kron_radius,
+                scale=science_settings.scale,
+                minimum=science_settings.minimum,
             )
             integrated_magnitude = science.get_integrated_magnitude(row=row)
             surface_brightness = science.get_surface_brightness(
@@ -539,7 +541,9 @@ def make_ficl_sigmas(
             position = science.get_position(row=row)
             kron_radius = science.get_kron_radius(row=row)
             image_size = science.get_image_size(
-                radius=kron_radius, scale=science_settings.scale
+                radius=kron_radius,
+                scale=science_settings.scale,
+                minimum=science_settings.minimum,
             )
 
             # Make sigma map for object
@@ -676,7 +680,9 @@ def make_ficl_psfs(
                 row = science.get_catalog_row(input_catalog, object)
                 kron_radius = science.get_kron_radius(row=row)
                 image_size = science.get_image_size(
-                    radius=kron_radius, scale=science_settings.scale
+                    radius=kron_radius,
+                    scale=science_settings.scale,
+                    minimum=science_settings.minimum,
                 )
 
                 # Calculate PSF size from ratio of PSF pixscale to science
@@ -789,7 +795,9 @@ def make_ficl_masks(
             position = science.get_position(row=row)
             kron_radius = science.get_kron_radius(row=row)
             image_size = science.get_image_size(
-                radius=kron_radius, scale=science_settings.scale
+                radius=kron_radius,
+                scale=science_settings.scale,
+                minimum=science_settings.minimum,
             )
 
             # Make mask for object

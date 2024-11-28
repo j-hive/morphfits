@@ -20,11 +20,6 @@ logger = logging.getLogger("SCIENCE")
 """Logging object for this module."""
 
 
-MINIMUM_IMAGE_SIZE = 32
-"""Minimum pixel length of square stamp image.
-"""
-
-
 PHOTOMETRY_ZEROPOINT = 23.9
 """AB zeropoint for fluxes from the DJA photometric catalogs.
 """
@@ -396,7 +391,7 @@ def get_integrated_magnitude(
 ## Calculation
 
 
-def get_image_size(radius: float, scale: float) -> int:
+def get_image_size(radius: float, scale: float, minimum: int) -> int:
     """Calculate the square pixel length of an image containing an object, from
     its cataloged Kron radius.
 
@@ -407,6 +402,8 @@ def get_image_size(radius: float, scale: float) -> int:
         radius.
     scale : float
         Scale factor by which to multiply initial radius.
+    minimum : int
+        Minimum image size, in pixels.
 
     Returns
     -------
@@ -417,7 +414,7 @@ def get_image_size(radius: float, scale: float) -> int:
     image_size = int(radius * scale)
 
     # Return maximum between calculated and minimum image size
-    return np.nanmax([image_size, MINIMUM_IMAGE_SIZE])
+    return np.nanmax([image_size, minimum])
 
 
 def get_surface_brightness(
