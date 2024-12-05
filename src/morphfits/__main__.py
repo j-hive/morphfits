@@ -356,6 +356,18 @@ def galwrap(
             show_default="sersic1",
         ),
     ] = None,
+    constraints: Annotated[
+        Optional[typer.FileText],
+        typer.Option(
+            "--constraints",
+            help="Path to custom GALFIT .constraints file.",
+            rich_help_panel="Paths",
+            exists=True,
+            dir_okay=False,
+            show_default="data/galfit/default.constraints",
+            resolve_path=True,
+        ),
+    ] = None,
     minimum: Annotated[
         Optional[int],
         typer.Option(
@@ -475,6 +487,7 @@ def galwrap(
         morphology="galfit",
         galfit_path=galfit_path,
         profile=profile,
+        constraints=constraints,
         minimum=minimum,
         scale=scale,
         psf_copy=psf_copy,

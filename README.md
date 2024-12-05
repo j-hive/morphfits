@@ -285,6 +285,8 @@ To configure scientific settings via CLI options or YAML file, use the following
 
 |CLI|YAML|Type|Default|Description|
 |:---|:---|:---|---:|:---|
+|`--profile`|`profile`|`str`|`sersic`|Fitting profile.|
+|`--constraints`|`constraints`|`Path`|`data/galfit/default.constraints`|Path to constraints file.|
 |`--minimum`|`minimum`|`int`|32|Minimum image size, in pixels.|
 |`--scale`|`scale`|`float`|1.0|Radius multiplier for stamp generation.|
 |`--copy-psfs`|`psf_copy`|`bool`|`True`|Make PSF crops per-FICL rather than per-FICLOs.|

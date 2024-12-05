@@ -321,6 +321,9 @@ class GALFITSettings(MorphologySettings):
     ----------
     binary : Path
         Path to GALFIT executable binary file.
+    constraints : Path
+        Path to GALFIT constraints file, by default
+        'data/galfit/default.constraints'.
     profile : str
         GALFIT fitting profile, by default sersic1 (surface brightness).
     boost : float
@@ -333,6 +336,7 @@ class GALFITSettings(MorphologySettings):
     """
 
     binary: Path
+    constraints: Path = DATA_ROOT / "galfit" / "default.constraints"
     profile: Literal["sersic", "sersic1"] = "sersic1"
     boost: float = 1.0
     sky: bool = True
@@ -636,12 +640,15 @@ class ScienceSettings(BaseModel):
             if isinstance(self.morphology, GALFITSettings):
                 settings["science"]["galwrap"] = {
                     "binary": str(self.morphology.binary),
+                    "constraints": str(self.morphology.constraints),
                 }
                 for (
                     morphology_setting,
                     morphology_value,
                 ) in self.morphology.__dict__.items():
-                    if morphology_setting == "binary":
+                    if (morphology_setting == "binary") or (
+                        morphology_setting == "constraints"
+                    ):
                         continue
                     settings["science"]["galwrap"][
                         morphology_setting
@@ -1550,10 +1557,11 @@ def get_morphology_settings(
         return
 
     # Return matching morphology settings instance
+    settings_pack = [cli_settings, file_settings]
     match cli_settings["morphology"]:
         case "galfit":
             # Get GALFIT binary path setting from CLI or YAML
-            galfit_path = get_priority_path("galfit_path", cli_settings, file_settings)
+            galfit_path = get_priority_path("galfit_path", *settings_pack)
 
             # Terminate if not found, return setting object otherwise
             if galfit_path is None:
@@ -1562,16 +1570,20 @@ def get_morphology_settings(
                 raise FileNotFoundError("Terminating - GALFIT binary not found.")
 
             # Get brightness boost setting from CLI or YAML
-            profile = get_priority_science_setting(
-                "profile", cli_settings, file_settings
-            )
-            boost = get_priority_science_setting("boost", cli_settings, file_settings)
-            sky = get_priority_science_setting("sky", cli_settings, file_settings)
+            profile = get_priority_science_setting("profile", *settings_pack)
+            constraints = get_priority_science_setting("constraints", *settings_pack)
+            boost = get_priority_science_setting("boost", *settings_pack)
+            sky = get_priority_science_setting("sky", *settings_pack)
 
             # Set dict from found settings
             galfit_dict = {"binary": galfit_path}
             if profile is not None:
                 galfit_dict["profile"] = profile
+            if constraints is not None:
+                try:
+                    galfit_dict["constraints"] = misc.get_path_obj(constraints)
+                except:
+                    pass
             if boost is not None:
                 try:
                     galfit_dict["boost"] = float(boost)
@@ -1992,6 +2004,7 @@ def get_settings(
     morphology: str | None = None,
     galfit_path: Path | None = None,
     profile: str | None = None,
+    constraints: Path | None = None,
     minimum: int | None = None,
     scale: float | None = None,
     psf_copy: bool | None = None,
@@ -2080,6 +2093,8 @@ def get_settings(
         Path to GALFIT binary executable, by default None.
     profile : str | None, optional
         Fitting profile, by default None.
+    constraints : Path | None, optional
+        Path to GALFIT constraints file, by default None.
     minimum : int | None, optional
         Minimum image size, in pixels, by default None.
     scale : float | None, optional

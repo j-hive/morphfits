@@ -349,7 +349,7 @@ def make_all_feedfiles(
                     ficl=ficl,
                     object=object,
                 )
-                constraints_path = DEFAULT_CONSTRAINTS_PATH
+                constraints_path = science_settings.morphology.constraints
 
                 # Skip objects with missing products
                 if (
