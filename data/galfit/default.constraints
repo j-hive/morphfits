@@ -1,7 +1,7 @@
 #   component   parameter   constraint  comment
 #   /operation              range
 
-    1           re          1 to 100    # Hard constraint: similar to above
+    1           re          0.1 to 100  # Hard constraint: similar to above
                                         # except constrain the Re parameters 
                                         # by their ratio, as defined by the
                                         # initial parameter file.
