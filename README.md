@@ -286,7 +286,7 @@ To configure scientific settings via CLI options or YAML file, use the following
 |CLI|YAML|Type|Default|Description|
 |:---|:---|:---|---:|:---|
 |`--minimum`|`minimum`|`int`|32|Minimum image size, in pixels.|
-|`--scale`|`scale`|`float`|20|Kron radius multiplier for stamp generation.|
+|`--scale`|`scale`|`float`|1.0|Radius multiplier for stamp generation.|
 |`--copy-psfs`|`psf_copy`|`bool`|`True`|Make PSF crops per-FICL rather than per-FICLOs.|
 |`--psf-size`|`psf_size`|`int`|`80`|Per-FICL PSF crop image size.|
 |`--boost`|`boost`|`float`|`1.0`|Surface brightness estimate scalar additive offset.|
