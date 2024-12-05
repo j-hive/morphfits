@@ -408,7 +408,9 @@ class RuntimeSettings(BaseModel):
     roots: PathSettings
     stages: Optional[StageSettings] = None
     remake: Optional[RemakeSettings] = None
-    morphology: Optional[MorphologySettings] = None
+    morphology: Optional[Union[GALFITSettings, ImcascadeSettings, PysersicSettings]] = (
+        None
+    )
     monitor_every: PositiveInt = 100
     monitor_list: list[tuple[FICL, int]] = []
 
@@ -596,7 +598,7 @@ class ScienceSettings(BaseModel):
         Minimum square image size, in pixels, by default 32.
     scale : float
         Scale factor by which to multiply the initial radius (usually Kron) for
-        image size, by default 20.
+        image size, by default 1.
     psf_copy : bool
         Generate one PSF crop per filter (FICL) and copy to the directory prior
         to running morphology, rather than generating one PSF crop per object
@@ -608,10 +610,12 @@ class ScienceSettings(BaseModel):
     """
 
     minimum: int = 32
-    scale: float = 20
+    scale: float = 1.0
     psf_copy: bool = True
     psf_size: int = 80
-    morphology: Optional[MorphologySettings] = None
+    morphology: Optional[Union[GALFITSettings, ImcascadeSettings, PysersicSettings]] = (
+        None
+    )
 
     def write(self, runtime_settings: RuntimeSettings):
         """Record science settings to run directory."""

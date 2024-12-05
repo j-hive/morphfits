@@ -25,6 +25,17 @@ PHOTOMETRY_ZEROPOINT = 23.9
 """
 
 
+APERTURE_1_RADIUS = 0.25
+"""Radius of aperture 1, in arcseconds, corresponding to retrieving
+'filter_corr_1' for flux.
+
+See Also
+--------
+https://dawn-cph.github.io/dja/blog/2023/07/14/photometric-catalog-demo/
+    Other aperture radii, under 'Photometric apertures'.
+"""
+
+
 # Functions
 
 
@@ -246,6 +257,67 @@ def get_position(
     )
 
 
+def get_flux(
+    filter: str,
+    row: Table | None = None,
+    input_catalog: Table | None = None,
+    object: int | None = None,
+) -> float:
+    """Get the integrated flux for an object, in Jy.
+
+    Parameters
+    ----------
+    filter : str
+        Filter from which to get flux for object.
+    row : Table | None, optional
+        Data row of object in catalog, by default None (catalog provided).
+    input_catalog : Table | None, optional
+        Catalog detailing each identified object in a field, by default None
+        (row provided).
+    object : int | None, optional
+        Integer ID of object in catalog, by default None (row provided).
+
+    Returns
+    -------
+    float
+        Integrated flux within an effective radius for object in a given filter,
+        in Jy.
+    """
+    # Get cleaned filter name
+    if "-" in filter:
+        filters = filter.split("-")
+        filter = filters[1] if "clear" in filters[0] else filters[0]
+
+    # Get flux from catalog and convert from uJy
+    flux_key = f"{filter}_corr_1"
+    return get_catalog_datum(flux_key, float, row, input_catalog, object) * 1e3
+
+
+def get_flux_radius(
+    row: Table | None = None,
+    input_catalog: Table | None = None,
+    object: int | None = None,
+) -> float:
+    """Get the flux radius for an object, in arcseconds.
+
+    Parameters
+    ----------
+    row : Table | None, optional
+        Data row of object in catalog, by default None (catalog provided).
+    input_catalog : Table | None, optional
+        Catalog detailing each identified object in a field, by default None
+        (row provided).
+    object : int | None, optional
+        Integer ID of object in catalog, by default None (row provided).
+
+    Returns
+    -------
+    float
+        Flux radius of object.
+    """
+    return get_catalog_datum("flux_radius", float, row, input_catalog, object)
+
+
 def get_kron_radius(
     row: Table | None = None,
     input_catalog: Table | None = None,
@@ -271,47 +343,12 @@ def get_kron_radius(
     return get_catalog_datum("kron_radius", float, row, input_catalog, object)
 
 
-def get_flux(
-    filter: str,
+def get_a(
     row: Table | None = None,
     input_catalog: Table | None = None,
     object: int | None = None,
 ) -> float:
-    """Get the integrated flux for an object, in uJy.
-
-    Parameters
-    ----------
-    filter : str
-        Filter from which to get flux for object.
-    row : Table | None, optional
-        Data row of object in catalog, by default None (catalog provided).
-    input_catalog : Table | None, optional
-        Catalog detailing each identified object in a field, by default None
-        (row provided).
-    object : int | None, optional
-        Integer ID of object in catalog, by default None (row provided).
-
-    Returns
-    -------
-    float
-        Integrated flux within an effective radius for object in a given filter.
-    """
-    # Get cleaned filter name
-    if "-" in filter:
-        filters = filter.split("-")
-        filter = filters[1] if "clear" in filters[0] else filters[0]
-
-    # Get flux from catalog
-    flux_key = f"{filter}_corr_1"
-    return get_catalog_datum(flux_key, float, row, input_catalog, object)
-
-
-def get_half_light_radius(
-    row: Table | None = None,
-    input_catalog: Table | None = None,
-    object: int | None = None,
-) -> float:
-    """Get the half light radius for an object, in pixels.
+    """Get the semi-major axis for an object, in arcseconds.
 
     Parameters
     ----------
@@ -326,7 +363,7 @@ def get_half_light_radius(
     Returns
     -------
     float
-        Half light radius of object.
+        Semi-major axis of object, in arcseconds.
     """
     return get_catalog_datum("a_image", float, row, input_catalog, object)
 
@@ -384,7 +421,8 @@ def get_integrated_magnitude(
     integrated_magnitude = get_catalog_datum(
         "mag_auto", float, row, input_catalog, object
     )
-    assert not np.isnan(integrated_magnitude), "magnitude NaN"
+    if np.isnan(integrated_magnitude):
+        raise ValueError("magnitude NaN")
     return integrated_magnitude
 
 
@@ -398,8 +436,7 @@ def get_image_size(radius: float, scale: float, minimum: int) -> int:
     Parameters
     ----------
     radius : float
-        Characteristic radius of object, in pixels. By default, known as Kron
-        radius.
+        Characteristic radius of object, in pixels.
     scale : float
         Scale factor by which to multiply initial radius.
     minimum : int
@@ -418,9 +455,9 @@ def get_image_size(radius: float, scale: float, minimum: int) -> int:
 
 
 def get_surface_brightness(
-    radius: float,
-    pixscale: tuple[int, int],
     flux: float,
+    radius: float = APERTURE_1_RADIUS,
+    pixscale: tuple[int, int] | None = None,
     zeropoint: float = PHOTOMETRY_ZEROPOINT,
 ) -> float:
     """Calculate an estimate of the surface brightness of an object, as an AB
@@ -428,17 +465,17 @@ def get_surface_brightness(
 
     Parameters
     ----------
-    radius : float
-        Characteristic radius of object, in pixels. By default, known as Kron
-        radius.
-    pixscale : tuple[int, int]
-        Pixel scale along the x and y axes, respectively, in arcseconds per
-        pixel.
     flux : float
         Integrated flux across an effective radius (distinct from the radius
         parameter for this function). By default, from the photometric catalog.
-    zeropoint : float
-        Zeropoint magnitude for this field, as an AB magnitude.
+    radius : float
+        Characteristic radius of object, in arcseconds or pixels, by default
+        0.25".
+    pixscale : tuple[int, int] | None, optional
+        Pixel scale along the x and y axes, respectively, in arcseconds per
+        pixel, by default None (radius in arcseconds).
+    zeropoint : float, optional
+        Zeropoint magnitude for this field, as an AB magnitude, by default 23.9.
 
     Returns
     -------
@@ -458,10 +495,30 @@ def get_surface_brightness(
     magnitude = -2.5 * np.log10(flux) + zeropoint
 
     # Calculate area within radius as squared arcseconds
-    area = np.pi * np.power(radius * np.average(pixscale), 2)
+    radius_in_as = radius * (1 if pixscale is None else max(pixscale))
+    area = np.pi * np.power(radius_in_as, 2)
+    offset = 2.5 * np.log10(area)
 
     # Calculate and return surface brightness as magnitude offset by area
-    return magnitude + 2.5 * np.log10(area)
+    return magnitude + offset
+
+
+def get_length_in_px(length: float, pixscale: tuple[float, float]) -> float:
+    """Get a length in pixels, from arcseconds.
+
+    Parameters
+    ----------
+    length : float
+        Length to convert to pixels, in arcseconds.
+    pixscale : tuple[float,float]
+        Pixel scale along each axis, in arcseconds per pixel.
+
+    Returns
+    -------
+    float
+        Length in pixels.
+    """
+    return length / max(pixscale)
 
 
 def get_pixscale(path: Path) -> tuple[float, float]:

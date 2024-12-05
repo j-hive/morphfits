@@ -399,19 +399,18 @@ def make_ficl_stamps(
             # Get object position, Kron radius, and flux from catalog
             row = science.get_catalog_row(input_catalog=input_catalog, object=object)
             position = science.get_position(row=row)
-            kron_radius = science.get_kron_radius(row=row)
+            a = science.get_a(row=row)
+            a_px = science.get_length_in_px(length=a, pixscale=ficl.pixscale)
             flux = science.get_flux(filter=ficl.filter, row=row)
 
             # Get image size and magnitude
             image_size = science.get_image_size(
-                radius=kron_radius,
+                radius=a_px,
                 scale=science_settings.scale,
                 minimum=science_settings.minimum,
             )
             integrated_magnitude = science.get_integrated_magnitude(row=row)
-            surface_brightness = science.get_surface_brightness(
-                radius=kron_radius, pixscale=ficl.pixscale, flux=flux
-            )
+            surface_brightness = science.get_surface_brightness(flux=flux)
 
             # Set headers to be added to stamp
             headers_dict = {
@@ -539,9 +538,10 @@ def make_ficl_sigmas(
             # Get object position and image size from catalog
             row = science.get_catalog_row(input_catalog=input_catalog, object=object)
             position = science.get_position(row=row)
-            kron_radius = science.get_kron_radius(row=row)
+            a = science.get_a(row=row)
+            a_px = science.get_length_in_px(length=a, pixscale=ficl.pixscale)
             image_size = science.get_image_size(
-                radius=kron_radius,
+                radius=a_px,
                 scale=science_settings.scale,
                 minimum=science_settings.minimum,
             )
@@ -678,9 +678,10 @@ def make_ficl_psfs(
             else:
                 # Get object image size from catalog
                 row = science.get_catalog_row(input_catalog, object)
-                kron_radius = science.get_kron_radius(row=row)
+                a = science.get_a(row=row)
+                a_px = science.get_length_in_px(length=a, pixscale=ficl.pixscale)
                 image_size = science.get_image_size(
-                    radius=kron_radius,
+                    radius=a_px,
                     scale=science_settings.scale,
                     minimum=science_settings.minimum,
                 )
@@ -793,9 +794,10 @@ def make_ficl_masks(
             # Get position and image size of this object
             row = science.get_catalog_row(input_catalog=input_catalog, object=object)
             position = science.get_position(row=row)
-            kron_radius = science.get_kron_radius(row=row)
+            a = science.get_a(row=row)
+            a_px = science.get_length_in_px(length=a, pixscale=ficl.pixscale)
             image_size = science.get_image_size(
-                radius=kron_radius,
+                radius=a_px,
                 scale=science_settings.scale,
                 minimum=science_settings.minimum,
             )

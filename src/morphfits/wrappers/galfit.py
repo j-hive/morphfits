@@ -372,11 +372,12 @@ def make_all_feedfiles(
                 )
                 stamp_image, stamp_headers = science.get_fits_data(stamp_path)
                 row = science.get_catalog_row(input_catalog, object)
-                kron_radius = science.get_kron_radius(row=row)
-                half_light_radius = science.get_half_light_radius(row=row)
+                a = science.get_a(row=row)
+                a_px = science.get_length_in_px(length=a, pixscale=ficl.pixscale)
+                effective_radius = science.APERTURE_1_RADIUS / max(ficl.pixscale)
                 axis_ratio = science.get_axis_ratio(row=row)
                 image_size = science.get_image_size(
-                    radius=kron_radius,
+                    radius=a_px,
                     scale=science_settings.scale,
                     minimum=science_settings.minimum,
                 )
@@ -409,7 +410,7 @@ def make_all_feedfiles(
                     pixscale=ficl.pixscale,
                     profile=science_settings.morphology.profile,
                     magnitude=magnitude,
-                    half_light_radius=half_light_radius,
+                    half_light_radius=effective_radius,
                     axis_ratio=axis_ratio,
                     sky=science_settings.morphology.sky,
                 )

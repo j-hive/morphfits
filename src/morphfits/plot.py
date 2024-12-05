@@ -1132,10 +1132,10 @@ def all_models(runtime_settings: RuntimeSettings):
 
                 # Mask stamp and model
                 masked_stamp = np.where(
-                    1 - mask_image, stamp_image, np.mean(stamp_image)
+                    1 - mask_image, stamp_image, np.median(stamp_image)
                 )
                 masked_model = np.where(
-                    1 - mask_image, model_image, np.mean(model_image)
+                    1 - mask_image, model_image, np.median(model_image)
                 )
 
                 # Get minimum and maximum of stamp for plotting scale
@@ -1147,7 +1147,7 @@ def all_models(runtime_settings: RuntimeSettings):
                         model_path, hdu=3
                     )
                     masked_residuals = np.where(
-                        1 - mask_image, residuals_image, np.mean(residuals_image)
+                        1 - mask_image, residuals_image, np.median(residuals_image)
                     )
 
                 # Calculate residuals from model and stamp images if not found
@@ -1160,7 +1160,7 @@ def all_models(runtime_settings: RuntimeSettings):
                     masked_residuals = np.where(
                         1 - mask_image,
                         normalized_model - stamp_image,
-                        np.mean(normalized_model - stamp_image),
+                        np.median(normalized_model - stamp_image),
                     )
 
                 # Plot model comparison for this object
