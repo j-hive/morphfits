@@ -173,6 +173,41 @@ def get_all_objects(input_catalog_path: Path) -> list[int]:
     return [int(id_object) for id_object in input_catalog["id"]]
 
 
+def get_unflagged_objects(
+    objects: list[int], flag_catalog_path: Path, filter: str
+) -> list[int]:
+    """Get a list of object IDs not flagged in a passed flag catalog.
+
+    Parameters
+    ----------
+    objects : list[int]
+        Initial list of object IDs.
+    flag_catalog_path : Path
+        Catalog with a row for each object, with a general and per-filter
+        quality flag.
+    filter : str
+        Filter name.
+
+    Returns
+    -------
+    list[int]
+        List of IDs validated against flag catalog.
+    """
+    # Read flag catalog
+    flag_catalog = Table.read(flag_catalog_path)
+
+    # Iterate over each object in initial list and add to new list if not
+    # flagged
+    unflagged_objects = []
+    flag_header = f"{filter}"
+    for object in objects:
+        if not flag_catalog[flag_catalog["id"] == object][flag_header]:
+            unflagged_objects.append(object)
+
+    # Return not flagged objects
+    return unflagged_objects
+
+
 def get_catalog_row(input_catalog: Table, object: int) -> Table:
     """Get an object's data row in its corresponding photometric catalog.
 

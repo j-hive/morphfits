@@ -903,7 +903,9 @@ def get_objects(
     field: str,
     image_version: str,
     catalog_version: str,
+    filter: str,
     objects: list[int] | None,
+    flag_catalog: Path | None,
     process_count: int | None,
     process_id: int | None,
     first_object: int | None,
@@ -923,16 +925,20 @@ def get_objects(
         Image processing version.
     catalog_version : str
         Cataloging version.
+    filter : str
+        Filter name.
     objects : list[int] | None
-        List of objects from user, by default None (not passed).
+        List of objects from user.
+    flag_catalog : Path | None
+        Path to object SNR quality flag catalog FITS file.
     process_count : int | None
-        Number of processes in batch, by default None (not passed).
+        Number of processes in batch.
     process_id : int | None
-        ID of process in batch, by default None (not passed).
+        ID of process in batch.
     first_object : int | None
-        ID of first object in batch, by default None (not passed).
+        ID of first object in batch.
     last_object : int | None
-        ID of last object in batch, by default None (not passed).
+        ID of last object in batch.
 
     Returns
     -------
@@ -961,6 +967,12 @@ def get_objects(
     # Base list of objects is the sorted list of object IDs, otherwise
     else:
         new_object_range = sorted(objects)
+
+    # Get un-flagged objects from this range
+    if flag_catalog is not None:
+        new_object_range = science.get_unflagged_objects(
+            new_object_range, flag_catalog, filter
+        )
 
     # Remove all object IDs before first object setting
     if first_object is not None:
@@ -1174,6 +1186,7 @@ def get_ficls(
     cli_settings: dict,
     file_settings: dict,
     input_root: Path,
+    flag_catalog: Path | None,
     process_count: int | None,
     process_id: int | None,
     first_object: int | None,
@@ -1190,6 +1203,8 @@ def get_ficls(
         Settings from YAML file.
     input_root : Path
         Path to root input directory.
+    flag_catalog : Path | None
+        Path to object SNR quality flag catalog FITS file.
     process_count : int | None
         Number of processes in batch.
     process_id : int | None
@@ -1220,7 +1235,7 @@ def get_ficls(
     objects = get_priority_setting("objects", *settings_pack)
 
     # Display settings to be searched for from input
-    log_str = "Loading settings: missing"
+    log_str = "Loading settings: "
     if fields is None:
         log_str += " F,"
     if imvers is None:
@@ -1230,7 +1245,7 @@ def get_ficls(
     if filters is None:
         log_str += " L,"
     if log_str[-1] == ",":
-        pre_logger.debug(log_str[:-1] + ".")
+        pre_logger.debug(log_str[:-1] + " missing.")
 
     # Initialize list of FICLs
     ficls = []
@@ -1277,19 +1292,6 @@ def get_ficls(
                     )
                     continue
 
-                # Get object ID range unique to catalog for FIC
-                objects = get_objects(
-                    input_root=input_root,
-                    field=f_path.name,
-                    image_version=fi_path.name,
-                    catalog_version=catver,
-                    objects=objects,
-                    process_count=process_count,
-                    process_id=process_id,
-                    first_object=first_object,
-                    last_object=last_object,
-                )
-
                 # Get list of paths to filter-level directories
                 if filters is None:
                     ficl_paths = misc.get_subdirectories(fi_path)
@@ -1327,6 +1329,21 @@ def get_ficls(
                             f"Skipping FICL {ficl_str}: missing '{missing_file.name}'."
                         )
                         continue
+
+                    # Get object ID range unique to catalog for FIC
+                    objects = get_objects(
+                        input_root=input_root,
+                        field=f_path.name,
+                        image_version=fi_path.name,
+                        catalog_version=catver,
+                        filter=cleaned_filter,
+                        objects=objects,
+                        flag_catalog=flag_catalog,
+                        process_count=process_count,
+                        process_id=process_id,
+                        first_object=first_object,
+                        last_object=last_object,
+                    )
 
                     # Get pixscale from science frame
                     try:
@@ -1847,6 +1864,7 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
     log_level = get_priority_setting("log_level", *settings_pack)
     progress_bar = get_priority_setting("progress_bar", *settings_pack)
     monitor_every = get_priority_setting("monitor", *settings_pack)
+    flag_catalog = get_priority_path("flag_catalog", *settings_pack)
     process_id = get_priority_setting("batch_process_id", *settings_pack)
     process_count = get_priority_setting("batch_n_process", *settings_pack)
     first_object = get_priority_setting("first_object", *settings_pack)
@@ -1861,6 +1879,7 @@ def get_runtime_settings(cli_settings: dict, file_settings: dict) -> RuntimeSett
             cli_settings=cli_settings,
             file_settings=file_settings,
             input_root=roots.input,
+            flag_catalog=flag_catalog,
             process_count=process_count,
             process_id=process_id,
             first_object=first_object,
@@ -1981,6 +2000,7 @@ def get_settings(
     catalog_versions: list[str] | None = None,
     filters: list[str] | None = None,
     objects: list[int] | None = None,
+    flag_catalog: Path | None = None,
     first_object: int | None = None,
     last_object: int | None = None,
     log_level: str | None = None,
@@ -2047,6 +2067,8 @@ def get_settings(
         List of filters, by default None.
     objects : list[int] | None, optional
         List of object IDs, by default None.
+    flag_catalog : Path | None, optional
+        Path to object SNR quality flag catalog FITS file, by default None.
     first_object : int | None, optional
         First object ID in range, by default None.
     last_object : int | None, optional
