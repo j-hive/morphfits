@@ -409,7 +409,7 @@ def make_ficl_stamps(
                 scale=science_settings.scale,
                 minimum=science_settings.minimum,
             )
-            integrated_magnitude = science.get_integrated_magnitude(row=row)
+            integrated_magnitude = science.get_integrated_magnitude(flux=flux)
             surface_brightness = science.get_surface_brightness(flux=flux)
 
             # Set headers to be added to stamp

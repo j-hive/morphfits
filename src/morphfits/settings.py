@@ -337,7 +337,7 @@ class GALFITSettings(MorphologySettings):
 
     binary: Path
     constraints: Path = DATA_ROOT / "galfit" / "default.constraints"
-    profile: Literal["sersic", "sersic1"] = "sersic1"
+    profile: Literal["sersic", "sersic1"] = "sersic"
     boost: float = 1.0
     sky: bool = True
 

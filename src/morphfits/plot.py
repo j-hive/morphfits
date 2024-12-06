@@ -725,7 +725,7 @@ def histogram(path: Path, title: str, catalog: pd.DataFrame, ficls: list[FICL]):
             data=use_data,
             bins=np.arange(4) - 1,
             title="model quality",
-            labels=["failed", "inadequate", "good"],
+            labels=["failed", "bad", "good"],
         )
     except Exception as e:
         logger.debug(f"Skipping quality panel: {e}.")

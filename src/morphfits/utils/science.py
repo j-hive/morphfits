@@ -395,37 +395,6 @@ def get_axis_ratio(
     return b / a
 
 
-def get_integrated_magnitude(
-    row: Table | None = None,
-    input_catalog: Table | None = None,
-    object: int | None = None,
-) -> float:
-    """Calculate an estimate of the integrated magnitude of an object, as an AB
-    magnitude.
-
-    Parameters
-    ----------
-    row : Table | None, optional
-        Data row of object in catalog, by default None (catalog provided).
-    input_catalog : Table | None, optional
-        Catalog detailing each identified object in a field, by default None
-        (row provided).
-    object : int | None, optional
-        Integer ID of object in catalog, by default None (row provided).
-
-    Returns
-    -------
-    float
-        Integrated magnitude of object.
-    """
-    integrated_magnitude = get_catalog_datum(
-        "mag_auto", float, row, input_catalog, object
-    )
-    if np.isnan(integrated_magnitude):
-        raise ValueError("magnitude NaN")
-    return integrated_magnitude
-
-
 ## Calculation
 
 
@@ -452,6 +421,39 @@ def get_image_size(radius: float, scale: float, minimum: int) -> int:
 
     # Return maximum between calculated and minimum image size
     return np.nanmax([image_size, minimum])
+
+
+def get_integrated_magnitude(
+    flux: float, zeropoint: float = PHOTOMETRY_ZEROPOINT
+) -> float:
+    """Calculate an estimate of the integrated magnitude of an object, as an AB
+    magnitude.
+
+    Parameters
+    ----------
+    flux : float
+        Integrated flux across an effective radius (distinct from the radius
+        parameter for this function). By default, from the photometric catalog.
+    zeropoint : float, optional
+        Zeropoint magnitude for this field, as an AB magnitude, by default 23.9.
+
+    Returns
+    -------
+    float
+        Integrated magnitude of the object.
+
+    Raises
+    ------
+    ValueError
+        Negative flux.
+    """
+    # Raise error if flux negative
+    if flux <= 0:
+        raise ValueError(f"flux {flux} negative")
+
+    # Calculate and return magnitude from integrated flux and offset by zeropoint
+    magnitude = -2.5 * np.log10(flux) + zeropoint
+    return magnitude
 
 
 def get_surface_brightness(
