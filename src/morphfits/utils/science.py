@@ -174,15 +174,15 @@ def get_all_objects(input_catalog_path: Path) -> list[int]:
 
 
 def get_unflagged_objects(
-    objects: list[int], flag_catalog_path: Path, filter: str
+    objects: list[int], ingest_catalog_path: Path, filter: str
 ) -> list[int]:
-    """Get a list of object IDs not flagged in a passed flag catalog.
+    """Get a list of object IDs not flagged in a passed ingest catalog.
 
     Parameters
     ----------
     objects : list[int]
         Initial list of object IDs.
-    flag_catalog_path : Path
+    ingest_catalog_path : Path
         Catalog with a row for each object, with a general and per-filter
         quality flag.
     filter : str
@@ -191,17 +191,22 @@ def get_unflagged_objects(
     Returns
     -------
     list[int]
-        List of IDs validated against flag catalog.
+        List of IDs validated against ingest catalog.
     """
-    # Read flag catalog
-    flag_catalog = Table.read(flag_catalog_path)
+    # Read ingest catalog
+    ingest_catalog = Table.read(ingest_catalog_path)
+
+    # Get cleaned filter name
+    if "-" in filter:
+        filter_split = filter.split("-")
+        band = filter_split[1 if "clear" in filter_split[0] else 0]
 
     # Iterate over each object in initial list and add to new list if not
     # flagged
     unflagged_objects = []
-    flag_header = f"{filter}"
+    flag_header = f"ingest_{band}"
     for object in objects:
-        if not flag_catalog[flag_catalog["id"] == object][flag_header]:
+        if not ingest_catalog[ingest_catalog["id"] == object][flag_header]:
             unflagged_objects.append(object)
 
     # Return not flagged objects

@@ -174,10 +174,10 @@ def galwrap(
             show_default=False,
         ),
     ] = None,
-    flag_catalog: Annotated[
+    ingest_catalog: Annotated[
         Optional[typer.FileText],
         typer.Option(
-            "--flag-catalog",
+            "--ingest-catalog",
             help="Path to object SNR quality flag catalog FITS file.",
             rich_help_panel="Paths",
             exists=True,
@@ -476,7 +476,7 @@ def galwrap(
         catalog_versions=catalog_versions,
         filters=filters,
         objects=objects,
-        flag_catalog=flag_catalog,
+        ingest_catalog=ingest_catalog,
         first_object=first_object,
         last_object=last_object,
         log_level=log_level,
