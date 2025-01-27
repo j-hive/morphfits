@@ -24,7 +24,7 @@
                                         # 2 to within +0.5 and -1 of the
                                         # >>INPUT<< value.
 
-    1           mag         -3  3       # Soft constraint:  The magnitude 
+    1           mag         -5  5       # Soft constraint:  The magnitude 
                                         # of component 7 is constrained to 
                                         # be WITHIN a range -0.5 mag brighter 
                                         # than component 3, 3 magnitudes 

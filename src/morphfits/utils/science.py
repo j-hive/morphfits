@@ -102,10 +102,15 @@ def get_zeropoint(headers: fits.Header, magnitude_system: str = "AB") -> float:
     NotImplementedError
         Unrecognized magnitude system. Only 'AB' and 'ST' implemented.
     """
+    # TODO
+    # Assume zeropoint is same as image from DJA
+    return IMAGE_ZEROPOINT
+
     # If zeropoint stored in headers, return
     if "ZP" in headers:
         return headers["ZP"]
 
+    # NOTE DEPRECATED
     # Otherwise, calculate zeropoint from magnitude system
     match magnitude_system:
         case "AB":
@@ -312,7 +317,7 @@ def get_flux(
     input_catalog: Table | None = None,
     object: int | None = None,
 ) -> float:
-    """Get the integrated flux for an object, in uJy.
+    """Get the integrated flux for an object, in 10 nJy.
 
     Parameters
     ----------
@@ -330,7 +335,7 @@ def get_flux(
     -------
     float
         Integrated flux within an effective radius for object in a given filter,
-        in uJy.
+        in 10 nJy.
     """
     # Get cleaned filter name
     if "-" in filter:
@@ -339,7 +344,7 @@ def get_flux(
 
     # Get flux from catalog
     flux_key = f"{filter}_corr_1"
-    return get_catalog_datum(flux_key, float, row, input_catalog, object)
+    return get_catalog_datum(flux_key, float, row, input_catalog, object) * 100
 
 
 def get_flux_radius(
@@ -472,9 +477,7 @@ def get_image_size(radius: float, scale: float, minimum: int) -> int:
     return np.nanmax([image_size, minimum])
 
 
-def get_integrated_magnitude(
-    flux: float, zeropoint: float = PHOTOMETRY_ZEROPOINT
-) -> float:
+def get_integrated_magnitude(flux: float, zeropoint: float = IMAGE_ZEROPOINT) -> float:
     """Calculate an estimate of the integrated magnitude of an object, as an AB
     magnitude.
 
@@ -484,7 +487,7 @@ def get_integrated_magnitude(
         Integrated flux across an effective radius (distinct from the radius
         parameter for this function). By default, from the photometric catalog.
     zeropoint : float, optional
-        Zeropoint magnitude for this field, as an AB magnitude, by default 23.9.
+        Zeropoint magnitude for this field, as an AB magnitude, by default 28.9.
 
     Returns
     -------
@@ -509,7 +512,7 @@ def get_surface_brightness(
     flux: float,
     radius: float = APERTURE_1_RADIUS,
     pixscale: tuple[int, int] | None = None,
-    zeropoint: float = PHOTOMETRY_ZEROPOINT,
+    zeropoint: float = IMAGE_ZEROPOINT,
 ) -> float:
     """Calculate an estimate of the surface brightness of an object, as an AB
     magnitude.
@@ -526,7 +529,7 @@ def get_surface_brightness(
         Pixel scale along the x and y axes, respectively, in arcseconds per
         pixel, by default None (radius in arcseconds).
     zeropoint : float, optional
-        Zeropoint magnitude for this field, as an AB magnitude, by default 23.9.
+        Zeropoint magnitude for this field, as an AB magnitude, by default 28.9.
 
     Returns
     -------
