@@ -173,7 +173,7 @@ def get_all_objects(input_catalog_path: Path) -> list[int]:
     return [int(id_object) for id_object in input_catalog["id"]]
 
 
-def get_unflagged_objects(
+def get_ingest_objects(
     objects: list[int], ingest_catalog_path: Path, filter: str
 ) -> list[int]:
     """Get a list of object IDs not flagged in a passed ingest catalog.
@@ -201,16 +201,20 @@ def get_unflagged_objects(
         filter_split = filter.split("-")
         band = filter_split[1 if "clear" in filter_split[0] else 0]
 
-    # Iterate over each object in initial list and add to new list if not
-    # flagged
-    unflagged_objects = []
+    # If filter is missing from ingest catalog, raise error
     flag_header = f"ingest_{band}"
-    for object in objects:
-        if not ingest_catalog[ingest_catalog["id"] == object][flag_header]:
-            unflagged_objects.append(object)
+    if flag_header not in ingest_catalog.keys():
+        raise KeyError(f"key {flag_header} not found in ingest catalog")
 
-    # Return not flagged objects
-    return unflagged_objects
+    # Iterate over each object in initial list and add to new list if flagged to
+    # be ingested
+    ingest_objects = []
+    for object in objects:
+        if ingest_catalog[ingest_catalog["id"] == object][flag_header]:
+            ingest_objects.append(object)
+
+    # Return objects to ingest
+    return ingest_objects
 
 
 def get_catalog_row(input_catalog: Table, object: int) -> Table:

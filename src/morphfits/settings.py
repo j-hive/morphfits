@@ -970,9 +970,13 @@ def get_objects(
 
     # Get un-flagged objects from this range
     if ingest_catalog is not None:
-        new_object_range = science.get_unflagged_objects(
-            new_object_range, ingest_catalog, filter
-        )
+        try:
+            new_object_range = science.get_ingest_objects(
+                new_object_range, ingest_catalog, filter
+            )
+        except Exception as e:
+            logger.warning(f"Skipping: {e}.")
+            return []
 
     # Remove all object IDs before first object setting
     if first_object is not None:
