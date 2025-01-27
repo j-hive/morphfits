@@ -25,6 +25,11 @@ PHOTOMETRY_ZEROPOINT = 23.9
 """
 
 
+IMAGE_ZEROPOINT = 28.9
+"""AB zeropoint for images from the DJA image archive.
+"""
+
+
 APERTURE_1_RADIUS = 0.25
 """Radius of aperture 1, in arcseconds, corresponding to retrieving
 'filter_corr_1' for flux.
@@ -307,7 +312,7 @@ def get_flux(
     input_catalog: Table | None = None,
     object: int | None = None,
 ) -> float:
-    """Get the integrated flux for an object, in Jy.
+    """Get the integrated flux for an object, in uJy.
 
     Parameters
     ----------
@@ -325,16 +330,16 @@ def get_flux(
     -------
     float
         Integrated flux within an effective radius for object in a given filter,
-        in Jy.
+        in uJy.
     """
     # Get cleaned filter name
     if "-" in filter:
         filters = filter.split("-")
         filter = filters[1] if "clear" in filters[0] else filters[0]
 
-    # Get flux from catalog and convert from uJy
+    # Get flux from catalog
     flux_key = f"{filter}_corr_1"
-    return get_catalog_datum(flux_key, float, row, input_catalog, object) * 1e3
+    return get_catalog_datum(flux_key, float, row, input_catalog, object)
 
 
 def get_flux_radius(
