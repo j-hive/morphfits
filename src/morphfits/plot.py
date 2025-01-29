@@ -614,7 +614,7 @@ def sub_histogram(
             continue
 
     # Set ticks and labels
-    ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)  #
+    ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)
     if labels is not None:
         if isinstance(labels, list):
             ax.set_xticks(bins[:-1] + 0.5, labels)

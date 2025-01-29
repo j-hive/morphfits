@@ -729,6 +729,8 @@ def get_priority_stage(
 
     # Return flag from YAML file if set
     elif "stages" in file_settings:
+        if file_settings["stages"] is None:
+            return None
         if stage in file_settings["stages"]:
             return True
         else:
@@ -762,7 +764,11 @@ def get_priority_remake(
         return cli_settings[f"remake_{product}"]
 
     # Return flag from YAML file if set
-    elif ("remake" in file_settings) and (product in file_settings["remake"]):
+    elif (
+        ("remake" in file_settings)
+        and (file_settings["remake"] is not None)
+        and (product in file_settings["remake"])
+    ):
         return True
 
     # Return None if unset
