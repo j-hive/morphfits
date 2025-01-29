@@ -591,27 +591,30 @@ def sub_histogram(
 
     # Iterate over each filter
     for i in range(len(filters)):
-        filter = filters[i]
-        line_style = list(LINE_STYLES.keys())[i]
-        filter_data = data[filter]
+        try:
+            filter = filters[i]
+            line_style = list(LINE_STYLES.keys())[i]
+            filter_data = data[filter]
 
-        # Plot histogram for this parameter in subplot
-        count, bin_edges, patches = ax.hist(
-            x=filter_data,
-            histtype=HISTOGRAM_TYPE,
-            alpha=HISTOGRAM_ALPHA,
-            bins=bins,
-            edgecolor=TEXT_COLOR,
-            linestyle=LINE_STYLES[line_style],
-            label=filter,
-        )
+            # Plot histogram for this parameter in subplot
+            count, bin_edges, patches = ax.hist(
+                x=filter_data,
+                histtype=HISTOGRAM_TYPE,
+                alpha=HISTOGRAM_ALPHA,
+                bins=bins,
+                edgecolor=TEXT_COLOR,
+                linestyle=LINE_STYLES[line_style],
+                label=filter,
+            )
 
-        # Increase maximum y-value if applicable
-        if (len(count) > 0) and (np.max(count) > max_count):
-            max_count = np.max(count)
+            # Increase maximum y-value if applicable
+            if (len(count) > 0) and (np.max(count) > max_count):
+                max_count = np.nanmax(count)
+        except:
+            continue
 
     # Set ticks and labels
-    ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)
+    ax.set_title(title, y=HISTOGRAM_TITLE_SEPARATION)  #
     if labels is not None:
         if isinstance(labels, list):
             ax.set_xticks(bins[:-1] + 0.5, labels)
