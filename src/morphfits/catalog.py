@@ -5,6 +5,7 @@ execution.
 # Imports
 
 
+import gc
 import logging
 import warnings
 import re
@@ -203,6 +204,11 @@ def get_galfit_flags(model_path: Path) -> int:
     for flag in headers["FLAGS"].split():
         flags += 2 ** FLAGS[flag]
 
+    # Clear memory
+    del image
+    del headers
+    gc.collect()
+
     return flags
 
 
@@ -289,6 +295,14 @@ def get_parameters(
         guess = float(raw_guess)
     except:
         guess = None
+
+    # Clear memory
+    del lines
+    del raw_parameters
+    del raw_errors
+    del raw_chi
+    del raw_guess
+    gc.collect()
 
     # Return convergence bitmask, cleaned parameters, and their errors
     return return_code, convergence, chi, guess, parameters, errors
@@ -695,6 +709,10 @@ def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
             merge_catalog = pd.concat([merge_catalog, previous_catalog], join="inner")
             previous_catalog_paths.pop(0)
 
+            # Clear memory
+            del previous_catalog
+            gc.collect()
+
         # Merge current run's catalog data and remove empty rows and refit rows
         merge_catalog = pd.concat([merge_catalog, catalog_data], join="inner")
         merge_catalog = merge_catalog.dropna()
@@ -713,6 +731,10 @@ def make_merge(runtime_settings: RuntimeSettings, catalog_data: pd.DataFrame):
 
     # Write merge catalog to CSV file
     merge_catalog.to_csv(catalog_path, index=False)
+
+    # Clear memory
+    del merge_catalog
+    gc.collect()
 
 
 def make_morphology(runtime_settings: RuntimeSettings):
@@ -808,6 +830,12 @@ def make_morphology(runtime_settings: RuntimeSettings):
                         catalog_version=catver,
                     )
                     morphology_catalog.to_csv(morphology_catalog_path, index=False)
+
+                    # Clean memory
+                    del morph_dict
+                    del sub_merge
+                    del morphology_catalog
+                    gc.collect()
 
                 # Catch all errors and skip to next FIC
                 except Exception as e:

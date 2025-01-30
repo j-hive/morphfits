@@ -443,11 +443,20 @@ class RuntimeSettings(BaseModel):
         if initialized:
             # Iterate over each FICL
             for ficl in self.ficls:
+                # Try to get parameters for FICL
+                try:
+                    # Get iterable object list, displaying progress bar if flagged
+                    if self.progress_bar:
+                        objects = tqdm(iterable=ficl.objects, unit="obj", leave=False)
+                    else:
+                        objects = ficl.objects
+
+                # Catch any errors reading parameters for FICL
+                except Exception as e:
+                    if not self.progress_bar:
+                        logger.debug(f"Skipping: {e}.")
+
                 # Iterate over each object in FICL
-                if self.progress_bar:
-                    objects = tqdm(ficl.objects, unit="dir", leave=False)
-                else:
-                    objects = ficl.objects
                 for object in objects:
                     # Make leaf FICLO directories
                     for required_directory_name in REQUIRED_OUTPUT_DIRECTORIES:
