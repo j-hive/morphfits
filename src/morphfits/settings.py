@@ -435,12 +435,20 @@ class RuntimeSettings(BaseModel):
             parents=True, exist_ok=True
         )
 
+        # Skip if not running product or morphology stages
+        if not (self.stages.product or self.stages.morphology or self.stages.plot):
+            return
+
         # If running morphology, only create output and product directories
         if initialized:
             # Iterate over each FICL
             for ficl in self.ficls:
                 # Iterate over each object in FICL
-                for object in tqdm(ficl.objects, unit="dir", leave=False):
+                if self.progress_bar:
+                    objects = tqdm(ficl.objects, unit="dir", leave=False)
+                else:
+                    objects = ficl.objects
+                for object in objects:
                     # Make leaf FICLO directories
                     for required_directory_name in REQUIRED_OUTPUT_DIRECTORIES:
                         get_path(
