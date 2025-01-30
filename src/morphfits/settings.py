@@ -1819,15 +1819,27 @@ def get_path(
 
     # Input PSFs - two known pixel scales of '20mas' or '40mas'
     if "{P}" in path:
-        # Get paths to all known pixel scales
-        path_20mas = misc.get_path_obj(path.replace("{P}", "20mas"))
-        path_40mas = misc.get_path_obj(path.replace("{P}", "40mas"))
+        # Get pixscale from FICL
+        if ficl is not None:
+            pixscale_strs = [science.get_str_from_pixscale(ficl.pixscale)]
 
-        # Return option that exists
-        if path_20mas.exists():
-            return path_20mas
+        # Otherwise check every known pixscale
         else:
-            return path_40mas
+            pixscale_strs = ["20mas", "40mas"]
+
+        # Iterate over each known pixscale
+        for pixscale_str in pixscale_strs:
+            # Get path from pixel scale string
+            path_pixscale = misc.get_path_obj(path.replace("{P}", pixscale_str))
+
+            # Return option if it exists
+            if path_pixscale.exists():
+                return path_pixscale
+
+        # If none found return path with default pixscale
+        return misc.get_path_obj(
+            path.replace("{P}", science.get_str_from_pixscale(DEFAULT_PIXSCALE))
+        )
 
     # Science, exposure, weights images - can contain either 'drc' or 'drz'
     if "{z}" in path:
